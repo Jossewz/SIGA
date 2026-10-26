@@ -96,6 +96,7 @@ public class PermisoModuloInterceptor implements HandlerInterceptor {
         if (uri.startsWith("/certificados")) return "CERTIFICADOS";
         if (uri.startsWith("/reportes")) return "REPORTES";
         if (uri.startsWith("/configuracion")) return "CONFIGURACION";
+        if (uri.startsWith("/usuarios")) return "CONFIGURACION";
         if (uri.startsWith("/ambiental")) return "MODULO_AMBIENTAL";
         return null;
     }

@@ -148,6 +148,16 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
                 <span x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Configuración</span>
             </a>
 
+            <!-- Usuarios -->
+            <a th:href="@{/usuarios}"
+               th:if="${esAdmin or (modulosPermitidos != null and modulosPermitidos.contains('CONFIGURACION'))}"
+               class="sidebar-nav-item"
+               th:classappend="${(activePage == 'usuarios' or (currentUri != null and #strings.startsWith(currentUri, '/usuarios')) or (#httpServletRequest != null and #strings.startsWith(#httpServletRequest.requestURI, '/usuarios'))) ? 'is-active' : ''}"
+               title="Usuarios">
+                <i data-lucide="shield" class="size-5 shrink-0 stroke-2"></i>
+                <span x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Usuarios</span>
+            </a>
+
         </nav>
 
     </aside>
@@ -255,6 +265,12 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
                    th:classappend="${(activePage == 'configuracion' or (currentUri != null and #strings.startsWith(currentUri, '/configuracion')) or (#httpServletRequest != null and #strings.startsWith(#httpServletRequest.requestURI, '/configuracion'))) ? 'bg-forest-green text-white font-extrabold shadow-sm' : ''}">
                     <i data-lucide="settings" class="size-5 stroke-2"></i>
                     <span>Configuración</span>
+                </a>
+                <a th:href="@{/usuarios}" th:if="${esAdmin or (modulosPermitidos != null and modulosPermitidos.contains('CONFIGURACION'))}"
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-forest-green/85 text-sm font-semibold hover:bg-forest-green/10 hover:text-forest-green transition"
+                   th:classappend="${(activePage == 'usuarios' or (currentUri != null and #strings.startsWith(currentUri, '/usuarios')) or (#httpServletRequest != null and #strings.startsWith(#httpServletRequest.requestURI, '/usuarios'))) ? 'bg-forest-green text-white font-extrabold shadow-sm' : ''}">
+                    <i data-lucide="shield" class="size-5 stroke-2"></i>
+                    <span>Usuarios</span>
                 </a>
             </nav>
         </div>

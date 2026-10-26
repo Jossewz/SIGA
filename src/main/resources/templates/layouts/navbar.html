@@ -56,6 +56,25 @@
                         </div>
                     </div>
 
+                    <!-- Enlaces de Perfil y Administración -->
+                    <div class="p-1.5 border-b border-border/50">
+                        <a th:href="@{/perfil}" 
+                           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-text-primary hover:bg-[#eafbe4]/70 transition-colors cursor-pointer text-left">
+                            <div class="size-6 rounded-lg bg-[#eafbe4] text-sidebar grid place-items-center shrink-0">
+                                <i data-lucide="user-check" class="size-3.5 stroke-2"></i>
+                            </div>
+                            <span>Mi Perfil y Seguridad</span>
+                        </a>
+                        <a th:if="${esAdmin or (modulosPermitidos != null and modulosPermitidos.contains('CONFIGURACION'))}"
+                           th:href="@{/usuarios}" 
+                           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-text-primary hover:bg-[#eafbe4]/70 transition-colors cursor-pointer text-left">
+                            <div class="size-6 rounded-lg bg-[#eafbe4] text-sidebar grid place-items-center shrink-0">
+                                <i data-lucide="shield" class="size-3.5 stroke-2"></i>
+                            </div>
+                            <span>Gestión de Usuarios</span>
+                        </a>
+                    </div>
+
                     <!-- Acción Cerrar Sesión -->
                     <div class="p-1.5">
                         <form th:action="@{/logout}" method="post" class="w-full m-0" onsubmit="sessionStorage.removeItem('siga_mangle_chat_history'); sessionStorage.removeItem('siga_mangle_chat_user'); sessionStorage.removeItem('siga_chat_open');">

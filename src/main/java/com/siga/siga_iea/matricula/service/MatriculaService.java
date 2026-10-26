@@ -20,13 +20,17 @@ public class MatriculaService {
     private final MatriculaRepository matriculaRepository;
     private final CursoRepository cursoRepository;
     private final CursoEstudianteRepository cursoEstudianteRepository;
+    private final com.siga.siga_iea.auditoria.service.AuditoriaService auditoriaService;
 
     public MatriculaService(MatriculaRepository matriculaRepository,
                             CursoRepository cursoRepository,
-                            CursoEstudianteRepository cursoEstudianteRepository) {
+                            CursoEstudianteRepository cursoEstudianteRepository,
+                            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                            com.siga.siga_iea.auditoria.service.AuditoriaService auditoriaService) {
         this.matriculaRepository = matriculaRepository;
         this.cursoRepository = cursoRepository;
         this.cursoEstudianteRepository = cursoEstudianteRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional
@@ -34,7 +38,12 @@ public class MatriculaService {
         if (matricula != null && "APROBADA".equalsIgnoreCase(matricula.getEstado()) && Boolean.TRUE.equals(matricula.getAutorizaTratamientoDatos())) {
             validarLey1581(matricula);
         }
-        return matriculaRepository.save(matricula);
+        Matricula guardada = matriculaRepository.save(matricula);
+        if (auditoriaService != null && guardada != null) {
+            auditoriaService.registrarCambio("MATRICULA", guardada.getId(), "registro", null,
+                    guardada.getGrado() + " (" + guardada.getEstado() + ")");
+        }
+        return guardada;
     }
 
     private void validarLey1581(Matricula matricula) {
@@ -76,6 +85,7 @@ public class MatriculaService {
             validarLey1581(matricula);
         }
 
+        String estadoPrevio = matricula.getEstado();
         matricula.setEstado("APROBADA");
         matricula.setCurso(curso);
         if (curso.getGrado() != null) {
@@ -111,7 +121,11 @@ public class MatriculaService {
             }
         }
 
-        return matriculaRepository.save(matricula);
+        Matricula guardada = matriculaRepository.save(matricula);
+        if (auditoriaService != null) {
+            auditoriaService.registrarCambio("MATRICULA", guardada.getId(), "estado", estadoPrevio, "APROBADA (" + curso.getGrado() + "-" + curso.getGrupo() + ")");
+        }
+        return guardada;
     }
 
     /**
@@ -148,6 +162,8 @@ public class MatriculaService {
         Curso nuevoCurso = cursoRepository.findById(nuevoCursoId)
                 .orElseThrow(() -> new IllegalArgumentException("Curso no encontrado: " + nuevoCursoId));
 
+        String cursoPrevio = matricula.getCurso() != null ? (matricula.getCurso().getGrado() + "-" + matricula.getCurso().getGrupo()) : matricula.getGrado();
+
         matricula.setCurso(nuevoCurso);
         if (nuevoCurso.getGrado() != null) {
             matricula.setGrado(nuevoCurso.getGrado());
@@ -181,6 +197,11 @@ public class MatriculaService {
             }
         }
 
-        return matriculaRepository.save(matricula);
+        Matricula guardada = matriculaRepository.save(matricula);
+        if (auditoriaService != null) {
+            auditoriaService.registrarCambio("MATRICULA", guardada.getId(), "curso_traslado", cursoPrevio,
+                    nuevoCurso.getGrado() + "-" + nuevoCurso.getGrupo());
+        }
+        return guardada;
     }
 }

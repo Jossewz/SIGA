@@ -167,17 +167,23 @@
                                                   th:text="${sol.estado}">Resuelto</span>
                                         </td>
                                         <td class="py-3 px-4 pr-5 text-right">
-                                            <div th:if="${sol.estado == 'Resuelto'}" class="flex justify-end gap-1.5">
+                                            <div th:if="${sol.estado == 'Resuelto'}" class="flex justify-end items-center gap-1.5">
                                                 <button type="button" 
                                                         th:data-id="${sol.id}"
                                                         th:data-tipo="${sol.tipo}"
                                                         th:data-mensaje="${sol.mensajeRespuesta}"
-                                                        th:data-archivo="${sol.archivoAdjunto}"
+                                                        th:data-archivo="${sol.descargaUrl}"
                                                         onclick="openModalVerRespuesta(this)"
                                                         class="px-2.5 py-1 bg-accent-50 text-sidebar border border-accent-200 hover:bg-accent-100 rounded-control text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs">
-                                                    <i data-lucide="download" class="size-3.5 stroke-2"></i>
-                                                    <span>Descargar</span>
+                                                    <i data-lucide="eye" class="size-3.5 stroke-2"></i>
+                                                    <span>Detalle</span>
                                                 </button>
+                                                <a th:href="@{${sol.descargaUrl}}" target="_blank"
+                                                   class="px-2.5 py-1 bg-sidebar text-white hover:brightness-110 rounded-control text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                                   title="Descargar Certificado Oficial PDF">
+                                                    <i data-lucide="download" class="size-3.5 stroke-2"></i>
+                                                    <span>PDF</span>
+                                                </a>
                                             </div>
                                             <span th:if="${sol.estado != 'Resuelto'}" class="text-xs font-medium text-brand-400 italic">En proceso...</span>
                                         </td>
@@ -244,17 +250,26 @@
                                           th:text="${sol.estado}">Pendiente</span>
                                 </td>
                                 <td class="py-3 px-4 pr-5 text-right">
-                                    <button type="button" 
-                                            th:data-id="${sol.id}"
-                                            th:data-estudiante="${sol.estudiante}"
-                                            th:data-tipo="${sol.tipo}"
-                                            th:data-motivo="${sol.motivo}"
-                                            th:data-estado="${sol.estado}"
-                                            onclick="openModalResponder(this)"
-                                            class="px-3 py-1.5 text-xs font-bold text-white bg-sidebar hover:brightness-110 rounded-control transition-all inline-flex items-center gap-1.5 ml-auto cursor-pointer shadow-xs">
-                                        <i data-lucide="message-square-plus" class="size-3.5 stroke-2"></i>
-                                        <span th:text="${sol.estado == 'Resuelto'} ? 'Ver / Modificar' : 'Atender Solicitud'">Atender Solicitud</span>
-                                    </button>
+                                    <div class="flex justify-end items-center gap-1.5 ml-auto">
+                                        <a th:if="${sol.estado == 'Resuelto'}" 
+                                           th:href="@{${sol.descargaUrl}}" target="_blank"
+                                           class="px-2.5 py-1.5 text-xs font-bold text-sidebar bg-accent-50 border border-accent-200 hover:bg-accent-100 rounded-control transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                                           title="Ver / Descargar PDF Oficial">
+                                            <i data-lucide="file-down" class="size-3.5 stroke-2"></i>
+                                            <span>PDF</span>
+                                        </a>
+                                        <button type="button" 
+                                                th:data-id="${sol.id}"
+                                                th:data-estudiante="${sol.estudiante}"
+                                                th:data-tipo="${sol.tipo}"
+                                                th:data-motivo="${sol.motivo}"
+                                                th:data-estado="${sol.estado}"
+                                                onclick="openModalResponder(this)"
+                                                class="px-3 py-1.5 text-xs font-bold text-white bg-sidebar hover:brightness-110 rounded-control transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
+                                            <i data-lucide="message-square-plus" class="size-3.5 stroke-2"></i>
+                                            <span th:text="${sol.estado == 'Resuelto'} ? 'Ver / Modificar' : 'Atender Solicitud'">Atender Solicitud</span>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>

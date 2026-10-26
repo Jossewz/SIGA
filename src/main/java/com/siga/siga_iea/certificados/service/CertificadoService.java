@@ -26,18 +26,22 @@ public class CertificadoService {
     private final PersonalAdministrativoRepository personalRepository;
     private final StorageService storageService;
     private final com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService;
+    private final com.siga.siga_iea.auditoria.service.AuditoriaService auditoriaService;
 
     public CertificadoService(SolicitudCertificadoRepository solicitudRepository,
                               EstudianteRepository estudianteRepository,
                               PersonalAdministrativoRepository personalRepository,
                               StorageService storageService,
                               @org.springframework.beans.factory.annotation.Autowired(required = false)
-                              com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService) {
+                              com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService,
+                              @org.springframework.beans.factory.annotation.Autowired(required = false)
+                              com.siga.siga_iea.auditoria.service.AuditoriaService auditoriaService) {
         this.solicitudRepository = solicitudRepository;
         this.estudianteRepository = estudianteRepository;
         this.personalRepository = personalRepository;
         this.storageService = storageService;
         this.periodoConfigService = periodoConfigService;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<SolicitudCertificado> listarTodas() {
@@ -83,16 +87,34 @@ public class CertificadoService {
         s.setGradoReferencia(gradoReferencia != null ? gradoReferencia : "11°");
         s.setEstado("Pendiente");
 
-        return solicitudRepository.save(s);
+        SolicitudCertificado guardada = solicitudRepository.save(s);
+        if (auditoriaService != null) {
+            auditoriaService.registrarCambio("SOLICITUD_CERTIFICADO", guardada.getId(), "creacion", null, guardada.getTipo() + " (" + guardada.getCodigo() + ")");
+        }
+        return guardada;
     }
 
     @Transactional
     public SolicitudCertificado responderSolicitud(UUID solicitudId, String mensajeRespuesta, MultipartFile archivoPDF, UUID adminId) {
+        return responderSolicitud(solicitudId, mensajeRespuesta, archivoPDF, adminId, "Resuelto");
+    }
+
+    @Transactional
+    public SolicitudCertificado responderSolicitud(UUID solicitudId, String mensajeRespuesta, MultipartFile archivoPDF, UUID adminId, String decision) {
         SolicitudCertificado s = solicitudRepository.findById(solicitudId)
                 .orElseThrow(() -> new IllegalArgumentException("Solicitud no encontrada"));
 
-        s.setEstado("Resuelto");
-        s.setMensajeRespuesta(mensajeRespuesta);
+        String estadoPrevio = s.getEstado();
+        String estadoNuevo = (decision != null && !decision.isBlank()) ? decision.trim() : "Resuelto";
+        s.setEstado(estadoNuevo);
+
+        if (mensajeRespuesta != null && !mensajeRespuesta.isBlank()) {
+            s.setMensajeRespuesta(mensajeRespuesta.trim());
+        } else if ("Resuelto".equalsIgnoreCase(estadoNuevo)) {
+            s.setMensajeRespuesta("Certificado oficial generado y validado digitalmente por Secretaría Académica.");
+        } else {
+            s.setMensajeRespuesta("Solicitud revisada por Secretaría Académica.");
+        }
 
         if (adminId != null) {
             personalRepository.findById(adminId).ifPresent(s::setRespondidoPor);
@@ -104,6 +126,10 @@ public class CertificadoService {
             s.setArchivoAdjuntoKey(result.getKey());
         }
 
-        return solicitudRepository.save(s);
+        SolicitudCertificado guardada = solicitudRepository.save(s);
+        if (auditoriaService != null) {
+            auditoriaService.registrarCambio("SOLICITUD_CERTIFICADO", guardada.getId(), "resolucion", estadoPrevio, estadoNuevo + " (" + guardada.getCodigo() + ")");
+        }
+        return guardada;
     }
 }

@@ -6,6 +6,8 @@ import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.repository.DocenteRepository;
 import com.siga.siga_iea.usuarios.repository.PersonalAdministrativoRepository;
 import com.siga.siga_iea.usuarios.repository.UsuarioRepository;
+import com.siga.siga_iea.auditoria.service.AuditoriaService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +24,18 @@ public class PersonalService {
     private final PersonalAdministrativoRepository personalAdministrativoRepository;
     private final UsuarioRepository usuarioRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final AuditoriaService auditoriaService;
 
     public PersonalService(DocenteRepository docenteRepository,
                            PersonalAdministrativoRepository personalAdministrativoRepository,
                            UsuarioRepository usuarioRepository,
-                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+                           @Autowired(required = false) AuditoriaService auditoriaService) {
         this.docenteRepository = docenteRepository;
         this.personalAdministrativoRepository = personalAdministrativoRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<Docente> listarDocentes() {
@@ -59,12 +64,28 @@ public class PersonalService {
 
     @Transactional
     public Docente guardarDocente(Docente docente) {
-        return docenteRepository.save(docente);
+        boolean esNuevo = (docente.getId() == null || !docenteRepository.existsById(docente.getId()));
+        Docente guardado = docenteRepository.save(docente);
+        if (auditoriaService != null && guardado != null) {
+            auditoriaService.registrarCambio("DOCENTE", guardado.getId(),
+                    esNuevo ? "creacion" : "actualizacion",
+                    null,
+                    guardado.getNombres() + " " + guardado.getApellidos() + " (" + guardado.getEstado() + ")");
+        }
+        return guardado;
     }
 
     @Transactional
     public PersonalAdministrativo guardarPersonal(PersonalAdministrativo personal) {
-        return personalAdministrativoRepository.save(personal);
+        boolean esNuevo = (personal.getId() == null || !personalAdministrativoRepository.existsById(personal.getId()));
+        PersonalAdministrativo guardado = personalAdministrativoRepository.save(personal);
+        if (auditoriaService != null && guardado != null) {
+            auditoriaService.registrarCambio("PERSONAL_ADMINISTRATIVO", guardado.getId(),
+                    esNuevo ? "creacion" : "actualizacion",
+                    null,
+                    guardado.getNombres() + " " + guardado.getApellidos() + " (" + guardado.getCargo() + ")");
+        }
+        return guardado;
     }
 
     public String generarEmailSugerido(String nombres, String apellidos) {
@@ -111,7 +132,14 @@ public class PersonalService {
             usuario = new Usuario(targetEmail, encodedPassword, rol != null ? rol : "DOCENTE", doc);
         }
 
-        return usuarioRepository.save(usuario);
+        Usuario guardado = usuarioRepository.save(usuario);
+        if (auditoriaService != null && guardado != null) {
+            auditoriaService.registrarCambio("USUARIO", guardado.getId(),
+                    usuarioOpt.isPresent() ? "actualizacion_credenciales" : "creacion_cuenta",
+                    usuarioOpt.isPresent() ? usuarioOpt.get().getRol() : null,
+                    guardado.getEmail() + " (" + guardado.getRol() + ")");
+        }
+        return guardado;
     }
 
     public Optional<Usuario> obtenerUsuarioAcceso(String numeroDocumento) {

@@ -82,6 +82,7 @@ public class SecurityConfig {
                                 "/ambiental/**",
                                 "/configuracion/**",
                                 "/usuarios/**",
+                                "/perfil/**",
                                 "/estudiantes/**",
                                 "/clases/**",
                                 "/asistencias/**",

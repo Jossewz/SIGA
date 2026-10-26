@@ -65,21 +65,19 @@ function openModalVerRespuesta(btn) {
     const btnDescargar = document.getElementById('btn-descargar-archivo');
     const nombreArchivo = document.getElementById('vr-nombre-archivo');
 
-    if (archivoUrl && archivoUrl !== 'null' && archivoUrl !== 'undefined' && archivoUrl !== '') {
-        cajaAdjunto.classList.remove('hidden');
-        btnDescargar.href = archivoUrl;
-        btnDescargar.setAttribute('target', '_blank');
+    const downloadUrl = (archivoUrl && archivoUrl !== 'null' && archivoUrl !== 'undefined' && archivoUrl !== '')
+        ? archivoUrl
+        : ('/certificados/' + btn.dataset.id + '/pdf');
 
-        let cleanName = 'Certificado_Oficial.pdf';
-        if (archivoUrl.includes('key=')) {
-            cleanName = archivoUrl.split('key=')[1].split('/').pop();
-        } else if (archivoUrl.includes('/')) {
-            cleanName = archivoUrl.split('/').pop();
-        }
-        nombreArchivo.innerText = btn.dataset.archivoNombre || cleanName;
-    } else {
-        cajaAdjunto.classList.add('hidden');
+    cajaAdjunto.classList.remove('hidden');
+    btnDescargar.href = downloadUrl;
+    btnDescargar.setAttribute('target', '_blank');
+
+    let cleanName = 'Certificado_' + btn.dataset.id + '.pdf';
+    if (downloadUrl.includes('key=')) {
+        cleanName = downloadUrl.split('key=')[1].split('/').pop();
     }
+    nombreArchivo.innerText = btn.dataset.archivoNombre || cleanName;
 
     const modal = document.getElementById('modal-ver-respuesta');
     const dialog = document.getElementById('dialog-ver-respuesta');
