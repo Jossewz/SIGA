@@ -9,40 +9,17 @@
         </h3>
 
         <ul class="grid gap-3.5 flex-1 justify-center">
-            <li class="flex items-center justify-between gap-6 py-1.5 border-b border-border">
+            <li th:each="sem, iterStat : ${stats.semaforos}"
+                class="flex items-center justify-between gap-6 py-1.5"
+                th:classappend="${!iterStat.last} ? ' border-b border-border' : ''">
                 <span class="text-xs font-bold text-text-primary flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#1b6327] shadow-xs"></span>
-                    Asistencia General
+                    <span class="w-2.5 h-2.5 rounded-full shadow-xs"
+                          th:style="'background-color: ' + ${sem.dotColor}"></span>
+                    <span th:text="${sem.titulo}">Asistencia General</span>
                 </span>
-                <span class="text-[10px] font-black text-sidebar uppercase tracking-wider bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded">Óptimo</span>
-            </li>
-            <li class="flex items-center justify-between gap-6 py-1.5 border-b border-border">
-                <span class="text-xs font-bold text-text-primary flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#1b6327] shadow-xs"></span>
-                    Proceso de Matrícula
-                </span>
-                <span class="text-[10px] font-black text-sidebar uppercase tracking-wider bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded">Al día</span>
-            </li>
-            <li class="flex items-center justify-between gap-6 py-1.5 border-b border-border">
-                <span class="text-xs font-bold text-text-primary flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#8f5b12] shadow-xs"></span>
-                    Certificados Pendientes
-                </span>
-                <span class="text-[10px] font-black text-[#8f5b12] uppercase tracking-wider bg-pill-warning border border-[#f0dec0] px-2 py-0.5 rounded">Pendientes</span>
-            </li>
-            <li class="flex items-center justify-between gap-6 py-1.5 border-b border-border">
-                <span class="text-xs font-bold text-text-primary flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#1b6327] shadow-xs"></span>
-                    Carga de Calificaciones
-                </span>
-                <span class="text-[10px] font-black text-sidebar uppercase tracking-wider bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded">Al día</span>
-            </li>
-            <li class="flex items-center justify-between gap-6 py-1.5">
-                <span class="text-xs font-bold text-text-primary flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#a82a2a] shadow-xs"></span>
-                    Alertas Disciplinarias
-                </span>
-                <span class="text-[10px] font-black text-alert-red uppercase tracking-wider bg-pill-red border border-[#f5cece] px-2 py-0.5 rounded">Atención</span>
+                <span class="text-[10px] font-black uppercase tracking-wider border px-2 py-0.5 rounded"
+                      th:classappend="${sem.badgeClass}"
+                      th:text="${sem.estado}">Óptimo</span>
             </li>
         </ul>
     </article>

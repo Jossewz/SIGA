@@ -11,10 +11,13 @@
                     <h3 class="text-sidebar text-base font-black uppercase tracking-wider">Histórico de Asistencia</h3>
                     <p class="text-[10px] text-text-secondary font-bold uppercase tracking-wider mt-0.5">Últimos 30 días lectivos</p>
                 </div>
-                <span class="text-xs font-black text-sidebar bg-pill-green border border-[#cbe5c7] px-2.5 py-1 rounded-md">Promedio: 93.7%</span>
+                <span class="text-xs font-black text-sidebar bg-pill-green border border-[#cbe5c7] px-2.5 py-1 rounded-md"
+                      th:text="${'Promedio: ' + stats.promedioAsistencia + '%'}">Promedio: 93.7%</span>
             </div>
             <div class="relative w-full h-[220px]">
-                <canvas id="attendanceChart"></canvas>
+                <canvas id="attendanceChart"
+                        th:data-labels="${stats.asistenciaLabelsCsv}"
+                        th:data-valores="${stats.asistenciaValoresCsv}"></canvas>
             </div>
         </div>
 
@@ -25,12 +28,15 @@
                 <p class="text-[10px] text-text-secondary font-bold uppercase tracking-wider mt-0.5">Por Nivel Educativo</p>
             </div>
             <div class="relative w-full h-[180px] flex items-center justify-center">
-                <canvas id="distributionChart"></canvas>
+                <canvas id="distributionChart"
+                        th:data-primaria="${stats.porcentajePrimaria}"
+                        th:data-secundaria="${stats.porcentajeSecundaria}"
+                        th:data-media="${stats.porcentajeMedia}"></canvas>
             </div>
             <div class="flex flex-wrap items-center justify-around text-[10px] font-bold text-text-secondary mt-2 pt-2 border-t border-border gap-x-3 gap-y-1">
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#134e1e]"></span> Primaria (45%)</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#3a7a3b]"></span> Secundaria (40%)</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#8fbe88]"></span> Media (15%)</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#134e1e]"></span> Primaria (<span th:text="${stats.porcentajePrimaria}">45</span>%)</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#3a7a3b]"></span> Secundaria (<span th:text="${stats.porcentajeSecundaria}">40</span>%)</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#8fbe88]"></span> Media (<span th:text="${stats.porcentajeMedia}">15</span>%)</span>
             </div>
         </div>
     </article>

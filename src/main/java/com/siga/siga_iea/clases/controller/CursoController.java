@@ -177,12 +177,15 @@ public class CursoController {
         return res;
     }
 
-    @GetMapping("/clases")
+    @GetMapping({"/clases", "/cursos"})
     public String index(Model model) {
         model.addAttribute("title", "Gestión de Cursos – IEACI");
         model.addAttribute("activePage", "clases");
 
         List<Curso> cursosDB = cursoService.listarCursosPorAno("2026");
+        if (cursosDB.isEmpty()) {
+            cursosDB = cursoService.listarTodosLosCursos();
+        }
         List<Map<String, Object>> cursosList = new ArrayList<>();
 
         for (Curso c : cursosDB) {
