@@ -19,6 +19,7 @@
                 <form method="get" th:action="@{/calificaciones}" class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-border shadow-2xs">
                     <label for="select-estudiante" class="text-[10px] font-black uppercase text-sidebar tracking-wider">Estudiante:</label>
                     <select id="select-estudiante" name="estudianteId" onchange="this.form.submit()" class="h-9 px-3 bg-surface-sunken border border-border rounded-lg text-xs font-black text-sidebar focus:ring-1 focus:ring-sidebar cursor-pointer">
+                        <option th:if="${estudiantes == null || #lists.isEmpty(estudiantes)}" value="" disabled selected>Sin estudiantes registrados</option>
                         <option th:each="est : ${estudiantes}" th:value="${est.id}" th:text="${est.nombreCompleto}" th:selected="${est.id.toString() == estudianteSeleccionadoId}">Mateo Álvarez</option>
                     </select>
                 </form>
@@ -47,6 +48,8 @@
                     <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
                         <span th:text="${(boletin != null ? #lists.size(boletin) : 0) + ' ASIGNATURAS'}">0 ASIGNATURAS</span>
                     </span>
+                </div>
+
                 <div class="flex items-center gap-2">
                     <a th:if="${estudianteSeleccionadoId != null and !#strings.isEmpty(estudianteSeleccionadoId)}"
                        th:href="@{/calificaciones/boletin/pdf(estudianteId=${estudianteSeleccionadoId},anoLectivo=${anoLectivo})}"
@@ -57,7 +60,7 @@
                     </a>
                     <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-control bg-surface-sunken border border-border text-xs font-bold text-brand-600">
                         <i data-lucide="calendar" class="size-3.5 stroke-2 text-brand-500"></i>
-                        <span th:text="${'Año Lectivo ' + anoLectivo}">Año Lectivo 2026</span>
+                        <span th:text="${'Año Lectivo ' + (anoLectivo != null ? anoLectivo : '2026')}">Año Lectivo 2026</span>
                     </div>
                 </div>
             </div>

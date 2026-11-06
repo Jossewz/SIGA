@@ -4,8 +4,12 @@ import com.siga.siga_iea.calificaciones.dto.BoletinMateriaDTO;
 import com.siga.siga_iea.calificaciones.service.BoletinPdfService;
 import com.siga.siga_iea.calificaciones.service.CalificacionesService;
 import com.siga.siga_iea.clases.entity.Curso;
+import com.siga.siga_iea.clases.entity.CursoEstudiante;
+import com.siga.siga_iea.clases.repository.CursoEstudianteRepository;
 import com.siga.siga_iea.clases.service.CursoService;
 import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
+import com.siga.siga_iea.matricula.entity.Matricula;
+import com.siga.siga_iea.matricula.service.MatriculaService;
 import com.siga.siga_iea.usuarios.entity.Estudiante;
 import com.siga.siga_iea.usuarios.service.EstudianteService;
 import org.springframework.http.HttpHeaders;
@@ -17,7 +21,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @Controller
 public class CalificacionController {
@@ -26,16 +34,16 @@ public class CalificacionController {
     private final EstudianteService estudianteService;
     private final CursoService cursoService;
     private final PeriodoConfigService periodoConfigService;
-    private final com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository;
-    private final com.siga.siga_iea.matricula.service.MatriculaService matriculaService;
+    private final CursoEstudianteRepository cursoEstudianteRepository;
+    private final MatriculaService matriculaService;
     private final BoletinPdfService boletinPdfService;
 
     public CalificacionController(CalificacionesService calificacionesService, 
                                   EstudianteService estudianteService,
                                   CursoService cursoService,
                                   PeriodoConfigService periodoConfigService,
-                                  com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository,
-                                  com.siga.siga_iea.matricula.service.MatriculaService matriculaService,
+                                  CursoEstudianteRepository cursoEstudianteRepository,
+                                  MatriculaService matriculaService,
                                   BoletinPdfService boletinPdfService) {
         this.calificacionesService = calificacionesService;
         this.estudianteService = estudianteService;
@@ -68,26 +76,33 @@ public class CalificacionController {
         model.addAttribute("pesoP2", periodoConfigService.getPesoPeriodo2());
         model.addAttribute("pesoP3", periodoConfigService.getPesoPeriodo3());
 
+        String anioActivo = "2026";
+        try {
+            if (periodoConfigService != null && periodoConfigService.obtenerAnioLectivoActual() != null) {
+                anioActivo = String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio());
+            }
+        } catch (Exception ignored) {
+        }
+        model.addAttribute("anoLectivo", anioActivo);
+
         if (seleccionado != null) {
             model.addAttribute("estudianteSeleccionadoId", seleccionado.getId().toString());
             model.addAttribute("estudianteNombre", seleccionado.getNombreCompleto());
             model.addAttribute("estudianteDocumento", seleccionado.getNumeroDocumento());
 
             String gradoStr = "Sin grado";
-            List<com.siga.siga_iea.clases.entity.CursoEstudiante> ces = cursoEstudianteRepository.findByEstudianteId(seleccionado.getId());
+            List<CursoEstudiante> ces = cursoEstudianteRepository.findByEstudianteId(seleccionado.getId());
             if (!ces.isEmpty()) {
                 Curso c = ces.get(ces.size() - 1).getCurso();
                 gradoStr = c.getGrado() + " - " + (c.getGrupo() != null ? c.getGrupo() : "01");
             } else {
-                Optional<com.siga.siga_iea.matricula.entity.Matricula> matOpt = matriculaService.buscarUltimaMatriculaEstudiante(seleccionado.getId());
+                Optional<Matricula> matOpt = matriculaService.buscarUltimaMatriculaEstudiante(seleccionado.getId());
                 if (matOpt.isPresent() && matOpt.get().getGrado() != null) {
                     gradoStr = matOpt.get().getGrado() + " - " + (matOpt.get().getSalon() != null ? matOpt.get().getSalon() : "01");
                 }
             }
             model.addAttribute("estudianteGrado", gradoStr);
 
-            String anioActivo = String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio());
-            model.addAttribute("anoLectivo", anioActivo);
             List<BoletinMateriaDTO> boletin = calificacionesService.obtenerBoletinEstudiante(seleccionado.getId(), anioActivo, ponderaciones);
             model.addAttribute("boletin", boletin);
         } else {
@@ -112,16 +127,20 @@ public class CalificacionController {
         Estudiante estudiante = estudianteService.buscarPorId(estudianteId)
                 .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado"));
 
-        String anio = (anoLectivo != null && !anoLectivo.isBlank()) ? anoLectivo.trim() :
-                String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio());
+        String anio = "2026";
+        if (anoLectivo != null && !anoLectivo.isBlank()) {
+            anio = anoLectivo.trim();
+        } else if (periodoConfigService != null && periodoConfigService.obtenerAnioLectivoActual() != null) {
+            anio = String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio());
+        }
 
         String gradoStr = "Sin grado";
-        List<com.siga.siga_iea.clases.entity.CursoEstudiante> ces = cursoEstudianteRepository.findByEstudianteId(estudiante.getId());
+        List<CursoEstudiante> ces = cursoEstudianteRepository.findByEstudianteId(estudiante.getId());
         if (!ces.isEmpty()) {
-            com.siga.siga_iea.clases.entity.Curso c = ces.get(ces.size() - 1).getCurso();
+            Curso c = ces.get(ces.size() - 1).getCurso();
             gradoStr = c.getGrado() + " - " + (c.getGrupo() != null ? c.getGrupo() : "01");
         } else {
-            Optional<com.siga.siga_iea.matricula.entity.Matricula> matOpt = matriculaService.buscarUltimaMatriculaEstudiante(estudiante.getId());
+            Optional<Matricula> matOpt = matriculaService.buscarUltimaMatriculaEstudiante(estudiante.getId());
             if (matOpt.isPresent() && matOpt.get().getGrado() != null) {
                 gradoStr = matOpt.get().getGrado() + " - " + (matOpt.get().getSalon() != null ? matOpt.get().getSalon() : "01");
             }
