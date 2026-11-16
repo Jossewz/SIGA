@@ -60,7 +60,6 @@ import static org.junit.jupiter.api.Assertions.*;
                 "spring.datasource.username=postgres",
                 "spring.datasource.password=siga",
                 "spring.datasource.driver-class-name=org.postgresql.Driver",
-                "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.flyway.enabled=true"
 })

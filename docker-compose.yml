@@ -71,23 +71,9 @@ services:
     volumes:
       - siga_minio_data:/data
 
-  frontend:
-    image: node:22-alpine
-    container_name: siga-vite
-    profiles:
-      - frontend
-    working_dir: /workspace/frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - .:/workspace:z
-      - siga_node_modules:/workspace/frontend/node_modules
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
-
 volumes:
   siga_postgres_data:
   siga_maven_cache:
   siga_target:
-  siga_node_modules:
   siga_pgadmin_data:
   siga_minio_data:
