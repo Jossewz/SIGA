@@ -4,20 +4,38 @@
     <div th:fragment="tablaDetalleNotas" id="contenedor-tabla-notas" class="bg-white rounded-xl border border-[#c4eec0]/40 shadow-soft overflow-hidden">
         
         <!-- Out-Of-Band Swap para la Barra de Acciones Superior -->
-        <div id="barra-acciones-calificaciones" hx-swap-oob="true" class="flex items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#c4eec0]/40 shadow-2xs">
-            <div class="flex items-center gap-3">
+        <div id="barra-acciones-calificaciones" hx-swap-oob="true" class="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#c4eec0]/40 shadow-2xs">
+            <div class="flex flex-wrap items-center gap-3">
                 <button type="button" 
                         id="btn-agregar-nota"
                         th:disabled="${tieneHorarioHoy == false}"
                         th:classappend="${tieneHorarioHoy == false} ? 'opacity-40 cursor-not-allowed pointer-events-none bg-gray-400' : 'bg-sidebar hover:brightness-97 cursor-pointer'"
                         th:attr="hx-post=@{/clases/evaluaciones/crear}"
-                        hx-include="#input-curso-id, #select-materia, #input-periodo-activo, #fecha-evaluacion"
+                        hx-include="#input-curso-id, #select-materia, #input-periodo-activo, #fecha-evaluacion, #input-vista-notas"
                         hx-target="#contenedor-tabla-notas"
                         hx-swap="outerHTML"
                         class="px-4 py-2 text-xs font-black text-white rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
                     <i data-lucide="plus" class="size-4 stroke-[3]"></i>
-                    <span>Agregar Nota al Periodo</span>
+                    <span th:text="${'Agregar Nota (' + (fecha != null ? #strings.substring(fecha, 5) : 'Hoy') + ')'}">Agregar Nota</span>
                 </button>
+
+                <!-- Selector rápido: Notas de esta fecha vs Todo el periodo -->
+                <div class="inline-flex items-center p-1 rounded-lg bg-[#f4fbf2] border border-[#c4eec0]/60 gap-1" role="group" aria-label="Filtro de notas">
+                    <button type="button"
+                            onclick="seleccionarVistaNotas('FECHA')"
+                            th:classappend="${vistaNotas == null || vistaNotas == 'FECHA'} ? 'bg-sidebar text-white shadow-2xs' : 'text-text-secondary hover:text-sidebar'"
+                            class="px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer">
+                        Solo esta fecha
+                    </button>
+                    <button type="button"
+                            onclick="seleccionarVistaNotas('PERIODO')"
+                            th:classappend="${vistaNotas == 'PERIODO'} ? 'bg-sidebar text-white shadow-2xs' : 'text-text-secondary hover:text-sidebar'"
+                            class="px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer"
+                            th:text="${'Todo el periodo (' + (totalEvaluacionesPeriodo != null ? totalEvaluacionesPeriodo : 0) + ')'}">
+                        Todo el periodo
+                    </button>
+                </div>
+
                 <span class="text-[11px] font-semibold text-text-secondary" id="texto-ayuda-porcentajes">
                     <span th:if="${tieneHorarioHoy != false}">Edite los porcentajes % en el encabezado de cada columna.</span>
                     <span th:if="${tieneHorarioHoy == false}" class="text-amber-700 font-bold">Sin horario asignado para esta fecha. Acciones bloqueadas.</span>
@@ -29,7 +47,7 @@
                  class="px-4 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs shrink-0"
                  th:classappend="${sumaPesos != null && sumaPesos.intValue() == 100} ? 'bg-pill-green text-sidebar border border-[#8ce383]' : 'bg-pill-red text-alert-red border border-red-300'">
                 <i th:attr="data-lucide=${sumaPesos != null && sumaPesos.intValue() == 100 ? 'check-circle-2' : 'alert-circle'}" class="size-3.5 stroke-[2.5]"></i>
-                <span>Suma de Pesos: <strong id="peso-total-val" th:text="${(sumaPesos != null ? (sumaPesos.doubleValue() % 1 == 0 ? sumaPesos.intValue() : #numbers.formatDecimal(sumaPesos, 1, 2)) : 0) + '%'}">100%</strong></span>
+                <span>Suma Periodo: <strong id="peso-total-val" th:text="${(sumaPesos != null ? (sumaPesos.doubleValue() % 1 == 0 ? sumaPesos.intValue() : #numbers.formatDecimal(sumaPesos, 1, 2)) : 0) + '%'}">100%</strong></span>
             </div>
         </div>
 
@@ -55,6 +73,23 @@
             </div>
         </div>
 
+        <!-- Aviso cuando no hay notas en esta fecha específica pero sí en el período -->
+        <div th:if="${tieneHorarioHoy != false && (vistaNotas == null || vistaNotas == 'FECHA') && #lists.isEmpty(evaluaciones) && totalEvaluacionesPeriodo != null && totalEvaluacionesPeriodo > 0}"
+             class="mx-4 mt-4 mb-1 px-4 py-2.5 rounded-xl bg-[#f4fbf2] border border-[#c4eec0] text-xs font-semibold text-sidebar flex items-center justify-between gap-3">
+            <span>No hay notas registradas para el <strong th:text="${fecha}">hoy</strong>. Hay <strong th:text="${totalEvaluacionesPeriodo}">0</strong> evaluación(es) en otras fechas del período.</span>
+            <button type="button" onclick="seleccionarVistaNotas('PERIODO')"
+                    class="px-3 py-1 rounded-lg bg-white border border-[#c4eec0] text-[11px] font-black text-sidebar hover:bg-emerald-50 transition cursor-pointer shrink-0">
+                Ver todo el período
+            </button>
+        </div>
+
+        <!-- Aviso de solo lectura en asistencia histórica para docentes -->
+        <div th:if="${tieneHorarioHoy != false && puedeEditarAsistencia == false}"
+             class="mx-4 mt-4 mb-1 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900 flex items-center gap-2">
+            <i data-lucide="lock" class="size-4 stroke-2 text-amber-700 shrink-0"></i>
+            <span>Consulta histórica de asistencia: los docentes solo pueden modificar la asistencia de la fecha de hoy.</span>
+        </div>
+
         <div class="w-full overflow-x-auto rounded-surface border border-border shadow-card">
             <table class="tabla-siga w-full text-left text-sm table-auto bg-surface" id="tabla-estudiantes-notas">
                 <thead>
@@ -69,7 +104,7 @@
                                     <span class="text-[11px] font-black uppercase text-sidebar tracking-wider" th:text="${ev.nombre}">Nota 1</span>
                                     <button type="button" 
                                             th:if="${tieneHorarioHoy != false}"
-                                            th:attr="hx-post=@{/clases/evaluaciones/eliminar(evaluacionId=${ev.id}, cursoId=${cursoId}, materiaId=${materiaId}, materiaNombre=${materiaNombre}, periodo=${periodo}, fecha=${fecha})}"
+                                            th:attr="hx-post=@{/clases/evaluaciones/eliminar(evaluacionId=${ev.id}, cursoId=${cursoId}, materiaId=${materiaId}, materiaNombre=${materiaNombre}, periodo=${periodo}, fecha=${fecha}, vistaNotas=${vistaNotas})}"
                                             hx-target="#contenedor-tabla-notas"
                                             hx-swap="outerHTML"
                                             hx-confirm="¿Desea eliminar esta nota del período?"
@@ -77,6 +112,10 @@
                                         <i data-lucide="trash-2" class="size-3.5"></i>
                                     </button>
                                 </div>
+                                <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-white/90 border border-[#c4eec0]/70 text-text-secondary"
+                                      th:text="${ev.fecha != null ? #temporals.format(ev.fecha, 'dd/MM/yyyy') : 'Sin fecha'}">
+                                    16/11/2026
+                                </span>
                                 <div class="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg border shadow-2xs"
                                      th:classappend="${tieneHorarioHoy == false} ? 'bg-gray-100 border-gray-200' : 'bg-white border-[#c4eec0]'">
                                     <span class="text-[10px] font-black" th:classappend="${tieneHorarioHoy == false} ? 'text-gray-400' : 'text-text-secondary'">%</span>
@@ -85,7 +124,7 @@
                                            min="0" max="100" step="0.01"
                                            th:disabled="${tieneHorarioHoy == false}"
                                            th:readonly="${tieneHorarioHoy == false}"
-                                           th:attr="hx-post=@{/clases/evaluaciones/actualizar-peso(evaluacionId=${ev.id}, cursoId=${cursoId}, materiaId=${materiaId}, materiaNombre=${materiaNombre}, periodo=${periodo}, fecha=${fecha})}"
+                                           th:attr="hx-post=@{/clases/evaluaciones/actualizar-peso(evaluacionId=${ev.id}, cursoId=${cursoId}, materiaId=${materiaId}, materiaNombre=${materiaNombre}, periodo=${periodo}, fecha=${fecha}, vistaNotas=${vistaNotas})}"
                                            hx-trigger="change delay:300ms"
                                            name="peso"
                                            hx-target="#contenedor-tabla-notas"
@@ -97,7 +136,7 @@
                         </th>
 
                         <th class="p-3.5 text-center w-28 min-w-[110px] whitespace-nowrap">Nota Final</th>
-                        <th class="p-3.5 pr-5 text-center w-36 min-w-[140px] whitespace-nowrap" th:text="${'Asistencia (' + (fecha != null ? fecha : 'Hoy') + ')'}">Asistencia</th>
+                        <th class="py-3 px-2.5 pr-3 text-center w-px whitespace-nowrap" th:text="${'Asistencia (' + (fecha != null ? #strings.substring(fecha, 5) : 'Hoy') + ')'}">Asistencia</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-[#c4eec0]/20 text-[#243d28]" id="tbody-estudiantes">
@@ -111,7 +150,7 @@
 
                     <tr th:each="ce, iter : ${estudiantesCE}" class="hover:bg-[#fcfdfb] transition-colors est-row">
                         <td class="p-3.5 pl-5 font-bold text-text-secondary text-center w-12" th:text="${iter.count}">1</td>
-                        <td class="p-3.5 min-w-[200px]">
+                        <td class="p-3.5 min-w-[180px]">
                             <div class="font-black text-text-primary text-[13px] leading-tight" th:text="${ce.estudiante.nombreCompleto}">Nombre Estudiante</div>
                             <div class="text-[11px] font-semibold text-text-secondary mt-0.5" th:text="${'Doc: ' + ce.estudiante.numeroDocumento}">Doc: 123456</div>
                         </td>
@@ -137,9 +176,9 @@
                             <th:block th:replace="~{clases/fragments/tabla-detalle-notas :: badgeNotaFinal(${ce.estudiante.id.toString()}, ${notasFinales != null ? notasFinales.get(ce.estudiante.id) : null})}"></th:block>
                         </td>
 
-                        <!-- Botón de Asistencia Reactivo HTMX -->
-                        <td class="p-3.5 pr-5 text-center w-36 min-w-[140px]">
-                            <th:block th:replace="~{clases/fragments/tabla-detalle-notas :: botonAsistencia(${ce.estudiante.id.toString()}, ${cursoId != null ? cursoId.toString() : ''}, ${materiaId != null ? materiaId.toString() : ''}, ${fecha}, ${asistenciasMapa != null ? asistenciasMapa.get(ce.estudiante.id) : null}, ${tieneHorarioHoy})}"></th:block>
+                        <!-- Botonera y Estado de Asistencia Reactivo HTMX (compacto para priorizar espacio de notas) -->
+                        <td class="py-2.5 px-2.5 pr-3 text-center w-px whitespace-nowrap">
+                            <th:block th:replace="~{clases/fragments/tabla-detalle-notas :: botonAsistencia(${ce.estudiante.id.toString()}, ${cursoId != null ? cursoId.toString() : ''}, ${materiaId != null ? materiaId.toString() : ''}, ${fecha}, ${asistenciasMapa != null ? asistenciasMapa.get(ce.estudiante.id) : null}, ${tieneHorarioHoy}, ${puedeEditarAsistencia})}"></th:block>
                         </td>
                     </tr>
                 </tbody>
@@ -157,20 +196,68 @@
         </span>
     </th:block>
 
-    <!-- FRAGMENTO ESPECÍFICO: BOTÓN DE ASISTENCIA HTMX -->
-    <th:block th:fragment="botonAsistencia(estId, cursoId, materiaId, fecha, estado, tieneHorarioHoy)">
-        <button type="button"
-                th:id="${'btn-asistencia-' + estId}"
-                th:disabled="${(tieneHorarioHoy != null && !tieneHorarioHoy) || materiaId == null || materiaId == ''}"
-                th:attr="hx-post=@{/clases/asistencias/toggle(cursoId=${cursoId}, estudianteId=${estId}, materiaId=${materiaId}, fecha=${fecha})}"
-                hx-target="this"
-                hx-swap="outerHTML"
-                th:data-estado="${estado != null ? estado : 'Presente'}"
-                class="inline-flex items-center justify-center gap-1.5 min-w-[100px] px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all shadow-2xs badge-asistencia"
-                th:classappend="${(tieneHorarioHoy != null && !tieneHorarioHoy) || materiaId == null || materiaId == ''} ? 'bg-gray-100 text-gray-400 border border-gray-200 opacity-50 cursor-not-allowed pointer-events-none' : (${estado == null || estado == 'Presente'} ? 'bg-pill-green text-sidebar border border-[#8ce383] cursor-pointer' : (${estado == 'No presente'} ? 'bg-pill-red text-alert-red border border-red-300 cursor-pointer' : 'bg-amber-100 text-amber-800 border border-amber-300 cursor-pointer'))">
-            <i th:attr="data-lucide=${((tieneHorarioHoy != null && !tieneHorarioHoy) || materiaId == null || materiaId == '') ? 'slash' : ((estado == null || estado == 'Presente') ? 'check' : (estado == 'No presente' ? 'x' : 'file-text'))}" class="size-3.5 stroke-[2.5]"></i>
-            <span class="ast-text" th:text="${((tieneHorarioHoy != null && !tieneHorarioHoy) || materiaId == null || materiaId == '') ? 'Bloqueado' : (estado != null ? estado : 'Presente')}">Presente</span>
-        </button>
+    <!-- FRAGMENTO ESPECÍFICO: BOTONERA Y ESTADO DE ASISTENCIA HTMX -->
+    <th:block th:fragment="botonAsistencia(estId, cursoId, materiaId, fecha, estado, tieneHorarioHoy, puedeEditarAsistencia)">
+        <div th:id="${'asistencia-cell-' + estId}"
+             th:with="bloqueado=${(tieneHorarioHoy != null && !tieneHorarioHoy) || materiaId == null || materiaId == '' || (puedeEditarAsistencia != null && !puedeEditarAsistencia)},
+                      estadoNorm=${estado != null ? #strings.toUpperCase(estado) : null}"
+             class="inline-flex flex-col items-center gap-1">
+
+            <div class="inline-flex items-center gap-1.5">
+                <!-- Botonera Rápida P | T | E | FI -->
+                <div class="inline-flex rounded-md p-0.5 bg-surface-sunken border border-border gap-0.5"
+                     th:classappend="${bloqueado} ? 'opacity-50 pointer-events-none' : ''">
+                    <button type="button"
+                            title="Presente"
+                            th:disabled="${bloqueado}"
+                            th:attr="hx-post=@{/clases/asistencias/marcar(cursoId=${cursoId}, estudianteId=${estId}, materiaId=${materiaId}, fecha=${fecha}, estado='PRESENTE')}, hx-target=${'#asistencia-cell-' + estId}"
+                            hx-swap="outerHTML"
+                            th:classappend="${estadoNorm == 'PRESENTE'} ? 'bg-emerald-600 text-white font-black shadow-2xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer">
+                        P
+                    </button>
+                    <button type="button"
+                            title="Tarde (Retardo)"
+                            th:disabled="${bloqueado}"
+                            th:attr="hx-post=@{/clases/asistencias/marcar(cursoId=${cursoId}, estudianteId=${estId}, materiaId=${materiaId}, fecha=${fecha}, estado='TARDE')}, hx-target=${'#asistencia-cell-' + estId}"
+                            hx-swap="outerHTML"
+                            th:classappend="${estadoNorm == 'TARDE'} ? 'bg-amber-500 text-white font-black shadow-2xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer">
+                        T
+                    </button>
+                    <button type="button"
+                            title="Ausencia Excusada"
+                            th:disabled="${bloqueado}"
+                            th:attr="hx-post=@{/clases/asistencias/marcar(cursoId=${cursoId}, estudianteId=${estId}, materiaId=${materiaId}, fecha=${fecha}, estado='EXCUSADO')}, hx-target=${'#asistencia-cell-' + estId}"
+                            hx-swap="outerHTML"
+                            th:classappend="${estadoNorm == 'EXCUSADO'} ? 'bg-blue-600 text-white font-black shadow-2xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer">
+                        E
+                    </button>
+                    <button type="button"
+                            title="Falta Injustificada (Ausente)"
+                            th:disabled="${bloqueado}"
+                            th:attr="hx-post=@{/clases/asistencias/marcar(cursoId=${cursoId}, estudianteId=${estId}, materiaId=${materiaId}, fecha=${fecha}, estado='AUSENTE')}, hx-target=${'#asistencia-cell-' + estId}"
+                            hx-swap="outerHTML"
+                            th:classappend="${estadoNorm == 'AUSENTE'} ? 'bg-rose-600 text-white font-black shadow-2xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer">
+                        FI
+                    </button>
+                </div>
+
+                <!-- Badge de Estado Persistido Real -->
+                <span th:data-estado="${estadoNorm != null ? estadoNorm : 'PENDIENTE'}"
+                      class="inline-flex items-center justify-center min-w-[70px] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border badge-asistencia"
+                      th:classappend="${estadoNorm == 'PRESENTE'} ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (${estadoNorm == 'TARDE'} ? 'bg-amber-50 text-amber-700 border-amber-200' : (${estadoNorm == 'EXCUSADO'} ? 'bg-blue-50 text-blue-700 border-blue-200' : (${estadoNorm == 'AUSENTE'} ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200')))">
+                    <span class="ast-text"
+                          th:text="${(tieneHorarioHoy != null && !tieneHorarioHoy) || materiaId == null || materiaId == '' ? (estadoNorm != null ? estadoNorm : 'Bloqueado') : (estadoNorm != null ? estadoNorm : 'Pendiente')}">Pendiente</span>
+                </span>
+            </div>
+
+            <span th:if="${asistenciaError != null}"
+                  th:text="${asistenciaError}"
+                  class="text-[10px] font-bold text-rose-700">Error</span>
+        </div>
     </th:block>
 
 </th:block>

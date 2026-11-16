@@ -1,8 +1,12 @@
 package com.siga.siga_iea.usuarios.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.siga.siga_iea.clases.entity.Materia;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -38,11 +42,21 @@ public class Docente {
     @Column(columnDefinition = "VARCHAR")
     private String direccion;
 
-    @Column(columnDefinition = "VARCHAR")
+    @Column(columnDefinition = "TEXT")
     private String especialidad;
 
     @Column(columnDefinition = "VARCHAR")
     private String titulo;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "docente_materias",
+            joinColumns = @JoinColumn(name = "docente_id"),
+            inverseJoinColumns = @JoinColumn(name = "materia_id")
+    )
+    @OrderBy("nombre ASC")
+    @JsonIgnore
+    private Set<Materia> asignaturas = new LinkedHashSet<>();
 
     @Column(columnDefinition = "VARCHAR")
     private String estado = "Activo";
@@ -160,6 +174,14 @@ public class Docente {
 
     public void setTitulo(String titulo) {
         this.titulo = titulo;
+    }
+
+    public Set<Materia> getAsignaturas() {
+        return asignaturas;
+    }
+
+    public void setAsignaturas(Set<Materia> asignaturas) {
+        this.asignaturas = asignaturas != null ? asignaturas : new LinkedHashSet<>();
     }
 
     public String getEstado() {

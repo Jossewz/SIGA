@@ -79,11 +79,11 @@ public class AsistenciaTablaService {
     }
 
     private String formatearNombre(Estudiante e) {
-        String apellidos = e.getApellidos() != null ? e.getApellidos().trim() : "";
         String nombres = e.getNombres() != null ? e.getNombres().trim() : "";
-        if (!apellidos.isEmpty() && !nombres.isEmpty()) {
-            return apellidos + ", " + nombres;
+        String apellidos = e.getApellidos() != null ? e.getApellidos().trim() : "";
+        if (!nombres.isEmpty() && !apellidos.isEmpty()) {
+            return nombres + " " + apellidos;
         }
-        return !apellidos.isEmpty() ? apellidos : nombres;
+        return !nombres.isEmpty() ? nombres : apellidos;
     }
 }

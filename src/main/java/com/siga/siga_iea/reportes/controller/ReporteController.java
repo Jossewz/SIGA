@@ -114,6 +114,11 @@ public class ReporteController {
         List<Reporte> reportesDB;
         if (esEstudiante && estLogueadoOpt.isPresent()) {
             reportesDB = reportesService.listarPorEstudiante(estLogueadoOpt.get().getId());
+        } else if (esDocente && !esAdmin && !esPersonal) {
+            Optional<Docente> docOpt = getDocenteLogueado();
+            reportesDB = docOpt.isPresent()
+                    ? reportesService.listarPorDocente(docOpt.get().getId())
+                    : Collections.emptyList();
         } else {
             reportesDB = reportesService.listarTodos();
         }
@@ -166,14 +171,7 @@ public class ReporteController {
                     if (!docentes.isEmpty()) {
                         targetDocenteId = docentes.get(0).getId();
                     } else {
-                        Docente d = new Docente();
-                        d.setNombres("Jorge Eliécer");
-                        d.setApellidos("Rojas");
-                        d.setTipoDocumento("CC");
-                        d.setNumeroDocumento("1088123456");
-                        d.setEstado("Activo");
-                        d = personalService.guardarDocente(d);
-                        targetDocenteId = d.getId();
+                        throw new IllegalStateException("Debe existir al menos un docente registrado en el sistema para emitir un reporte.");
                     }
                 }
             }

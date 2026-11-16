@@ -33,8 +33,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
            "ORDER BY e.createdAt DESC")
     List<Estudiante> searchEstudiantes(@Param("search") String search, @Param("estado") String estado);
 
-    @Query(value = "SELECT DISTINCT e FROM Estudiante e " +
-           "LEFT JOIN CursoEstudiante ce ON ce.estudiante = e " +
+    @Query(value = "SELECT e FROM Estudiante e " +
            "WHERE (:search IS NULL OR :search = '' OR " +
            " LOWER(e.nombres) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            " LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -42,11 +41,16 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
            " LOWER(e.numeroDocumento) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "(:estado IS NULL OR :estado = '' OR e.estado = :estado) AND " +
            "(:nivel IS NULL OR :nivel = '' OR " +
-           " (:nivel = 'PRIMARIA' AND ce.curso.grado IN ('1°', '2°', '3°', '4°', '5°')) OR " +
-           " (:nivel = 'BACHILLERATO' AND ce.curso.grado IN ('6°', '7°', '8°', '9°', '10°', '11°'))) " +
+           " (:nivel = 'PRIMARIA' AND (" +
+           "   EXISTS (SELECT 1 FROM CursoEstudiante ce WHERE ce.estudiante = e AND ce.curso.grado IN ('Transición', '1°', '2°', '3°', '4°', '5°')) OR " +
+           "   EXISTS (SELECT 1 FROM Matricula m WHERE m.estudiante = e AND m.grado IN ('Transición', '1°', '2°', '3°', '4°', '5°'))" +
+           " )) OR " +
+           " (:nivel = 'BACHILLERATO' AND (" +
+           "   EXISTS (SELECT 1 FROM CursoEstudiante ce WHERE ce.estudiante = e AND ce.curso.grado IN ('6°', '7°', '8°', '9°', '10°', '11°')) OR " +
+           "   EXISTS (SELECT 1 FROM Matricula m WHERE m.estudiante = e AND m.grado IN ('6°', '7°', '8°', '9°', '10°', '11°'))" +
+           " ))) " +
            "ORDER BY e.createdAt DESC",
-           countQuery = "SELECT COUNT(DISTINCT e) FROM Estudiante e " +
-           "LEFT JOIN CursoEstudiante ce ON ce.estudiante = e " +
+           countQuery = "SELECT COUNT(e) FROM Estudiante e " +
            "WHERE (:search IS NULL OR :search = '' OR " +
            " LOWER(e.nombres) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            " LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -54,8 +58,14 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
            " LOWER(e.numeroDocumento) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "(:estado IS NULL OR :estado = '' OR e.estado = :estado) AND " +
            "(:nivel IS NULL OR :nivel = '' OR " +
-           " (:nivel = 'PRIMARIA' AND ce.curso.grado IN ('1°', '2°', '3°', '4°', '5°')) OR " +
-           " (:nivel = 'BACHILLERATO' AND ce.curso.grado IN ('6°', '7°', '8°', '9°', '10°', '11°')))")
+           " (:nivel = 'PRIMARIA' AND (" +
+           "   EXISTS (SELECT 1 FROM CursoEstudiante ce WHERE ce.estudiante = e AND ce.curso.grado IN ('Transición', '1°', '2°', '3°', '4°', '5°')) OR " +
+           "   EXISTS (SELECT 1 FROM Matricula m WHERE m.estudiante = e AND m.grado IN ('Transición', '1°', '2°', '3°', '4°', '5°'))" +
+           " )) OR " +
+           " (:nivel = 'BACHILLERATO' AND (" +
+           "   EXISTS (SELECT 1 FROM CursoEstudiante ce WHERE ce.estudiante = e AND ce.curso.grado IN ('6°', '7°', '8°', '9°', '10°', '11°')) OR " +
+           "   EXISTS (SELECT 1 FROM Matricula m WHERE m.estudiante = e AND m.grado IN ('6°', '7°', '8°', '9°', '10°', '11°'))" +
+           " )))")
     Page<Estudiante> searchEstudiantesPaginado(
             @Param("search") String search,
             @Param("estado") String estado,

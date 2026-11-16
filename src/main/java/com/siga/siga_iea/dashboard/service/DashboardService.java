@@ -106,12 +106,9 @@ public class DashboardService {
             }
             promedioAsistencia = Math.round((sumaPorcentajes / asistenciaValores.size()) * 10.0) / 10.0;
         } else {
-            // Serie institucional por defecto de referencia cuando no hay asistencias cargadas
-            for (int i = 1; i <= 15; i++) {
-                asistenciaLabels.add("Día " + i);
-            }
-            asistenciaValores = Arrays.asList(93.1, 94.0, 92.5, 93.8, 94.2, 93.0, 92.8, 93.9, 94.5, 93.4, 94.0, 93.7, 94.1, 93.5, 94.2);
-            promedioAsistencia = 93.7;
+            asistenciaLabels.add("Sin datos");
+            asistenciaValores.add(0.0);
+            promedioAsistencia = 0.0;
         }
 
         String asistenciaLabelsCsv = String.join(",", asistenciaLabels);
@@ -175,16 +172,18 @@ public class DashboardService {
             pctMedia = 100 - pctPrimaria - pctSecundaria;
             if (pctMedia < 0) pctMedia = 0;
         } else {
-            pctPrimaria = 45;
-            pctSecundaria = 40;
-            pctMedia = 15;
+            pctPrimaria = 0;
+            pctSecundaria = 0;
+            pctMedia = 0;
         }
 
         // 3. Semáforos de Estado Institucional
         List<SemaforoItemDTO> semaforos = new ArrayList<>();
 
         // 3.1 Asistencia General
-        if (promedioAsistencia >= 90.0) {
+        if (resumenAsistencia == null || resumenAsistencia.isEmpty()) {
+            semaforos.add(SemaforoItemDTO.advertencia("Asistencia General", "Sin datos"));
+        } else if (promedioAsistencia >= 90.0) {
             semaforos.add(SemaforoItemDTO.optimo("Asistencia General", "Óptimo"));
         } else if (promedioAsistencia >= 75.0) {
             semaforos.add(SemaforoItemDTO.advertencia("Asistencia General", "Alerta"));

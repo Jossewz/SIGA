@@ -4,9 +4,12 @@ import com.siga.siga_iea.clases.entity.Curso;
 import com.siga.siga_iea.clases.entity.CursoEstudiante;
 import com.siga.siga_iea.clases.repository.CursoEstudianteRepository;
 import com.siga.siga_iea.clases.repository.CursoRepository;
+import com.siga.siga_iea.configuracion.entity.AnioLectivo;
+import com.siga.siga_iea.configuracion.repository.AnioLectivoRepository;
 import com.siga.siga_iea.matricula.entity.Matricula;
 import com.siga.siga_iea.matricula.repository.MatriculaRepository;
 import com.siga.siga_iea.usuarios.entity.Estudiante;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,30 +23,52 @@ public class MatriculaService {
     private final MatriculaRepository matriculaRepository;
     private final CursoRepository cursoRepository;
     private final CursoEstudianteRepository cursoEstudianteRepository;
+    private final AnioLectivoRepository anioLectivoRepository;
     private final com.siga.siga_iea.auditoria.service.AuditoriaService auditoriaService;
 
     public MatriculaService(MatriculaRepository matriculaRepository,
                             CursoRepository cursoRepository,
                             CursoEstudianteRepository cursoEstudianteRepository,
-                            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                            @Autowired(required = false) AnioLectivoRepository anioLectivoRepository,
+                            @Autowired(required = false)
                             com.siga.siga_iea.auditoria.service.AuditoriaService auditoriaService) {
         this.matriculaRepository = matriculaRepository;
         this.cursoRepository = cursoRepository;
         this.cursoEstudianteRepository = cursoEstudianteRepository;
+        this.anioLectivoRepository = anioLectivoRepository;
         this.auditoriaService = auditoriaService;
     }
 
     @Transactional
     public Matricula guardar(Matricula matricula) {
+        if (matricula != null && matricula.getAnioLectivo() == null && anioLectivoRepository != null) {
+            resolverAnioLectivo(matricula).ifPresent(matricula::setAnioLectivo);
+        }
         if (matricula != null && "APROBADA".equalsIgnoreCase(matricula.getEstado()) && Boolean.TRUE.equals(matricula.getAutorizaTratamientoDatos())) {
             validarLey1581(matricula);
         }
-        Matricula guardada = matriculaRepository.save(matricula);
+        Matricula guardada = matriculaRepository.saveAndFlush(matricula);
         if (auditoriaService != null && guardada != null) {
             auditoriaService.registrarCambio("MATRICULA", guardada.getId(), "registro", null,
                     guardada.getGrado() + " (" + guardada.getEstado() + ")");
         }
         return guardada;
+    }
+
+    private Optional<AnioLectivo> resolverAnioLectivo(Matricula matricula) {
+        if (matricula.getCurso() != null && matricula.getCurso().getAnioLectivo() != null) {
+            return Optional.of(matricula.getCurso().getAnioLectivo());
+        }
+        String anoTexto = matricula.getAnoLectivo();
+        if (anoTexto != null && !anoTexto.isBlank()) {
+            try {
+                Optional<AnioLectivo> porAnio = anioLectivoRepository.findByAnio(Integer.parseInt(anoTexto.trim()));
+                if (porAnio.isPresent()) {
+                    return porAnio;
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        return anioLectivoRepository.findByEsActualTrue();
     }
 
     private void validarLey1581(Matricula matricula) {

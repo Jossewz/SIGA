@@ -8,8 +8,29 @@
             <i data-lucide="menu" class="size-5 stroke-2"></i>
         </button>
 
-        <!-- Contenedor Derecho: Notificaciones, Configuración y Perfil de Usuario -->
-        <div class="flex items-center gap-4 ml-auto max-md:w-full max-md:justify-end">
+        <!-- Contenedor Derecho: Atajo Mangle, Notificaciones, Configuración y Perfil de Usuario -->
+        <div class="flex items-center gap-3 sm:gap-4 ml-auto max-md:w-full max-md:justify-end">
+            <!-- Atajo Global Mangle (estilo buscador SEGI) -->
+            <button type="button"
+                    @click="$dispatch('toggle-mangle')"
+                    class="hidden h-9 sm:flex items-center justify-between gap-3 rounded-control border border-border bg-white/85 hover:bg-white hover:border-sidebar/40 px-3 text-xs font-bold text-text-secondary hover:text-sidebar transition cursor-pointer shrink-0 shadow-2xs"
+                    aria-label="Abrir o cerrar asistente virtual Mangle"
+                    aria-keyshortcuts="Alt+M"
+                    title="Abrir o cerrar Mangle (Alt + M)">
+                <span class="flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-emerald-500"></span>
+                    <span class="lg:hidden">Mangle</span>
+                    <span class="hidden lg:inline">Preguntar a Mangle...</span>
+                </span>
+                <kbd class="hidden lg:inline-block rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-[10px] font-bold text-text-secondary">Alt M</kbd>
+            </button>
+            <button type="button"
+                    @click="$dispatch('toggle-mangle')"
+                    class="sm:hidden relative w-8 h-8 grid place-items-center rounded-lg bg-white border border-border text-sidebar hover:bg-surface-muted transition cursor-pointer shrink-0"
+                    aria-label="Abrir asistente virtual Mangle">
+                <i data-lucide="bot" class="size-4 stroke-2"></i>
+            </button>
+
             <button class="relative w-7 h-7 grid place-items-center rounded-full bg-transparent text-text-primary cursor-pointer after:content-[''] after:absolute after:top-1 after:right-[5px] after:w-[7px] after:h-[7px] after:border-[2px] after:border-page-bg after:rounded-full after:bg-notification-red" type="button" aria-label="Notificaciones">
                 <i data-lucide="bell" class="size-[18px] stroke-2"></i>
             </button>

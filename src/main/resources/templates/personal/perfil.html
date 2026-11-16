@@ -74,16 +74,26 @@
                 
                 <!-- Tabs Bar -->
                 <div class="flex border-b border-[#c4eec0]/40 px-6 bg-[#f7fcf6] overflow-x-auto gap-2 scrollbar-none">
-                    <button type="button" class="tab-btn-p px-4 py-4 text-[10px] font-black uppercase tracking-wider text-sidebar border-b-2 border-sidebar whitespace-nowrap" onclick="switchProfileTab(this, 'tab-info')">Información</button>
-                    <button type="button" class="tab-btn-p px-4 py-4 text-[10px] font-black uppercase tracking-wider text-text-secondary border-b-2 border-transparent whitespace-nowrap" onclick="switchProfileTab(this, 'tab-laboral-p')">Laboral</button>
-                    <button type="button" class="tab-btn-p px-4 py-4 text-[10px] font-black uppercase tracking-wider text-text-secondary border-b-2 border-transparent whitespace-nowrap" onclick="switchProfileTab(this, 'tab-cuenta-p')">Cuenta Acceso</button>
+                    <button type="button"
+                            class="tab-btn-p px-4 py-4 text-[10px] font-black uppercase tracking-wider border-b-2 whitespace-nowrap cursor-pointer"
+                            th:classappend="${activeTab == null || activeTab == 'informacion'} ? 'text-sidebar border-sidebar' : 'text-text-secondary border-transparent'"
+                            onclick="switchProfileTab(this, 'tab-info')">Información</button>
+                    <button type="button"
+                            class="tab-btn-p px-4 py-4 text-[10px] font-black uppercase tracking-wider border-b-2 whitespace-nowrap cursor-pointer"
+                            th:classappend="${activeTab == 'laboral'} ? 'text-sidebar border-sidebar' : 'text-text-secondary border-transparent'"
+                            onclick="switchProfileTab(this, 'tab-laboral-p')">Laboral</button>
+                    <button type="button"
+                            class="tab-btn-p px-4 py-4 text-[10px] font-black uppercase tracking-wider border-b-2 whitespace-nowrap cursor-pointer"
+                            th:classappend="${activeTab == 'cuenta'} ? 'text-sidebar border-sidebar' : 'text-text-secondary border-transparent'"
+                            onclick="switchProfileTab(this, 'tab-cuenta-p')">Cuenta Acceso</button>
                 </div>
 
                 <!-- Tab Body Content -->
                 <div class="p-8 flex-1">
                     
                     <!-- TAB 1: INFORMACIÓN -->
-                    <div id="tab-info" class="profile-tab-content flex flex-col gap-6">
+                    <div id="tab-info" class="profile-tab-content flex flex-col gap-6"
+                         th:classappend="${activeTab != null && activeTab != 'informacion'} ? 'hidden' : ''">
                         <h3 class="text-sidebar text-sm font-black uppercase tracking-wide border-b border-[#c4eec0]/30 pb-2">Información Personal</h3>
                         <div class="grid grid-cols-2 max-sm:grid-cols-1 gap-5 text-[11px] font-bold">
                             <div class="grid gap-1">
@@ -106,8 +116,9 @@
                     </div>
 
                     <!-- TAB 2: LABORAL -->
-                    <div id="tab-laboral-p" class="profile-tab-content hidden flex flex-col gap-6">
-                        <h3 class="text-sidebar text-sm font-black uppercase tracking-wide border-b border-[#c4eec0]/30 pb-2">Información Laboral / Profesional</h3>
+                    <div id="tab-laboral-p" class="profile-tab-content flex flex-col gap-6"
+                         th:classappend="${activeTab != 'laboral'} ? 'hidden' : ''">
+                        <h3 class="text-sidebar text-sm font-black uppercase tracking-wide border-b border-[#c4eec0]/30 pb-2">Información Laboral / Académica</h3>
                         <div class="grid grid-cols-2 max-sm:grid-cols-1 gap-5 text-[11px] font-bold">
                             <div class="grid gap-1">
                                 <span class="text-text-secondary uppercase text-[9px] tracking-wider">Cargo</span>
@@ -117,19 +128,59 @@
                                 <span class="text-text-secondary uppercase text-[9px] tracking-wider">Área</span>
                                 <span class="text-text-primary text-xs" th:text="${staff.area}">Académica</span>
                             </div>
+                            <div class="col-span-2 max-sm:col-span-1 grid gap-2" th:if="${staff.tipoPersona == 'docente'}">
+                                <span class="text-text-secondary uppercase text-[9px] tracking-wider">Asignaturas Asignadas</span>
+                                <div th:if="${staff.asignaturasList != null and !#lists.isEmpty(staff.asignaturasList)}" class="flex flex-wrap gap-1.5">
+                                    <span th:each="asig : ${staff.asignaturasList}"
+                                          class="inline-flex items-center px-2.5 py-1 rounded-lg bg-pill-green text-sidebar font-extrabold text-xs border border-[#cbe5c7]"
+                                          th:text="${asig}">Matemáticas</span>
+                                </div>
+                                <span th:if="${staff.asignaturasList == null or #lists.isEmpty(staff.asignaturasList)}"
+                                      class="text-text-secondary text-xs font-semibold">Sin asignaturas registradas</span>
+                            </div>
                             <div class="grid gap-1" th:if="${staff.profesion != null}">
                                 <span class="text-text-secondary uppercase text-[9px] tracking-wider">Profesión / Título</span>
                                 <span class="text-text-primary text-xs" th:text="${staff.profesion}">Licenciado</span>
                             </div>
-                            <div class="grid gap-1" th:if="${staff.especialidad != null}">
-                                <span class="text-text-secondary uppercase text-[9px] tracking-wider">Especialidad</span>
-                                <span class="text-text-primary text-xs" th:text="${staff.especialidad}">Matemáticas</span>
+                        </div>
+
+                        <!-- Editar Asignaturas del Docente -->
+                        <div th:if="${staff.tipoPersona == 'docente' and materiasList != null and !#lists.isEmpty(materiasList)}"
+                             class="p-5 rounded-xl border border-[#c4eec0]/60 bg-white shadow-sm flex flex-col gap-4">
+                            <div>
+                                <h4 class="text-sidebar text-xs font-black uppercase tracking-wider">Gestionar Asignaturas del Docente</h4>
+                                <p class="text-text-secondary text-[11px] font-semibold mt-0.5">Selecciona una o varias asignaturas activas del plan académico.</p>
                             </div>
+                            <form th:action="@{'/personal/' + ${staff.id} + '/asignaturas'}" method="post" class="flex flex-col gap-4">
+                                <div class="grid grid-cols-2 max-sm:grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                                    <label th:each="m : ${materiasList}"
+                                           class="flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-[#f9fbf8] hover:border-sidebar/50 cursor-pointer transition-all select-none">
+                                        <input type="checkbox"
+                                               name="materiaIds"
+                                               th:value="${m.id}"
+                                               th:checked="${staff.asignaturasIds != null and #lists.contains(staff.asignaturasIds, m.id.toString())}"
+                                               class="rounded border-gray-300 text-sidebar focus:ring-sidebar/20 size-4 shrink-0 cursor-pointer">
+                                        <div class="min-w-0 flex-1">
+                                            <span class="block text-xs font-bold text-text-primary truncate" th:text="${m.nombre}">Matemáticas</span>
+                                            <span th:if="${m.area != null and !#strings.isEmpty(m.area)}"
+                                                  class="block text-[10px] font-semibold text-text-secondary truncate"
+                                                  th:text="${m.area}">Ciencias Exactas</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="px-5 py-2.5 text-xs font-black text-white bg-sidebar hover:brightness-97 rounded-lg transition-all flex items-center gap-2 shadow-md cursor-pointer">
+                                        <i data-lucide="save" class="size-4 stroke-2"></i>
+                                        <span>Guardar Asignaturas</span>
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
 
                     <!-- TAB 3: CUENTA -->
-                    <div id="tab-cuenta-p" class="profile-tab-content hidden flex flex-col gap-6">
+                    <div id="tab-cuenta-p" class="profile-tab-content flex flex-col gap-6"
+                         th:classappend="${activeTab != 'cuenta'} ? 'hidden' : ''">
                         <h3 class="text-sidebar text-sm font-black uppercase tracking-wide border-b border-[#c4eec0]/30 pb-2">Cuenta de Acceso al Sistema</h3>
                         
                         <div th:if="${staff.tieneCuenta}" class="p-5 rounded-xl border border-[#c4eec0] bg-[#f1fbe4]/50 flex flex-col gap-4">

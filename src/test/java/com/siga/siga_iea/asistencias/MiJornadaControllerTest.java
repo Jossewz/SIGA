@@ -465,4 +465,71 @@ class MiJornadaControllerTest {
         assertEquals(2, sesiones.size());
         assertTrue(sesiones.stream().allMatch(s -> "ASIGNATURA".equals(s.getTipo())));
     }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "docentePersist@ieaci.edu.co", roles = "DOCENTE")
+    @DisplayName("8. Al regresar a /mi-jornada muestra la sesión autoseleccionada con los estados guardados y resumen")
+    void testVolverAMiJornadaMuestraAsistenciaGuardadaYResumen() throws Exception {
+        Docente doc = crearDocente("Docente", "Persistente", "DOC-PERS-10");
+        crearUsuario("docentePersist@ieaci.edu.co", "DOC-PERS-10", RolEnum.DOCENTE);
+
+        Curso curso = crearCurso("10°", "03", doc);
+        Materia mat = crearMateria("Biología 10");
+        cursoMateriaRepository.save(new CursoMateria(curso, mat, doc, "2026"));
+
+        Horario h = new Horario();
+        h.setCurso(curso);
+        h.setMateria(mat);
+        h.setDiaSemana("Miércoles");
+        h.setHoraInicio(LocalTime.of(7, 0));
+        h.setHoraFin(LocalTime.of(8, 30));
+        horarioRepository.save(h);
+
+        Estudiante est = crearEstudiante("Jose", "Ayola", "EST-PERS-10");
+        cursoEstudianteRepository.save(new CursoEstudiante(curso, est, "2026"));
+
+        mockMvc.perform(post("/mi-jornada/iniciar").with(csrf()))
+                .andExpect(status().isOk());
+
+        LocalDate hoy = LocalDate.now(clock);
+        SesionClase sesion = sesionClaseRepository.findByDocenteIdAndFecha(doc.getId(), hoy).get(0);
+
+        mockMvc.perform(post("/mi-jornada/sesiones/" + sesion.getId() + "/guardar")
+                        .with(csrf())
+                        .param("estudianteId", est.getId().toString())
+                        .param("estado", "AUSENTE"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("HX-Trigger", "jornadaGuardada"));
+
+        // Al regresar a /mi-jornada debe autoseleccionar la sesión, cargar el estado guardado sin [[${f.id}]] literal y mostrar cobertura
+        mockMvc.perform(get("/mi-jornada"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Guardada: 1/1")))
+                .andExpect(content().string(containsString("AUSENTE")))
+                .andExpect(content().string(containsString("Jose Ayola")))
+                .andExpect(content().string(not(containsString("Ayola, Jose"))))
+                .andExpect(content().string(containsString("Cierre automático a las 19:00")))
+                .andExpect(content().string(not(containsString("btn-iniciar-jornada"))))
+                .andExpect(content().string(containsString("est[eid]")))
+                .andExpect(content().string(not(containsString("[[${f.id}]]"))));
+
+        // Después de las 19:00 (2026-09-30 19:30 Bogota = 2026-10-01T00:30:00Z) la jornada pasa automáticamente a finalizada
+        if (clock instanceof MutableTestClock mutableClock) {
+            mutableClock.setInstant(Instant.parse("2026-10-01T00:30:00Z"));
+        }
+        mockMvc.perform(get("/mi-jornada"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Jornada finalizada automáticamente")))
+                .andExpect(content().string(containsString("Finalizada")));
+        if (clock instanceof MutableTestClock mutableClock) {
+            mutableClock.reset();
+        }
+
+        // Al consultar una fecha pasada como docente entra en modo consulta histórica (solo lectura)
+        mockMvc.perform(get("/mi-jornada").param("fecha", "2026-09-29"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Consulta histórica de jornada")))
+                .andExpect(content().string(not(containsString("btn-iniciar-jornada"))));
+    }
 }

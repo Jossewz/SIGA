@@ -4,6 +4,7 @@
 
 let vistaActualHorario = 'semana';
 window.horariosActuales = [];
+window.jornadaActualCurso = 'Mañana';
 
 function handleRowClick(tr, event) {
     if (event.target.closest('button') || event.target.closest('form')) return;
@@ -12,7 +13,7 @@ function handleRowClick(tr, event) {
 
 function handleHorarioBtn(btn, event) {
     if (event) event.stopPropagation();
-    openHorarioModal(btn.dataset.id, btn.dataset.codigo);
+    openHorarioModal(btn.dataset.id, btn.dataset.codigo, btn.dataset.jornada);
 }
 
 function normalizarDia(dia) {
@@ -53,9 +54,19 @@ function getDocentesList() {
 // -------------------------------------------------------------------------
 // MODAL HORARIO (GOOGLE CALENDAR / SEGI STYLE)
 // -------------------------------------------------------------------------
-async function openHorarioModal(cursoId, codigo) {
+async function openHorarioModal(cursoId, codigo, jornada) {
+    window.jornadaActualCurso = (jornada && jornada.trim()) ? jornada.trim() : 'Mañana';
+
     const titleElem = document.getElementById('horario-title');
     if (titleElem) titleElem.innerText = 'Horario Semanal — ' + (codigo ? 'Curso ' + codigo : 'Curso');
+
+    const subtituloElem = document.getElementById('horario-subtitulo');
+    if (subtituloElem) {
+        const esTarde = window.jornadaActualCurso.toLowerCase().includes('tar');
+        subtituloElem.innerText = esTarde
+            ? 'Jornada Tarde (13:00 – 18:00) • Gestión flexible de franjas horarias, materias, docentes y aulas.'
+            : 'Jornada Mañana (07:00 – 12:00) • Gestión flexible de franjas horarias, materias, docentes y aulas.';
+    }
 
     const cursoIdInput = document.getElementById('h-curso-id');
     if (cursoIdInput) cursoIdInput.value = cursoId || '';
@@ -69,6 +80,9 @@ async function openHorarioModal(cursoId, codigo) {
     if (loading) loading.classList.remove('hidden');
     if (semanaContainer) semanaContainer.classList.add('hidden');
     if (agendaContainer) agendaContainer.classList.add('hidden');
+    const modalForm = document.getElementById('modal-form-clase');
+    if (modalForm) modalForm.classList.add('hidden');
+    if (dialog) dialog.classList.remove('hidden');
 
     modal.classList.remove('hidden');
     setTimeout(() => {
@@ -361,6 +375,52 @@ function renderVistaAgendaSEGI() {
 // -------------------------------------------------------------------------
 // FORMULARIO DINÁMICO DE CREAR / EDITAR CLASE (HORAS TOTALMENTE FLEXIBLES)
 // -------------------------------------------------------------------------
+function obtenerPresetsPorJornada(jornada) {
+    const esTarde = (jornada || '').toLowerCase().includes('tar');
+    if (esTarde) {
+        return {
+            etiqueta: 'Jornada Tarde (13:00 - 18:00)',
+            inicioDefecto: '13:00',
+            finDefecto: '14:30',
+            presets: [
+                { inicio: '13:00', fin: '14:30' },
+                { inicio: '14:30', fin: '16:00' },
+                { inicio: '16:30', fin: '18:00' }
+            ]
+        };
+    }
+    return {
+        etiqueta: 'Jornada Mañana (07:00 - 12:00)',
+        inicioDefecto: '07:00',
+        finDefecto: '08:30',
+        presets: [
+            { inicio: '07:00', fin: '08:30' },
+            { inicio: '08:30', fin: '10:00' },
+            { inicio: '10:30', fin: '12:00' }
+        ]
+    };
+}
+
+function renderizarPresetsJornada() {
+    const cfg = obtenerPresetsPorJornada(window.jornadaActualCurso);
+    const badge = document.getElementById('fc-jornada-badge');
+    const container = document.getElementById('fc-presets-container');
+
+    if (badge) badge.textContent = cfg.etiqueta;
+    if (container) {
+        container.innerHTML = '';
+        cfg.presets.forEach(p => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer';
+            btn.textContent = `${p.inicio} - ${p.fin}`;
+            btn.onclick = () => aplicarPresetHoras(p.inicio, p.fin);
+            container.appendChild(btn);
+        });
+    }
+    return cfg;
+}
+
 function abrirModalCrearClase(diaSugerido) {
     const modalForm = document.getElementById('modal-form-clase');
     const formTitle = document.getElementById('form-clase-titulo');
@@ -368,6 +428,8 @@ function abrirModalCrearClase(diaSugerido) {
 
     if (formTitle) formTitle.innerText = "Programar Nueva Clase";
     if (btnText) btnText.innerText = "Guardar Clase";
+
+    const cfg = renderizarPresetsJornada();
 
     const idInput = document.getElementById('fc-horario-id');
     const diaSelect = document.getElementById('fc-dia');
@@ -380,13 +442,15 @@ function abrirModalCrearClase(diaSugerido) {
 
     if (idInput) idInput.value = '';
     if (diaSelect && diaSugerido) diaSelect.value = diaSugerido;
-    if (horaInicioInput) horaInicioInput.value = '07:00';
-    if (horaFinInput) horaFinInput.value = '08:30';
+    if (horaInicioInput) horaInicioInput.value = cfg.inicioDefecto;
+    if (horaFinInput) horaFinInput.value = cfg.finDefecto;
     if (materiaSelect) materiaSelect.selectedIndex = 0;
     if (docenteSelect) docenteSelect.selectedIndex = 0;
-    if (salonSelect) salonSelect.value = 'Aula 101';
+    if (salonSelect && salonSelect.options.length > 0) salonSelect.selectedIndex = 0;
     if (salonCustom) salonCustom.value = '';
 
+    const horarioDialog = document.getElementById('horario-modal-dialog');
+    if (horarioDialog) horarioDialog.classList.add('hidden');
     if (modalForm) modalForm.classList.remove('hidden');
     if (window.lucide) lucide.createIcons();
 }
@@ -402,6 +466,8 @@ function abrirModalEditarClase(horarioId) {
     if (formTitle) formTitle.innerText = "Editar Clase";
     if (btnText) btnText.innerText = "Actualizar Cambios";
 
+    const cfg = renderizarPresetsJornada();
+
     const idInput = document.getElementById('fc-horario-id');
     const diaSelect = document.getElementById('fc-dia');
     const horaInicioInput = document.getElementById('fc-hora-inicio');
@@ -413,25 +479,29 @@ function abrirModalEditarClase(horarioId) {
 
     if (idInput) idInput.value = clase.id;
     if (diaSelect) diaSelect.value = clase.dia;
-    if (horaInicioInput) horaInicioInput.value = (clase.horaInicio || '07:00').substring(0, 5);
-    if (horaFinInput) horaFinInput.value = (clase.horaFin || '08:30').substring(0, 5);
+    if (horaInicioInput) horaInicioInput.value = (clase.horaInicio || cfg.inicioDefecto).substring(0, 5);
+    if (horaFinInput) horaFinInput.value = (clase.horaFin || cfg.finDefecto).substring(0, 5);
     if (materiaSelect) materiaSelect.value = clase.materiaId || '';
     if (docenteSelect) docenteSelect.value = clase.docenteId || '';
     
     if (salonSelect) {
-        salonSelect.value = clase.salon || 'Aula 101';
+        salonSelect.value = clase.salon || (salonSelect.options[0]?.value || 'Aula 101');
     }
     if (salonCustom) {
         salonCustom.value = clase.salon || '';
     }
 
+    const horarioDialog = document.getElementById('horario-modal-dialog');
+    if (horarioDialog) horarioDialog.classList.add('hidden');
     if (modalForm) modalForm.classList.remove('hidden');
     if (window.lucide) lucide.createIcons();
 }
 
 function cerrarModalFormClase() {
     const modalForm = document.getElementById('modal-form-clase');
+    const horarioDialog = document.getElementById('horario-modal-dialog');
     if (modalForm) modalForm.classList.add('hidden');
+    if (horarioDialog) horarioDialog.classList.remove('hidden');
 }
 
 function aplicarPresetHoras(inicio, fin) {

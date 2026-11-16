@@ -159,11 +159,13 @@ public class CalificacionesService {
         }
 
         Evaluacion nueva = new Evaluacion(cm, "Nota " + nuevaCantidad, periodo, pesoEquitativo);
+        LocalDate fechaEval = LocalDate.now();
         if (fechaStr != null && !fechaStr.isBlank()) {
             try {
-                nueva.setFecha(LocalDate.parse(fechaStr));
+                fechaEval = LocalDate.parse(fechaStr);
             } catch (Exception ignored) {}
         }
+        nueva.setFecha(fechaEval);
         return evaluacionRepository.save(nueva);
     }
 
@@ -204,8 +206,18 @@ public class CalificacionesService {
         return evaluacionRepository.findByCursoMateriaId(cursoMateriaId);
     }
 
+    public List<Evaluacion> obtenerEvaluacionesPorCursoYMateriaYFecha(UUID cursoMateriaId, Integer periodo, LocalDate fecha) {
+        if (fecha != null && periodo != null) {
+            return evaluacionRepository.findByCursoMateriaIdAndPeriodoAndFecha(cursoMateriaId, periodo, fecha);
+        }
+        return obtenerEvaluacionesPorCursoYMateria(cursoMateriaId, periodo);
+    }
+
     public Map<UUID, Map<UUID, BigDecimal>> obtenerCalificacionesMapa(UUID cursoMateriaId, Integer periodo) {
-        List<Evaluacion> evaluaciones = obtenerEvaluacionesPorCursoYMateria(cursoMateriaId, periodo);
+        return obtenerCalificacionesMapa(obtenerEvaluacionesPorCursoYMateria(cursoMateriaId, periodo));
+    }
+
+    public Map<UUID, Map<UUID, BigDecimal>> obtenerCalificacionesMapa(List<Evaluacion> evaluaciones) {
         Map<UUID, Map<UUID, BigDecimal>> mapaEstudiantes = new HashMap<>();
 
         for (Evaluacion ev : evaluaciones) {

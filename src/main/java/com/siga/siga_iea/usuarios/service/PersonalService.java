@@ -62,6 +62,16 @@ public class PersonalService {
         return personalAdministrativoRepository.findById(id);
     }
 
+    public Optional<Docente> buscarDocentePorDocumento(String numeroDocumento) {
+        if (numeroDocumento == null || numeroDocumento.isBlank()) return Optional.empty();
+        return docenteRepository.findByNumeroDocumento(numeroDocumento.trim());
+    }
+
+    public Optional<PersonalAdministrativo> buscarPersonalPorDocumento(String numeroDocumento) {
+        if (numeroDocumento == null || numeroDocumento.isBlank()) return Optional.empty();
+        return personalAdministrativoRepository.findByNumeroDocumento(numeroDocumento.trim());
+    }
+
     @Transactional
     public Docente guardarDocente(Docente docente) {
         boolean esNuevo = (docente.getId() == null || !docenteRepository.existsById(docente.getId()));

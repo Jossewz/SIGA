@@ -150,6 +150,7 @@
         <!-- Inputs ocultos para interacción HTMX -->
         <input type="hidden" id="input-curso-id" name="cursoId" th:value="${cursoId}" />
         <input type="hidden" id="input-periodo-activo" name="periodo" value="1" />
+        <input type="hidden" id="input-vista-notas" name="vistaNotas" th:value="${vistaNotas != null ? vistaNotas : 'FECHA'}" />
 
         <!-- Barra de Acciones de Calificaciones -->
         <div id="barra-acciones-calificaciones" class="flex items-center justify-between gap-4 bg-white p-4 rounded-xl border border-border shadow-2xs">
@@ -159,7 +160,7 @@
                         th:disabled="${tieneHorarioHoy == false}"
                         th:classappend="${tieneHorarioHoy == false} ? 'opacity-40 cursor-not-allowed pointer-events-none bg-gray-400' : 'bg-sidebar hover:brightness-97 cursor-pointer'"
                         th:attr="hx-post=@{/clases/evaluaciones/crear}"
-                        hx-include="#input-curso-id, #select-materia, #input-periodo-activo, #fecha-evaluacion"
+                        hx-include="#input-curso-id, #select-materia, #input-periodo-activo, #fecha-evaluacion, #input-vista-notas"
                         hx-target="#contenedor-tabla-notas"
                         hx-swap="outerHTML"
                         class="px-4 py-2 text-xs font-black text-white rounded-lg transition-all flex items-center gap-1.5 shadow-sm">

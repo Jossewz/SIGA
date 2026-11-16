@@ -106,7 +106,7 @@ function handleFormCrearReporte(e) {
         <td class="p-3.5 pl-5 font-black text-sidebar text-[11px]">${codId}</td>
         <td class="p-3.5">
             <div class="font-black text-text-primary text-[12px]">${estudiante}</div>
-            <div class="text-[10px] font-semibold text-text-secondary">11° - 01</div>
+            <div class="text-[10px] font-semibold text-text-secondary">—</div>
         </td>
         <td class="p-3.5">
             <div class="font-bold text-sidebar text-[12px]">${razon}</div>
@@ -130,9 +130,9 @@ function handleFormCrearReporte(e) {
         <td class="p-3.5 pl-5 font-black text-sidebar text-[11px]">${codId}</td>
         <td class="p-3.5">
             <div class="font-black text-text-primary text-[12px]">${estudiante}</div>
-            <div class="text-[10px] font-semibold text-text-secondary">11° - 01</div>
+            <div class="text-[10px] font-semibold text-text-secondary">—</div>
         </td>
-        <td class="p-3.5 font-semibold text-text-secondary">Prof. Jorge Eliécer Rojas</td>
+        <td class="p-3.5 font-semibold text-text-secondary">Docente asignado</td>
         <td class="p-3.5">
             <div class="font-bold text-sidebar text-[12px]">${razon}</div>
             <div class="text-[10px] font-semibold text-text-secondary">${categoria}</div>
@@ -144,8 +144,8 @@ function handleFormCrearReporte(e) {
             <button type="button" 
                     data-id="${codId}"
                     data-estudiante="${estudiante}"
-                    data-grado="11° - 01"
-                    data-docente="Prof. Jorge Eliécer Rojas"
+                    data-grado="—"
+                    data-docente="Docente asignado"
                     data-razon="${razon}"
                     data-categoria="${categoria}"
                     data-detalles="${detalles}"

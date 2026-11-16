@@ -91,16 +91,16 @@ class DashboardServiceTest {
 
         assertNotNull(stats);
         assertEquals("0%", stats.getAsistenciaHoy());
-        assertEquals(93.7, stats.getPromedioAsistencia());
-        assertEquals(15, stats.getAsistenciaLabels().size());
-        assertEquals(15, stats.getAsistenciaValores().size());
-        assertFalse(stats.getAsistenciaLabelsCsv().isBlank());
-        assertFalse(stats.getAsistenciaValoresCsv().isBlank());
+        assertEquals(0.0, stats.getPromedioAsistencia());
+        assertEquals(1, stats.getAsistenciaLabels().size());
+        assertEquals(1, stats.getAsistenciaValores().size());
+        assertEquals("Sin datos", stats.getAsistenciaLabelsCsv());
+        assertEquals("0.0", stats.getAsistenciaValoresCsv());
 
-        // Distribución por defecto
-        assertEquals(45, stats.getPorcentajePrimaria());
-        assertEquals(40, stats.getPorcentajeSecundaria());
-        assertEquals(15, stats.getPorcentajeMedia());
+        // Distribución vacía real (0%)
+        assertEquals(0, stats.getPorcentajePrimaria());
+        assertEquals(0, stats.getPorcentajeSecundaria());
+        assertEquals(0, stats.getPorcentajeMedia());
 
         // 5 Semáforos institucionales
         assertNotNull(stats.getSemaforos());

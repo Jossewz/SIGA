@@ -8,6 +8,7 @@ let horariosList = (window.horariosBDData && Array.isArray(window.horariosBDData
     : [];
 
 let periodoActivo = '1';
+let vistaNotasActiva = 'FECHA';
 
 function getHoyFechaLocalStr() {
     const d = new Date();
@@ -77,6 +78,19 @@ function actualizarMateriaPorFecha(recargar = true) {
             selectMateria.classList.add('opacity-50', 'bg-gray-100', 'cursor-not-allowed', 'text-gray-500');
             selectMateria.classList.remove('bg-[#f9fbf8]', 'text-text-primary');
         }
+    } else if (selectMateria) {
+        const materiasDocenteDia = horariosList.filter(h =>
+            h.dia && h.dia.toLowerCase() === diaNombre.toLowerCase() &&
+            (!window.docenteLogueadoNombre || (h.docente && h.docente.toLowerCase() === window.docenteLogueadoNombre.toLowerCase()))
+        );
+        const spanEstatico = document.getElementById('texto-materia-estatica');
+        if (materiasDocenteDia.length > 0) {
+            selectMateria.value = materiasDocenteDia[0].materia || '';
+            if (spanEstatico) spanEstatico.innerText = materiasDocenteDia[0].materia || 'Asignatura';
+        } else {
+            selectMateria.value = '';
+            if (spanEstatico) spanEstatico.innerText = 'Sin Asignación';
+        }
     }
 
     if (recargar) {
@@ -112,6 +126,15 @@ function seleccionarPeriodo(num, recargar = true) {
     }
 }
 
+function seleccionarVistaNotas(modo, recargar = true) {
+    vistaNotasActiva = (modo === 'PERIODO') ? 'PERIODO' : 'FECHA';
+    const hiddenInput = document.getElementById('input-vista-notas');
+    if (hiddenInput) hiddenInput.value = vistaNotasActiva;
+    if (recargar) {
+        recargarTablaNotas();
+    }
+}
+
 function recargarTablaNotas() {
     const cursoId = document.getElementById('input-curso-id')?.value;
     if (!cursoId || !window.htmx) return;
@@ -119,6 +142,7 @@ function recargarTablaNotas() {
     const selectMateria = document.getElementById('select-materia');
     const materiaNombre = (selectMateria && selectMateria.value) ? selectMateria.value : '';
     const fecha = document.getElementById('fecha-evaluacion')?.value || getHoyFechaLocalStr();
+    const vistaNotas = document.getElementById('input-vista-notas')?.value || vistaNotasActiva || 'FECHA';
 
     htmx.ajax('GET', '/clases/fragmento/tabla-notas', {
         target: '#contenedor-tabla-notas',
@@ -127,7 +151,8 @@ function recargarTablaNotas() {
             cursoId: cursoId,
             materiaNombre: materiaNombre,
             periodo: periodoActivo,
-            fecha: fecha
+            fecha: fecha,
+            vistaNotas: vistaNotas
         }
     });
 }

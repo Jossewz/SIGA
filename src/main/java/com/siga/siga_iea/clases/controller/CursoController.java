@@ -268,18 +268,7 @@ public class CursoController {
         model.addAttribute("horarioBannerTexto", detalle.getHorarioBannerTexto());
 
         CursoTablaNotasDTO tablaDTO = detalle.getTablaNotasDTO();
-        model.addAttribute("tieneHorarioHoy", tablaDTO.isTieneHorarioHoy());
-        model.addAttribute("periodo", tablaDTO.getPeriodo());
-        model.addAttribute("fecha", tablaDTO.getFecha().toString());
-        model.addAttribute("estudiantesCE", tablaDTO.getEstudiantesCE());
-        model.addAttribute("cursoMateriaId", tablaDTO.getCursoMateriaId());
-        model.addAttribute("materiaId", tablaDTO.getMateriaId());
-        model.addAttribute("materiaNombre", tablaDTO.getMateriaNombre());
-        model.addAttribute("evaluaciones", tablaDTO.getEvaluaciones());
-        model.addAttribute("sumaPesos", tablaDTO.getSumaPesos());
-        model.addAttribute("calificacionesMapa", tablaDTO.getCalificacionesMapa());
-        model.addAttribute("asistenciasMapa", tablaDTO.getAsistenciasMapa());
-        model.addAttribute("notasFinales", tablaDTO.getNotasFinales());
+        poblarModeloTablaNotas(model, tablaDTO);
 
         return "clases/detalle";
     }
@@ -430,6 +419,7 @@ public class CursoController {
             @RequestParam(value = "materiaId", required = false) UUID materiaId,
             @RequestParam(value = "periodo", defaultValue = "1") Integer periodo,
             @RequestParam(value = "fecha", required = false) String fechaStr,
+            @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
         LocalDate fecha;
@@ -443,9 +433,18 @@ public class CursoController {
         boolean esAdmin = currentUserContextService.esAdmin();
 
         CursoTablaNotasDTO dto = cursoGestionAppService.prepararTablaNotas(
-                cursoId, materiaNombre, materiaId, periodo, fecha, docLogueadoOpt, esAdmin);
+                cursoId, materiaNombre, materiaId, periodo, fecha, docLogueadoOpt, esAdmin, vistaNotas);
+        if (currentUserContextService.esAdminOAdministrativo()) {
+            dto.setPuedeEditarAsistencia(true);
+        }
 
-        model.addAttribute("cursoId", dto.getCursoId());
+        poblarModeloTablaNotas(model, dto);
+
+        return "clases/fragments/tabla-detalle-notas :: tablaDetalleNotas";
+    }
+
+    private void poblarModeloTablaNotas(Model model, CursoTablaNotasDTO dto) {
+        model.addAttribute("cursoId", dto.getCursoId() != null ? dto.getCursoId().toString() : "");
         model.addAttribute("periodo", dto.getPeriodo());
         model.addAttribute("fecha", dto.getFecha().toString());
         model.addAttribute("diaSemana", dto.getDiaSemana());
@@ -456,12 +455,13 @@ public class CursoController {
         model.addAttribute("cursoMateriaId", dto.getCursoMateriaId());
         model.addAttribute("estudiantesCE", dto.getEstudiantesCE());
         model.addAttribute("evaluaciones", dto.getEvaluaciones());
+        model.addAttribute("totalEvaluacionesPeriodo", dto.getTotalEvaluacionesPeriodo());
+        model.addAttribute("vistaNotas", dto.getVistaNotas());
         model.addAttribute("sumaPesos", dto.getSumaPesos());
         model.addAttribute("calificacionesMapa", dto.getCalificacionesMapa());
         model.addAttribute("asistenciasMapa", dto.getAsistenciasMapa());
         model.addAttribute("notasFinales", dto.getNotasFinales());
-
-        return "clases/fragments/tabla-detalle-notas :: tablaDetalleNotas";
+        model.addAttribute("puedeEditarAsistencia", dto.isPuedeEditarAsistencia());
     }
 
     @PostMapping("/clases/evaluaciones/crear")
@@ -471,10 +471,11 @@ public class CursoController {
             @RequestParam(value = "materiaId", required = false) UUID materiaId,
             @RequestParam(value = "periodo", defaultValue = "1") Integer periodo,
             @RequestParam(value = "fecha", required = false) String fecha,
+            @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
         if ((materiaNombre == null || materiaNombre.isBlank()) && materiaId == null) {
-            return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, model);
+            return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, vistaNotas, model);
         }
 
         CursoMateria cm = (materiaId != null)
@@ -483,7 +484,7 @@ public class CursoController {
 
         calificacionesService.crearEvaluacionAutoEquitativa(cm.getId(), periodo, fecha);
 
-        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, cm.getMateria().getId(), periodo, fecha, model);
+        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, cm.getMateria().getId(), periodo, fecha, vistaNotas, model);
     }
 
     @PostMapping("/clases/evaluaciones/eliminar")
@@ -494,11 +495,12 @@ public class CursoController {
             @RequestParam(value = "materiaId", required = false) UUID materiaId,
             @RequestParam(value = "periodo", defaultValue = "1") Integer periodo,
             @RequestParam(value = "fecha", required = false) String fecha,
+            @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
         calificacionesService.eliminarEvaluacion(evaluacionId);
 
-        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, model);
+        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, vistaNotas, model);
     }
 
     @PostMapping("/clases/evaluaciones/actualizar-peso")
@@ -510,6 +512,7 @@ public class CursoController {
             @RequestParam(value = "materiaId", required = false) UUID materiaId,
             @RequestParam(value = "periodo", defaultValue = "1") Integer periodo,
             @RequestParam(value = "fecha", required = false) String fecha,
+            @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
         BigDecimal peso = BigDecimal.ZERO;
@@ -522,7 +525,7 @@ public class CursoController {
 
         calificacionesService.actualizarPesoEvaluacion(evaluacionId, peso);
 
-        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, model);
+        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, vistaNotas, model);
     }
 
     @PostMapping("/clases/calificaciones/guardar")
@@ -551,6 +554,41 @@ public class CursoController {
         return "clases/fragments/tabla-detalle-notas :: badgeNotaFinal";
     }
 
+    @PostMapping("/clases/asistencias/marcar")
+    public String marcarAsistencia(
+            @RequestParam("cursoId") UUID cursoId,
+            @RequestParam("estudianteId") UUID estudianteId,
+            @RequestParam(value = "materiaId", required = false) UUID materiaId,
+            @RequestParam("fecha") String fechaStr,
+            @RequestParam("estado") String estado,
+            Model model) {
+
+        LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now();
+        String estadoFinal;
+        try {
+            Asistencia a = asistenciaService.registrarEstadoEnCurso(cursoId, estudianteId, fecha, materiaId, estado);
+            estadoFinal = a != null ? a.getEstado() : null;
+        } catch (SecurityException | IllegalStateException ex) {
+            Map<UUID, String> mapaActual = asistenciaService.obtenerMapaEstadosAsistencia(cursoId, fecha, materiaId);
+            estadoFinal = mapaActual.get(estudianteId);
+            model.addAttribute("asistenciaError", ex.getMessage());
+        }
+
+        boolean puedeEditar = currentUserContextService.esAdminOAdministrativo()
+                || asistenciaService.puedeEditarFecha(fecha, currentUserContextService.getDocenteAutenticado().orElse(null),
+                        currentUserContextService.getRolAutenticado());
+
+        model.addAttribute("estId", estudianteId.toString());
+        model.addAttribute("cursoId", cursoId.toString());
+        model.addAttribute("materiaId", materiaId != null ? materiaId.toString() : "");
+        model.addAttribute("fecha", fechaStr);
+        model.addAttribute("estado", estadoFinal);
+        model.addAttribute("tieneHorarioHoy", true);
+        model.addAttribute("puedeEditarAsistencia", puedeEditar);
+
+        return "clases/fragments/tabla-detalle-notas :: botonAsistencia";
+    }
+
     @PostMapping("/clases/asistencias/toggle")
     public String toggleAsistencia(
             @RequestParam("cursoId") UUID cursoId,
@@ -561,6 +599,9 @@ public class CursoController {
 
         LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now();
         Asistencia a = asistenciaService.toggleAsistencia(cursoId, estudianteId, fecha, materiaId);
+        boolean puedeEditar = currentUserContextService.esAdminOAdministrativo()
+                || asistenciaService.puedeEditarFecha(fecha, currentUserContextService.getDocenteAutenticado().orElse(null),
+                        currentUserContextService.getRolAutenticado());
 
         model.addAttribute("estId", estudianteId.toString());
         model.addAttribute("cursoId", cursoId.toString());
@@ -568,6 +609,7 @@ public class CursoController {
         model.addAttribute("fecha", fechaStr);
         model.addAttribute("estado", a.getEstado());
         model.addAttribute("tieneHorarioHoy", true);
+        model.addAttribute("puedeEditarAsistencia", puedeEditar);
 
         return "clases/fragments/tabla-detalle-notas :: botonAsistencia";
     }

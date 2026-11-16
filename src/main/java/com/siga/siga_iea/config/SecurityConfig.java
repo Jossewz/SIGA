@@ -1,6 +1,11 @@
 package com.siga.siga_iea.config;
 
 import com.siga.siga_iea.auth.security.CustomUserDetailsService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,8 +17,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
 @EnableMethodSecurity
@@ -43,6 +51,7 @@ public class SecurityConfig {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/error")
                 )
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 // Cabeceras estrictas de seguridad web (Criterios OWASP / SEGI)
                 .headers(headers -> headers
                         .httpStrictTransportSecurity(hsts -> hsts
@@ -109,6 +118,25 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    /**
+     * Fuerza la resolución del CsrfToken diferido antes de que la vista escriba
+     * el cuerpo HTML, asegurando que la cookie XSRF-TOKEN se envíe en las cabeceras
+     * incluso en páginas extensas (> 8 KB) como el login.
+     */
+    private static final class CsrfCookieFilter extends OncePerRequestFilter {
+        @Override
+        protected void doFilterInternal(
+                HttpServletRequest request,
+                HttpServletResponse response,
+                FilterChain filterChain) throws ServletException, IOException {
+            CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (csrfToken != null) {
+                csrfToken.getToken();
+            }
+            filterChain.doFilter(request, response);
+        }
     }
 }
 

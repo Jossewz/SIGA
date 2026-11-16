@@ -7,6 +7,16 @@
 
 <th:block th:fragment="content">
     <div class="flex flex-col gap-6">
+        <!-- Flash Messages -->
+        <div th:if="${mensajeExito}" class="p-4 rounded-xl bg-green-50 border border-green-200 text-xs font-bold text-sidebar flex items-center gap-2">
+            <i data-lucide="check-circle" class="size-4.5 text-sidebar shrink-0"></i>
+            <span th:text="${mensajeExito}">Éxito</span>
+        </div>
+        <div th:if="${mensajeError}" class="p-4 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-alert-red flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="size-4.5 text-alert-red shrink-0"></i>
+            <span th:text="${mensajeError}">Error</span>
+        </div>
+
         <!-- Header -->
         <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
             <div>
@@ -145,16 +155,17 @@
                     <thead class="sticky top-0 z-20 border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700 [&_th]:bg-surface-sunken">
                         <tr>
                             <th class="py-3 px-4 pl-6">Funcionario</th>
-                            <th class="py-3 px-4">Cargo / Especialidad</th>
-                            <th class="py-3 px-4 text-center w-36">Categoría</th>
-                            <th class="py-3 px-4">Contacto</th>
+                            <th class="py-3 px-4">Cargo / Asignaturas</th>
+                            <th class="py-3 px-4 text-center w-32">Categoría</th>
+                            <th class="py-3 px-4 text-center w-36">Teléfono</th>
+                            <th class="py-3 px-4 text-center">Cuenta Institucional</th>
                             <th class="py-3 px-4 pr-6 text-right w-24">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="text-brand-900">
                         <!-- Estado Vacío -->
                         <th:block th:if="${personalList == null || #lists.isEmpty(personalList)}">
-                            <tr th:replace="~{components/tables/empty-state :: emptyState(colspan=5, title='No se encontró personal registrado', description='No se encontraron miembros del personal con los filtros seleccionados.', resetUrl='/personal')}"></tr>
+                            <tr th:replace="~{components/tables/empty-state :: emptyState(colspan=6, title='No se encontró personal registrado', description='No se encontraron miembros del personal con los filtros seleccionados.', resetUrl='/personal')}"></tr>
                         </th:block>
 
                         <!-- Filas de Personal -->
@@ -175,8 +186,18 @@
                                 </div>
                             </td>
 
-                            <!-- Cargo -->
-                            <td class="py-3 px-4 font-bold text-brand-800 text-xs" th:text="${p.cargo != null ? p.cargo : 'Docente'}">Docente de Matemáticas</td>
+                            <!-- Cargo / Asignaturas -->
+                            <td class="py-3 px-4">
+                                <div th:if="${p.tipo == 'DOCENTE' and p.asignaturasList != null and !#lists.isEmpty(p.asignaturasList)}"
+                                     class="flex flex-wrap gap-1.5">
+                                    <span th:each="asig : ${p.asignaturasList}"
+                                          class="inline-flex items-center px-2 py-0.5 rounded-md bg-pill-green/70 text-sidebar font-bold text-[11px] border border-[#cbe5c7]"
+                                          th:text="${asig}">Matemáticas</span>
+                                </div>
+                                <span th:unless="${p.tipo == 'DOCENTE' and p.asignaturasList != null and !#lists.isEmpty(p.asignaturasList)}"
+                                      class="font-bold text-brand-800 text-xs"
+                                      th:text="${p.cargo != null ? p.cargo : 'Docente'}">Docente</span>
+                            </td>
 
                             <!-- Tipo / Rol Badge -->
                             <td class="py-3 px-4 text-center">
@@ -185,10 +206,22 @@
                                       th:text="${p.tipo != null ? p.tipo : 'DOCENTE'}">DOCENTE</span>
                             </td>
 
-                            <!-- Contacto -->
-                            <td class="py-3 px-4">
-                                <div class="font-semibold text-brand-800 text-xs" th:text="${p.email != null ? p.email : (p.correo != null ? p.correo : 'carlos.mendoza@ieaci.edu.co')}">carlos.mendoza@ieaci.edu.co</div>
-                                <div class="text-[11px] text-brand-500 font-medium" th:text="${p.telefono != null ? p.telefono : '3001234567'}">3001234567</div>
+                            <!-- Teléfono -->
+                            <td class="py-3 px-4 text-center text-xs font-semibold text-brand-700 whitespace-nowrap"
+                                th:text="${p.telefono != null ? p.telefono : 'Sin teléfono'}">3001234567</td>
+
+                            <!-- Cuenta Institucional -->
+                            <td class="py-3 px-4 text-center">
+                                <span th:if="${p.tieneCuenta and p.email != null}"
+                                      class="inline-block px-2.5 py-0.5 rounded-md bg-pill-green text-sidebar font-extrabold text-[11px] border border-[#cbe5c7]"
+                                      th:text="${p.email}">carlos.mendoza@ieaci.edu.co</span>
+                                <div th:unless="${p.tieneCuenta and p.email != null}" class="inline-flex items-center justify-center gap-2">
+                                    <span class="inline-block px-2.5 py-0.5 rounded-md bg-surface-sunken text-text-secondary font-medium text-[11px] border border-border">Sin cuenta</span>
+                                    <a th:href="@{'/personal/perfil/' + ${p.id}(tab='cuenta')}"
+                                       class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-sidebar/10 hover:bg-sidebar hover:text-white text-sidebar font-black text-[11px] transition-colors">
+                                        Activar
+                                    </a>
+                                </div>
                             </td>
 
                             <!-- Acciones -->
@@ -197,9 +230,9 @@
                                     <a th:href="@{'/personal/perfil/' + ${p.id}}" class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar" title="Ver hoja de vida">
                                         <i data-lucide="eye" class="size-4 stroke-2"></i>
                                     </a>
-                                    <button type="button" class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar cursor-pointer" title="Editar datos">
-                                        <i data-lucide="edit-3" class="size-4 stroke-2"></i>
-                                    </button>
+                                    <a th:href="@{'/personal/perfil/' + ${p.id}(tab='cuenta')}" class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar" title="Activar o gestionar cuenta">
+                                        <i data-lucide="key-round" class="size-4 stroke-2"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>

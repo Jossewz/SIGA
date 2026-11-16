@@ -10,10 +10,13 @@
         <!-- Ficha del estudiante -->
         <div class="p-3 rounded-lg bg-card-green-light flex items-center justify-between gap-2.5">
             <div class="flex items-center gap-3">
-                <img class="w-9 h-9 rounded-full border border-sidebar object-cover" th:src="${fotoFileUrl != null ? fotoFileUrl : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=96&q=80'}" alt="Estudiante">
+                <img th:if="${fotoFileUrl != null}" class="w-9 h-9 rounded-full border border-sidebar object-cover shrink-0" th:src="${fotoFileUrl}" alt="Estudiante">
+                <span th:unless="${fotoFileUrl != null}" class="w-9 h-9 rounded-full border border-sidebar/30 bg-white text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="user" class="size-4 stroke-2"></i>
+                </span>
                 <div>
                     <small class="block text-[8px] font-black tracking-wider text-text-secondary uppercase leading-none mb-1">Estudiante</small>
-                    <strong class="block text-text-primary text-[11px] font-black leading-tight" id="summary-student-name" th:text="${studentNames != null || studentSurnames != null ? (studentNames ?: '') + ' ' + (studentSurnames ?: '') : 'Julián Andrés Gómez'}">Julián Andrés Gómez</strong>
+                    <strong class="block text-text-primary text-[11px] font-black leading-tight" id="summary-student-name" th:text="${(studentNames != null && !studentNames.isBlank()) || (studentSurnames != null && !studentSurnames.isBlank()) ? ((studentNames ?: '') + ' ' + (studentSurnames ?: '')).trim() : 'Sin especificar'}">Sin especificar</strong>
                 </div>
             </div>
             <span class="px-2 py-0.5 rounded-full bg-pill-green text-sidebar text-[8px] font-black uppercase shrink-0 leading-none">En Revisión</span>
@@ -77,11 +80,11 @@
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-text-secondary font-medium">Grado:</span>
-                        <span class="text-text-primary font-black" th:text="${(grado == '1°' || grado == '2°' || grado == '3°' || grado == '4°' || grado == '5°') ? grado + ' de Primaria' : (grado ?: '9°') + ' de Bachillerato'}">9° de Bachillerato</span>
+                        <span class="text-text-primary font-black" th:text="${grado != null && !grado.isBlank() ? ((grado == '1°' || grado == '2°' || grado == '3°' || grado == '4°' || grado == '5°') ? grado + ' de Primaria' : grado + ' de Bachillerato') : '—'}">—</span>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-text-secondary font-medium">Jornada:</span>
-                        <span class="text-text-primary font-black" th:text="${jornada ?: 'Mañana'}">Mañana</span>
+                        <span class="text-text-primary font-black" th:text="${jornada != null && !jornada.isBlank() ? jornada : '—'}">—</span>
                     </div>
                 </div>
             </div>
