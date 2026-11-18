@@ -3,11 +3,14 @@ package com.siga.siga_iea.certificados.controller;
 import com.siga.siga_iea.auth.service.CurrentUserContextService;
 import com.siga.siga_iea.certificados.entity.SolicitudCertificado;
 import com.siga.siga_iea.certificados.service.CertificadoService;
+import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.matricula.entity.Matricula;
 import com.siga.siga_iea.matricula.service.MatriculaService;
 import com.siga.siga_iea.usuarios.entity.Estudiante;
 import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.service.EstudianteService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +33,24 @@ public class CertificadoController {
     private final MatriculaService matriculaService;
     private final com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository;
     private final com.siga.siga_iea.certificados.service.CertificadoPdfService certificadoPdfService;
+    private final PeriodoConfigService periodoConfigService;
+
+    @Autowired
+    public CertificadoController(CertificadoService certificadoService,
+                                 EstudianteService estudianteService,
+                                 CurrentUserContextService currentUserContextService,
+                                 MatriculaService matriculaService,
+                                 com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository,
+                                 com.siga.siga_iea.certificados.service.CertificadoPdfService certificadoPdfService,
+                                 @Autowired(required = false) PeriodoConfigService periodoConfigService) {
+        this.certificadoService = certificadoService;
+        this.estudianteService = estudianteService;
+        this.currentUserContextService = currentUserContextService;
+        this.matriculaService = matriculaService;
+        this.cursoEstudianteRepository = cursoEstudianteRepository;
+        this.certificadoPdfService = certificadoPdfService;
+        this.periodoConfigService = periodoConfigService;
+    }
 
     public CertificadoController(CertificadoService certificadoService,
                                  EstudianteService estudianteService,
@@ -37,12 +58,8 @@ public class CertificadoController {
                                  MatriculaService matriculaService,
                                  com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository,
                                  com.siga.siga_iea.certificados.service.CertificadoPdfService certificadoPdfService) {
-        this.certificadoService = certificadoService;
-        this.estudianteService = estudianteService;
-        this.currentUserContextService = currentUserContextService;
-        this.matriculaService = matriculaService;
-        this.cursoEstudianteRepository = cursoEstudianteRepository;
-        this.certificadoPdfService = certificadoPdfService;
+        this(certificadoService, estudianteService, currentUserContextService, matriculaService,
+                cursoEstudianteRepository, certificadoPdfService, null);
     }
 
     private String resolverGradoEstudiante(Estudiante e) {
@@ -83,16 +100,21 @@ public class CertificadoController {
         model.addAttribute("esPersonal", esPersonal);
         model.addAttribute("esEstudiante", esEstudiante);
         model.addAttribute("userRole", userRole);
-        model.addAttribute("listaEstudiantes", estudianteService.listarTodos());
 
         Estudiante estudianteSeleccionado = null;
         List<SolicitudCertificado> solicitudesEstudianteDB;
 
-        if (esEstudiante) {
-            estudianteSeleccionado = estLogueadoOpt.get();
-            solicitudesEstudianteDB = certificadoService.listarPorEstudiante(estudianteSeleccionado.getId());
+        if (esEstudiante && !esAdmin && !esPersonal) {
+            model.addAttribute("listaEstudiantes", estLogueadoOpt.map(List::of).orElse(Collections.emptyList()));
+            if (estLogueadoOpt.isPresent()) {
+                estudianteSeleccionado = estLogueadoOpt.get();
+                solicitudesEstudianteDB = certificadoService.listarPorEstudiante(estudianteSeleccionado.getId());
+            } else {
+                solicitudesEstudianteDB = Collections.emptyList();
+            }
         } else {
             List<Estudiante> todosEstudiantes = estudianteService.listarTodos();
+            model.addAttribute("listaEstudiantes", todosEstudiantes);
             if (!todosEstudiantes.isEmpty()) {
                 estudianteSeleccionado = todosEstudiantes.get(0);
                 solicitudesEstudianteDB = certificadoService.listarPorEstudiante(estudianteSeleccionado.getId());
@@ -118,9 +140,10 @@ public class CertificadoController {
         List<Map<String, Object>> solicitudesEstudianteMock = mapearSolicitudes(solicitudesEstudianteDB);
         model.addAttribute("solicitudesEstudianteMock", solicitudesEstudianteMock);
 
-        // Listar todas las solicitudes para el rol administrativo
-        List<SolicitudCertificado> solicitudesTodasDB = certificadoService.listarTodas();
-        List<Map<String, Object>> solicitudesAdminMock = mapearSolicitudes(solicitudesTodasDB);
+        // Listar todas las solicitudes solo para personal administrativo o admin
+        List<Map<String, Object>> solicitudesAdminMock = (esAdmin || esPersonal)
+                ? mapearSolicitudes(certificadoService.listarTodas())
+                : Collections.emptyList();
         model.addAttribute("solicitudesAdminMock", solicitudesAdminMock);
 
         // Compatibilidad
@@ -161,12 +184,19 @@ public class CertificadoController {
             @RequestParam("tipo") String tipo,
             @RequestParam(value = "categoria", required = false) String categoria,
             @RequestParam("motivo") String motivo,
-            @RequestParam(value = "anoLectivo", required = false, defaultValue = "2026") String anoLectivo,
+            @RequestParam(value = "anoLectivo", required = false) String anoLectivo,
             @RequestParam(value = "gradoReferencia", required = false, defaultValue = "11°") String gradoReferencia,
             RedirectAttributes redirectAttributes) {
 
         try {
-            if (estudianteId == null) {
+            boolean esAdminOPersonal = currentUserContextService.esAdminOAdministrativo();
+            if (!esAdminOPersonal) {
+                Optional<Estudiante> estOpt = getEstudianteLogueado();
+                if (estOpt.isEmpty()) {
+                    throw new AccessDeniedException("Debe iniciar sesión con un perfil estudiantil para solicitar certificados.");
+                }
+                estudianteId = estOpt.get().getId();
+            } else if (estudianteId == null) {
                 Optional<Estudiante> estOpt = getEstudianteLogueado();
                 if (estOpt.isPresent()) {
                     estudianteId = estOpt.get().getId();
@@ -175,7 +205,13 @@ public class CertificadoController {
                 }
             }
 
-            SolicitudCertificado sol = certificadoService.crearSolicitud(estudianteId, tipo, categoria, motivo, anoLectivo, gradoReferencia);
+            String anioFinal = (anoLectivo != null && !anoLectivo.isBlank())
+                    ? anoLectivo.trim()
+                    : (periodoConfigService != null
+                            ? periodoConfigService.obtenerAnioLectivoCodigo()
+                            : String.valueOf(PeriodoConfigService.anioCalendarioActual()));
+
+            SolicitudCertificado sol = certificadoService.crearSolicitud(estudianteId, tipo, categoria, motivo, anioFinal, gradoReferencia);
             redirectAttributes.addFlashAttribute("mensajeExito", "Solicitud (" + sol.getCodigo() + ") de " + tipo + " enviada correctamente.");
         } catch (Exception ex) {
             redirectAttributes.addFlashAttribute("mensajeError", "Error al solicitar certificado: " + ex.getMessage());
@@ -192,6 +228,10 @@ public class CertificadoController {
             @RequestParam(value = "decision", required = false, defaultValue = "Resuelto") String decision,
             @RequestParam(value = "adminId", required = false) UUID adminId,
             RedirectAttributes redirectAttributes) {
+
+        if (!currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("Solo Administración o Secretaría puede responder solicitudes de certificados.");
+        }
 
         try {
             Optional<SolicitudCertificado> solOpt = Optional.empty();

@@ -1,5 +1,6 @@
 package com.siga.siga_iea.calificaciones.controller;
 
+import com.siga.siga_iea.auth.service.CurrentUserContextService;
 import com.siga.siga_iea.calificaciones.dto.BoletinMateriaDTO;
 import com.siga.siga_iea.calificaciones.service.BoletinPdfService;
 import com.siga.siga_iea.calificaciones.service.CalificacionesService;
@@ -11,10 +12,13 @@ import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.matricula.entity.Matricula;
 import com.siga.siga_iea.matricula.service.MatriculaService;
 import com.siga.siga_iea.usuarios.entity.Estudiante;
+import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.service.EstudianteService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,14 +41,17 @@ public class CalificacionController {
     private final CursoEstudianteRepository cursoEstudianteRepository;
     private final MatriculaService matriculaService;
     private final BoletinPdfService boletinPdfService;
+    private final CurrentUserContextService currentUserContextService;
 
-    public CalificacionController(CalificacionesService calificacionesService, 
+    @Autowired
+    public CalificacionController(CalificacionesService calificacionesService,
                                   EstudianteService estudianteService,
                                   CursoService cursoService,
                                   PeriodoConfigService periodoConfigService,
                                   CursoEstudianteRepository cursoEstudianteRepository,
                                   MatriculaService matriculaService,
-                                  BoletinPdfService boletinPdfService) {
+                                  BoletinPdfService boletinPdfService,
+                                  @Autowired(required = false) CurrentUserContextService currentUserContextService) {
         this.calificacionesService = calificacionesService;
         this.estudianteService = estudianteService;
         this.cursoService = cursoService;
@@ -52,6 +59,34 @@ public class CalificacionController {
         this.cursoEstudianteRepository = cursoEstudianteRepository;
         this.matriculaService = matriculaService;
         this.boletinPdfService = boletinPdfService;
+        this.currentUserContextService = currentUserContextService;
+    }
+
+    public CalificacionController(CalificacionesService calificacionesService,
+                                  EstudianteService estudianteService,
+                                  CursoService cursoService,
+                                  PeriodoConfigService periodoConfigService,
+                                  CursoEstudianteRepository cursoEstudianteRepository,
+                                  MatriculaService matriculaService,
+                                  BoletinPdfService boletinPdfService) {
+        this(calificacionesService, estudianteService, cursoService, periodoConfigService,
+                cursoEstudianteRepository, matriculaService, boletinPdfService, null);
+    }
+
+    private boolean esSoloEstudiante() {
+        return currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && currentUserContextService.getRolAutenticado().esEstudiante()
+                && !currentUserContextService.esAdminOAdministrativo()
+                && !currentUserContextService.esDocente();
+    }
+
+    private Optional<Estudiante> resolverEstudianteAutenticado() {
+        if (currentUserContextService == null) return Optional.empty();
+        return currentUserContextService.getUsuarioAutenticado()
+                .map(Usuario::getNumeroDocumento)
+                .filter(doc -> doc != null && !doc.isBlank())
+                .flatMap(estudianteService::buscarPorNumeroDocumento);
     }
 
     @GetMapping("/calificaciones")
@@ -59,15 +94,30 @@ public class CalificacionController {
         model.addAttribute("title", "Boletín de Calificaciones – IEACI");
         model.addAttribute("activePage", "calificaciones");
 
-        List<Estudiante> estudiantes = estudianteService.listarTodos();
-        model.addAttribute("estudiantes", estudiantes);
+        boolean soloEstudiante = esSoloEstudiante();
+        model.addAttribute("soloVistaEstudiante", soloEstudiante);
 
         Estudiante seleccionado = null;
-        if (estudianteId != null) {
-            seleccionado = estudianteService.buscarPorId(estudianteId).orElse(null);
-        }
-        if (seleccionado == null && !estudiantes.isEmpty()) {
-            seleccionado = estudiantes.get(0);
+        if (soloEstudiante) {
+            Optional<Estudiante> propio = resolverEstudianteAutenticado();
+            if (propio.isPresent()) {
+                if (estudianteId != null && !estudianteId.equals(propio.get().getId())) {
+                    throw new AccessDeniedException("No tiene permiso para consultar calificaciones de otros estudiantes.");
+                }
+                seleccionado = propio.get();
+                model.addAttribute("estudiantes", List.of(seleccionado));
+            } else {
+                model.addAttribute("estudiantes", Collections.emptyList());
+            }
+        } else {
+            List<Estudiante> estudiantes = estudianteService.listarTodos();
+            model.addAttribute("estudiantes", estudiantes);
+            if (estudianteId != null) {
+                seleccionado = estudianteService.buscarPorId(estudianteId).orElse(null);
+            }
+            if (seleccionado == null && !estudiantes.isEmpty()) {
+                seleccionado = estudiantes.get(0);
+            }
         }
 
         Map<Integer, BigDecimal> ponderaciones = periodoConfigService.getPonderaciones();
@@ -76,13 +126,9 @@ public class CalificacionController {
         model.addAttribute("pesoP2", periodoConfigService.getPesoPeriodo2());
         model.addAttribute("pesoP3", periodoConfigService.getPesoPeriodo3());
 
-        String anioActivo = "2026";
-        try {
-            if (periodoConfigService != null && periodoConfigService.obtenerAnioLectivoActual() != null) {
-                anioActivo = String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio());
-            }
-        } catch (Exception ignored) {
-        }
+        String anioActivo = periodoConfigService != null
+                ? periodoConfigService.obtenerAnioLectivoCodigo()
+                : String.valueOf(PeriodoConfigService.anioCalendarioActual());
         model.addAttribute("anoLectivo", anioActivo);
 
         if (seleccionado != null) {
@@ -124,14 +170,23 @@ public class CalificacionController {
             @RequestParam("estudianteId") UUID estudianteId,
             @RequestParam(value = "anoLectivo", required = false) String anoLectivo) {
 
+        if (esSoloEstudiante()) {
+            Optional<Estudiante> propio = resolverEstudianteAutenticado();
+            if (propio.isEmpty() || !propio.get().getId().equals(estudianteId)) {
+                throw new AccessDeniedException("Solo puedes descargar tu propio boletín de calificaciones.");
+            }
+        }
+
         Estudiante estudiante = estudianteService.buscarPorId(estudianteId)
                 .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado"));
 
-        String anio = "2026";
+        String anio;
         if (anoLectivo != null && !anoLectivo.isBlank()) {
             anio = anoLectivo.trim();
-        } else if (periodoConfigService != null && periodoConfigService.obtenerAnioLectivoActual() != null) {
-            anio = String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio());
+        } else if (periodoConfigService != null) {
+            anio = periodoConfigService.obtenerAnioLectivoCodigo();
+        } else {
+            anio = String.valueOf(PeriodoConfigService.anioCalendarioActual());
         }
 
         String gradoStr = "Sin grado";

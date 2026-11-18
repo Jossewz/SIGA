@@ -47,8 +47,17 @@ public class CurrentUserContextService {
     }
 
     public RolEnum getRolAutenticado() {
-        return getUsuarioAutenticado()
-                .map(Usuario::getRolEnum)
+        Optional<Usuario> userOpt = getUsuarioAutenticado();
+        if (userOpt.isPresent()) {
+            return userOpt.get().getRolEnum();
+        }
+        return getAuthentication()
+                .map(auth -> auth.getAuthorities().stream()
+                        .map(a -> a.getAuthority() != null ? a.getAuthority().replace("ROLE_", "") : "")
+                        .filter(r -> !r.isBlank())
+                        .findFirst()
+                        .map(RolEnum::from)
+                        .orElse(RolEnum.ESTUDIANTE))
                 .orElse(RolEnum.ESTUDIANTE);
     }
 

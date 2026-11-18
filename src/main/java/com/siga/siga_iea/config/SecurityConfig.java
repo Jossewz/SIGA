@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,9 +29,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
+    private final String rememberMeKey;
 
-    public SecurityConfig(CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(CustomUserDetailsService userDetailsService,
+                          @Value("${app.security.remember-me-key:siga-ieaci-dev-remember-me-key}") String rememberMeKey) {
         this.userDetailsService = userDetailsService;
+        this.rememberMeKey = rememberMeKey;
     }
 
     @Bean
@@ -72,8 +76,14 @@ public class SecurityConfig {
                         // Bloqueo explícito de métodos TRACE y TRACK (mitigación XST)
                         .requestMatchers(HttpMethod.valueOf("TRACE"), "/**").denyAll()
                         .requestMatchers(HttpMethod.valueOf("TRACK"), "/**").denyAll()
-                        .requestMatchers("/login", "/logout", "/css/**", "/js/**", "/img/**", "/icons/**", "/fonts/**", "/favicon.ico", "/error", "/storage/public/**").permitAll()
+                        .requestMatchers("/login", "/logout", "/forgot-password", "/reset-password", "/css/**", "/js/**", "/img/**", "/icons/**", "/fonts/**", "/favicon.ico", "/error", "/storage/public/**").permitAll()
                         .requestMatchers("/configuracion/roles/**").hasRole("ADMIN")
+                        .requestMatchers("/usuarios/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.GET, "/estudiantes").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.POST, "/personal", "/personal/**", "/estudiantes/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.POST, "/clases/crear", "/clases/guardar", "/clases/eliminar", "/clases/mapear-estudiantes", "/clases/promover-estudiantes", "/clases/horarios/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.POST, "/clases/evaluaciones/**", "/clases/calificaciones/**", "/clases/asistencias/**", "/mi-jornada/**", "/asistencias/abrir-dia", "/asistencias/sesiones/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO", "DOCENTE")
+                        .requestMatchers(HttpMethod.POST, "/certificados/responder", "/reportes/atender").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
                         .requestMatchers("/clases/mapear-estudiantes", "/clases/promover-estudiantes").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
                         .requestMatchers(
                                 "/matricula/**",
@@ -89,6 +99,7 @@ public class SecurityConfig {
                                 "/calificaciones/**",
                                 "/certificados/**",
                                 "/mi-jornada/**",
+                                "/api/notificaciones/**",
                                 "/chat/**",
                                 "/soporte/**",
                                 "/"
@@ -104,7 +115,7 @@ public class SecurityConfig {
                         .permitAll()
                 )
                 .rememberMe(remember -> remember
-                        .key("siga-ieaci-secret-key-2026")
+                        .key(rememberMeKey)
                         .rememberMeParameter("remember-me")
                         .tokenValiditySeconds(86400 * 7) // 7 días
                         .userDetailsService(userDetailsService)

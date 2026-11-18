@@ -72,25 +72,56 @@ public class PermisoModuloInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        String method = request.getMethod() != null ? request.getMethod().toUpperCase() : "GET";
+        boolean esMutacion = "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method) || "DELETE".equals(method);
+
         boolean tieneAcceso = rolPermisoService.tieneAcceso(rolEnum.name(), moduloRequerido);
         if (!tieneAcceso) {
-            String isHx = request.getHeader("HX-Request");
-            if (isHx != null && !isHx.isBlank()) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return false;
+            return esMutacion
+                    ? denegarMutacion(request, response)
+                    : denegarAcceso(request, response, moduloRequerido);
+        }
+        if (esMutacion) {
+            boolean esBorrado = "DELETE".equals(method) || uri.contains("/eliminar");
+            boolean permitido = esBorrado
+                    ? rolPermisoService.puedeEliminar(rolEnum.name(), moduloRequerido)
+                    : rolPermisoService.puedeEditar(rolEnum.name(), moduloRequerido);
+            if (!permitido) {
+                return denegarMutacion(request, response);
             }
-            response.sendRedirect(request.getContextPath() + "/?sinAcceso=" + moduloRequerido);
-            return false;
         }
 
         return true;
+    }
+
+    private boolean denegarAcceso(HttpServletRequest request, HttpServletResponse response, String moduloRequerido) throws Exception {
+        String isHx = request.getHeader("HX-Request");
+        if (isHx != null && !isHx.isBlank()) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return false;
+        }
+        response.sendRedirect(request.getContextPath() + "/?sinAcceso=" + moduloRequerido);
+        return false;
+    }
+
+    private boolean denegarMutacion(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        String isHx = request.getHeader("HX-Request");
+        String accept = request.getHeader("Accept");
+        if ((isHx != null && !isHx.isBlank()) || (accept != null && accept.contains("application/json"))) {
+            return false;
+        }
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, "No tiene permisos para modificar o eliminar registros en este módulo.");
+        return false;
     }
 
     private String obtenerModuloParaUri(String uri) {
         if (uri.startsWith("/matricula")) return "MATRICULAS";
         if (uri.startsWith("/personal")) return "PERSONAL";
         if (uri.startsWith("/estudiantes")) return "MATRICULAS";
-        if (uri.startsWith("/clases")) return "CURSOS_HORARIOS";
+        if (uri.startsWith("/clases/evaluaciones") || uri.startsWith("/clases/calificaciones")) return "CALIFICACIONES";
+        if (uri.startsWith("/clases/asistencias")) return "ASISTENCIAS";
+        if (uri.startsWith("/clases") || uri.startsWith("/cursos")) return "CURSOS_HORARIOS";
         if (uri.startsWith("/calificaciones")) return "CALIFICACIONES";
         if (uri.startsWith("/asistencias")) return "ASISTENCIAS";
         if (uri.startsWith("/certificados")) return "CERTIFICADOS";
