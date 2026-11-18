@@ -35,19 +35,23 @@
             
             <!-- Left Card: Resumen de Usuario -->
             <div class="bg-white rounded-2xl border border-[#c4eec0]/50 shadow-soft p-6 flex flex-col items-center text-center gap-5">
-                <div class="relative size-24">
-                    <div class="w-full h-full rounded-full bg-sidebar text-white flex items-center justify-center text-3xl font-black uppercase shadow-md border-4 border-[#eafbe4]">
-                        <span th:text="${usuario.email != null ? #strings.substring(usuario.email, 0, 1) : 'U'}">U</span>
-                    </div>
-                    <span class="absolute bottom-1 right-1 size-5 rounded-full border-2 border-white flex items-center justify-center shrink-0 bg-sidebar" title="Activo">
-                        <i data-lucide="check" class="size-2.5 text-white stroke-[3]"></i>
-                    </span>
-                </div>
+                <th:block th:replace="~{components/profile/avatar-upload :: avatarUpload(
+                    ${fotoUrl},
+                    ${usuario.email != null ? #strings.substring(usuario.email, 0, 1) : 'U'},
+                    '/perfil/foto',
+                    '/perfil/foto/eliminar',
+                    ${usuario.estado == null || usuario.estado == 'Activo'},
+                    true,
+                    null
+                )}"></th:block>
 
                 <div>
                     <h2 class="text-text-primary text-base font-black leading-tight" th:text="${personaInfo.nombreCompleto}">Usuario</h2>
-                    <span class="inline-block mt-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#eafbe4] text-sidebar border border-[#c4eec0]" th:text="${personaInfo.rol}">DOCENTE</span>
-                    <span class="block text-[11px] text-text-secondary font-bold mt-1" th:text="${personaInfo.cargo}">Funcionario</span>
+                    <span class="inline-block mt-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#eafbe4] text-sidebar border border-[#c4eec0]"
+                          th:text="${currentRoleName != null and !#strings.isEmpty(currentRoleName) ? currentRoleName : personaInfo.rol}">DOCENTE</span>
+                    <span th:if="${personaInfo.cargo != null and !#strings.isEmpty(personaInfo.cargo) and !#strings.equalsIgnoreCase(personaInfo.cargo, personaInfo.rol) and !#strings.equalsIgnoreCase(personaInfo.cargo, currentRoleName)}"
+                          class="block text-[11px] text-text-secondary font-bold mt-1"
+                          th:text="${personaInfo.cargo}">Funcionario</span>
                 </div>
 
                 <div class="w-full h-px bg-[#c4eec0]/30"></div>

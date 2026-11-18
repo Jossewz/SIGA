@@ -1,5 +1,6 @@
 package com.siga.siga_iea.personal.controller;
 
+import com.siga.siga_iea.auth.service.CurrentUserContextService;
 import com.siga.siga_iea.clases.entity.Materia;
 import com.siga.siga_iea.clases.repository.MateriaRepository;
 import com.siga.siga_iea.storage.StorageFolder;
@@ -8,7 +9,10 @@ import com.siga.siga_iea.storage.dto.UploadResult;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import com.siga.siga_iea.usuarios.entity.PersonalAdministrativo;
 import com.siga.siga_iea.usuarios.entity.Usuario;
+import com.siga.siga_iea.usuarios.service.PerfilFotoService;
 import com.siga.siga_iea.usuarios.service.PersonalService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -25,13 +29,41 @@ public class PersonalController {
     private final PersonalService personalService;
     private final StorageService storageService;
     private final MateriaRepository materiaRepository;
+    private final CurrentUserContextService currentUserContextService;
+    private final PerfilFotoService perfilFotoService;
+
+    @Autowired
+    public PersonalController(PersonalService personalService,
+                              StorageService storageService,
+                              MateriaRepository materiaRepository,
+                              @Autowired(required = false) CurrentUserContextService currentUserContextService,
+                              @Autowired(required = false) PerfilFotoService perfilFotoService) {
+        this.personalService = personalService;
+        this.storageService = storageService;
+        this.materiaRepository = materiaRepository;
+        this.currentUserContextService = currentUserContextService;
+        this.perfilFotoService = perfilFotoService;
+    }
+
+    public PersonalController(PersonalService personalService,
+                              StorageService storageService,
+                              MateriaRepository materiaRepository,
+                              CurrentUserContextService currentUserContextService) {
+        this(personalService, storageService, materiaRepository, currentUserContextService, null);
+    }
 
     public PersonalController(PersonalService personalService,
                               StorageService storageService,
                               MateriaRepository materiaRepository) {
-        this.personalService = personalService;
-        this.storageService = storageService;
-        this.materiaRepository = materiaRepository;
+        this(personalService, storageService, materiaRepository, null, null);
+    }
+
+    private void exigirAdminOAdministrativo() {
+        if (currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && !currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("Solo Administración o Secretaría puede gestionar personal institucional.");
+        }
     }
 
     @GetMapping("/personal")
@@ -160,6 +192,7 @@ public class PersonalController {
             @RequestParam(value = "numDoc", required = false) String numDoc,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             String nombresFull = (nombres != null && !nombres.isBlank()) ? nombres.trim() :
                     ((primerNombre != null ? primerNombre : "") + (segundoNombre != null && !segundoNombre.isBlank() ? " " + segundoNombre : "")).trim();
@@ -359,6 +392,7 @@ public class PersonalController {
             @PathVariable String id,
             @RequestParam(value = "materiaIds", required = false) List<UUID> materiaIds,
             RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
         try {
             UUID uuid = UUID.fromString(id);
             Docente docente = personalService.buscarDocentePorId(uuid)
@@ -382,6 +416,7 @@ public class PersonalController {
             @RequestParam(value = "rol", required = false) String rol,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             UUID uuid = UUID.fromString(id);
             String numDoc = null;
@@ -412,6 +447,79 @@ public class PersonalController {
         }
 
         return "redirect:/personal/perfil/" + id + "?tab=cuenta";
+    }
+
+    @PostMapping("/personal/{id}/toggle-estado")
+    public String toggleEstadoPersonal(
+            @PathVariable String id,
+            @RequestParam(value = "redirectTo", required = false) String redirectTo,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            UUID uuid = UUID.fromString(id);
+            String nuevoEstado = personalService.toggleEstadoPersonal(uuid);
+            String mensaje = "Activo".equalsIgnoreCase(nuevoEstado)
+                    ? "Miembro habilitado nuevamente (acceso activo)."
+                    : "Miembro deshabilitado (" + nuevoEstado + ") y acceso bloqueado.";
+            redirectAttributes.addFlashAttribute("mensajeExito", mensaje);
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar estado: " + ex.getMessage());
+        }
+
+        if ("/personal".equals(redirectTo)) {
+            return "redirect:/personal";
+        }
+        return "redirect:/personal/perfil/" + id;
+    }
+
+    @PostMapping("/personal/{id}/foto")
+    public String actualizarFotoPersonal(
+            @PathVariable String id,
+            @RequestParam("fotoFile") MultipartFile fotoFile,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            if (perfilFotoService == null) {
+                throw new IllegalStateException("Servicio de almacenamiento de fotos no disponible.");
+            }
+            perfilFotoService.actualizarFotoPersonal(UUID.fromString(id), fotoFile);
+            redirectAttributes.addFlashAttribute("mensajeExito", "Foto del perfil actualizada exitosamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar foto: " + ex.getMessage());
+        }
+        return "redirect:/personal/perfil/" + id;
+    }
+
+    @PostMapping("/personal/{id}/foto/eliminar")
+    public String eliminarFotoPersonal(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            if (perfilFotoService != null) {
+                perfilFotoService.eliminarFotoPersonal(UUID.fromString(id));
+            }
+            redirectAttributes.addFlashAttribute("mensajeExito", "Foto del perfil eliminada correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al eliminar foto: " + ex.getMessage());
+        }
+        return "redirect:/personal/perfil/" + id;
+    }
+
+    @PostMapping("/personal/{id}/eliminar")
+    public String eliminarPersonal(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            UUID uuid = UUID.fromString(id);
+            String emailActual = currentUserContextService != null
+                    ? currentUserContextService.getAuthentication()
+                            .map(org.springframework.security.core.Authentication::getName)
+                            .orElse(null)
+                    : null;
+            personalService.eliminarPersonal(uuid, emailActual);
+            redirectAttributes.addFlashAttribute("mensajeExito", "Miembro del personal y su cuenta vinculada fueron eliminados correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al eliminar miembro del personal: " + ex.getMessage());
+        }
+        return "redirect:/personal";
     }
 
     private void asignarMateriasADocente(Docente docente, List<UUID> materiaIds, String especialidadFallback, boolean permitirFallbackTexto) {

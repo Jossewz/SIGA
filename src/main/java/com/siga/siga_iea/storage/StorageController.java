@@ -62,6 +62,7 @@ public class StorageController {
                 String lower = key.toLowerCase();
                 if (lower.endsWith(".png")) contentType = "image/png";
                 else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) contentType = "image/jpeg";
+                else if (lower.endsWith(".webp")) contentType = "image/webp";
                 else if (lower.endsWith(".pdf")) contentType = "application/pdf";
                 else contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
             }

@@ -196,4 +196,86 @@ class PersonalYEstudiantesFilterViewTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Jose Ayola")));
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @Transactional
+    @DisplayName("Acciones unificadas en /personal y /estudiantes: menú de 3 puntos, deshabilitar sincronizando cuenta y eliminar docente")
+    void testAccionesUnificadasPersonalYEstudiantes() throws Exception {
+        Materia mat = materiaRepository.save(new Materia("Ecología Aplicada", "Ciencias Naturales"));
+        mockMvc.perform(post("/personal/registrar")
+                        .with(csrf())
+                        .param("tipo", "DOCENTE")
+                        .param("nombres", "Mario")
+                        .param("apellidos", "Cárdenas")
+                        .param("tipoDocumento", "CC")
+                        .param("numeroDocumento", "1045777666")
+                        .param("materiaIds", mat.getId().toString()))
+                .andExpect(status().is3xxRedirection());
+
+        Docente doc = docenteRepository.findByNumeroDocumento("1045777666").orElseThrow();
+        mockMvc.perform(post("/personal/" + doc.getId() + "/crear-cuenta").with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(get("/personal"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Gestionar usuario")))
+                .andExpect(content().string(containsString("Deshabilitar docente")))
+                .andExpect(content().string(containsString("Eliminar docente")))
+                .andExpect(content().string(not(containsString("Ver hoja de vida"))))
+                .andExpect(content().string(not(containsString("Activar o gestionar cuenta"))));
+
+        // Deshabilitar docente sincroniza su Usuario a Inactivo
+        mockMvc.perform(post("/personal/" + doc.getId() + "/toggle-estado")
+                        .with(csrf())
+                        .param("redirectTo", "/personal"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/personal"));
+
+        assertEquals("Inactivo", docenteRepository.findById(doc.getId()).orElseThrow().getEstado());
+        assertEquals("Inactivo", usuarioRepository.findByNumeroDocumento("1045777666").orElseThrow().getEstado());
+
+        // Rehabilitar docente restaura Usuario a Activo
+        mockMvc.perform(post("/personal/" + doc.getId() + "/toggle-estado")
+                        .with(csrf())
+                        .param("redirectTo", "/personal"))
+                .andExpect(status().is3xxRedirection());
+        assertEquals("Activo", docenteRepository.findById(doc.getId()).orElseThrow().getEstado());
+        assertEquals("Activo", usuarioRepository.findByNumeroDocumento("1045777666").orElseThrow().getEstado());
+
+        // Eliminar docente borra docente y su cuenta vinculada
+        mockMvc.perform(post("/personal/" + doc.getId() + "/eliminar").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/personal"));
+        assertTrue(docenteRepository.findById(doc.getId()).isEmpty());
+        assertTrue(usuarioRepository.findByNumeroDocumento("1045777666").isEmpty());
+
+        // Estudiantes: un solo link de gestionar + deshabilitar sincroniza Usuario
+        Estudiante est = new Estudiante();
+        est.setNombres("Sofía");
+        est.setApellidos("Mendoza");
+        est.setCodigo("2026888");
+        est.setNumeroDocumento("1045111222");
+        est.setEstado("Activo");
+        est = estudianteRepository.save(est);
+
+        mockMvc.perform(post("/estudiantes/" + est.getId() + "/crear-cuenta").with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(get("/estudiantes"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Gestionar usuario")))
+                .andExpect(content().string(containsString("Deshabilitar estudiante")))
+                .andExpect(content().string(containsString("Eliminar estudiante")))
+                .andExpect(content().string(not(containsString("Ver expediente"))));
+
+        mockMvc.perform(post("/estudiantes/" + est.getId() + "/toggle-estado")
+                        .with(csrf())
+                        .param("redirectTo", "/estudiantes"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/estudiantes"));
+
+        assertEquals("Retirado", estudianteRepository.findById(est.getId()).orElseThrow().getEstado());
+        assertEquals("Inactivo", usuarioRepository.findByNumeroDocumento("1045111222").orElseThrow().getEstado());
+    }
 }

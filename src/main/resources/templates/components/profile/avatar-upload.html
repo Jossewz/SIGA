@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="avatarUpload(fotoUrl, initialText, uploadAction, deleteAction, isActive, canEdit, fallbackUrl)">
+    <div class="flex flex-col items-center gap-3 w-full">
+        <div class="relative size-24">
+            <span class="w-full h-full rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center border-2 border-[#c4eec0] shadow-inner overflow-hidden font-black text-3xl uppercase">
+                <img th:if="${fotoUrl != null and !#strings.isEmpty(fotoUrl)}"
+                     th:src="${fotoUrl}"
+                     alt="Foto de perfil"
+                     class="w-full h-full object-cover">
+                <span th:if="${(fotoUrl == null or #strings.isEmpty(fotoUrl)) and initialText != null and !#strings.isEmpty(initialText)}"
+                      th:text="${initialText}">U</span>
+                <i th:if="${(fotoUrl == null or #strings.isEmpty(fotoUrl)) and (initialText == null or #strings.isEmpty(initialText))}"
+                   data-lucide="user" class="size-12 stroke-[1.5]"></i>
+            </span>
+
+            <span class="absolute top-0.5 right-0.5 size-5 rounded-full border-2 border-white flex items-center justify-center shrink-0 shadow-xs"
+                  th:classappend="${isActive} ? 'bg-sidebar' : 'bg-alert-red'"
+                  th:title="${isActive ? 'Activo' : 'Inactivo'}">
+                <i th:data-lucide="${isActive ? 'check' : 'x'}" class="size-2.5 text-white stroke-[3]"></i>
+            </span>
+
+            <label th:if="${canEdit}"
+                   th:for="${'input-foto-' + #strings.replace(uploadAction, '/', '-')}"
+                   class="absolute bottom-0 right-0 size-7 rounded-full bg-sidebar text-white border-2 border-white shadow-md flex items-center justify-center cursor-pointer hover:brightness-110 transition"
+                   th:title="${fotoUrl != null and !#strings.isEmpty(fotoUrl) ? 'Cambiar foto' : 'Agregar foto'}">
+                <i data-lucide="camera" class="size-3.5 stroke-[2.2]"></i>
+            </label>
+        </div>
+
+        <div th:if="${canEdit}" class="flex flex-col items-center gap-1.5 w-full">
+            <div class="flex flex-wrap items-center justify-center gap-1.5">
+                <form th:action="@{${uploadAction}}" method="post" enctype="multipart/form-data" class="m-0">
+                    <input type="file"
+                           th:id="${'input-foto-' + #strings.replace(uploadAction, '/', '-')}"
+                           name="fotoFile"
+                           accept="image/png,image/jpeg,image/webp"
+                           class="hidden"
+                           onchange="validarYSubirFotoPerfil(this)">
+                    <label th:for="${'input-foto-' + #strings.replace(uploadAction, '/', '-')}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f1fbe4] hover:bg-[#e3f7dc] text-sidebar border border-[#c4eec0] text-[11px] font-black cursor-pointer transition">
+                        <i data-lucide="image-plus" class="size-3.5 stroke-2"></i>
+                        <span th:text="${fotoUrl != null and !#strings.isEmpty(fotoUrl) ? 'Cambiar foto' : 'Agregar foto'}">Agregar foto</span>
+                    </label>
+                </form>
+
+                <form th:if="${fotoUrl != null and !#strings.isEmpty(fotoUrl) and deleteAction != null}"
+                      th:action="@{${deleteAction}}" method="post" class="m-0"
+                      onsubmit="return confirm('¿Deseas quitar la foto de perfil actual?');">
+                    <button type="submit"
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-alert-red border border-red-200 text-[11px] font-bold cursor-pointer transition"
+                            title="Quitar foto">
+                        <i data-lucide="trash-2" class="size-3.5 stroke-2"></i>
+                        <span>Quitar</span>
+                    </button>
+                </form>
+            </div>
+            <span class="text-[10px] font-medium text-text-secondary">JPG, PNG o WEBP (máx. 5 MB)</span>
+        </div>
+
+        <a th:if="${!canEdit and fallbackUrl != null}"
+           th:href="@{${fallbackUrl}}"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f1fbe4] hover:bg-[#e3f7dc] text-sidebar border border-[#c4eec0] text-[11px] font-black transition">
+            <i data-lucide="camera" class="size-3.5 stroke-2"></i>
+            <span>Cambiar mi foto en Mi Perfil</span>
+        </a>
+    </div>
+
+    <script>
+        if (typeof window.validarYSubirFotoPerfil !== 'function') {
+            window.validarYSubirFotoPerfil = function (input) {
+                const file = input && input.files && input.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('La imagen supera el tamaño máximo permitido de 5 MB.');
+                    input.value = '';
+                    return;
+                }
+                if (input.form) {
+                    input.form.submit();
+                }
+            };
+        }
+    </script>
+</th:block>
+</body>
+</html>
+

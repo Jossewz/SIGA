@@ -31,6 +31,9 @@ public class Usuario {
     @Column(name = "ultimo_acceso")
     private LocalDateTime ultimoAcceso;
 
+    @Column(name = "foto_key")
+    private String fotoKey;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -115,5 +118,13 @@ public class Usuario {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getFotoKey() {
+        return fotoKey;
+    }
+
+    public void setFotoKey(String fotoKey) {
+        this.fotoKey = fotoKey;
     }
 }

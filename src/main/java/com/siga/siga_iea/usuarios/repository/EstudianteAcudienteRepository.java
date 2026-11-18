@@ -14,4 +14,5 @@ public interface EstudianteAcudienteRepository extends JpaRepository<EstudianteA
     List<EstudianteAcudiente> findByAcudienteId(UUID acudienteId);
     Optional<EstudianteAcudiente> findByEstudianteIdAndAcudienteId(UUID estudianteId, UUID acudienteId);
     Optional<EstudianteAcudiente> findByEstudianteIdAndEsPrincipalTrue(UUID estudianteId);
+    Optional<EstudianteAcudiente> findFirstByEstudianteIdAndEsPrincipalTrueOrderByCreatedAtDesc(UUID estudianteId);
 }

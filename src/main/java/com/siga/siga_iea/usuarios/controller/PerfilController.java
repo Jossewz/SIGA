@@ -8,13 +8,16 @@ import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.repository.DocenteRepository;
 import com.siga.siga_iea.usuarios.repository.EstudianteRepository;
 import com.siga.siga_iea.usuarios.repository.PersonalAdministrativoRepository;
+import com.siga.siga_iea.usuarios.service.PerfilFotoService;
 import com.siga.siga_iea.usuarios.service.UsuarioService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
@@ -28,17 +31,29 @@ public class PerfilController {
     private final DocenteRepository docenteRepository;
     private final PersonalAdministrativoRepository personalAdministrativoRepository;
     private final EstudianteRepository estudianteRepository;
+    private final PerfilFotoService perfilFotoService;
+
+    @Autowired
+    public PerfilController(CurrentUserContextService currentUserContextService,
+                            UsuarioService usuarioService,
+                            DocenteRepository docenteRepository,
+                            PersonalAdministrativoRepository personalAdministrativoRepository,
+                            EstudianteRepository estudianteRepository,
+                            @Autowired(required = false) PerfilFotoService perfilFotoService) {
+        this.currentUserContextService = currentUserContextService;
+        this.usuarioService = usuarioService;
+        this.docenteRepository = docenteRepository;
+        this.personalAdministrativoRepository = personalAdministrativoRepository;
+        this.estudianteRepository = estudianteRepository;
+        this.perfilFotoService = perfilFotoService;
+    }
 
     public PerfilController(CurrentUserContextService currentUserContextService,
                             UsuarioService usuarioService,
                             DocenteRepository docenteRepository,
                             PersonalAdministrativoRepository personalAdministrativoRepository,
                             EstudianteRepository estudianteRepository) {
-        this.currentUserContextService = currentUserContextService;
-        this.usuarioService = usuarioService;
-        this.docenteRepository = docenteRepository;
-        this.personalAdministrativoRepository = personalAdministrativoRepository;
-        this.estudianteRepository = estudianteRepository;
+        this(currentUserContextService, usuarioService, docenteRepository, personalAdministrativoRepository, estudianteRepository, null);
     }
 
     @GetMapping
@@ -50,10 +65,50 @@ public class PerfilController {
 
         Usuario usuario = usuarioOpt.get();
         PerfilPersonaInfo info = resolverDatosPersona(usuario);
+        String fotoUrl = perfilFotoService != null
+                ? perfilFotoService.construirUrl(perfilFotoService.resolverFotoKeyPorUsuario(usuario))
+                : null;
 
         model.addAttribute("usuario", usuario);
         model.addAttribute("personaInfo", info);
+        model.addAttribute("fotoUrl", fotoUrl);
         return "usuarios/perfil";
+    }
+
+    @PostMapping("/foto")
+    public String actualizarFoto(@RequestParam("fotoFile") MultipartFile fotoFile,
+                                 RedirectAttributes redirectAttributes) {
+        Optional<Usuario> usuarioOpt = currentUserContextService.getUsuarioAutenticado();
+        if (usuarioOpt.isEmpty()) {
+            return "redirect:/login";
+        }
+        try {
+            if (perfilFotoService == null) {
+                throw new IllegalStateException("Servicio de almacenamiento de fotos no disponible.");
+            }
+            perfilFotoService.actualizarFotoUsuarioPropio(usuarioOpt.get(), fotoFile);
+            redirectAttributes.addFlashAttribute("success", "¡Foto de perfil actualizada exitosamente!");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("error", "No se pudo actualizar la foto: " + ex.getMessage());
+        }
+        return "redirect:/perfil";
+    }
+
+    @PostMapping("/foto/eliminar")
+    public String eliminarFoto(RedirectAttributes redirectAttributes) {
+        Optional<Usuario> usuarioOpt = currentUserContextService.getUsuarioAutenticado();
+        if (usuarioOpt.isEmpty()) {
+            return "redirect:/login";
+        }
+        try {
+            if (perfilFotoService != null) {
+                perfilFotoService.eliminarFotoUsuarioPropio(usuarioOpt.get());
+            }
+            redirectAttributes.addFlashAttribute("success", "Foto de perfil eliminada correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("error", "No se pudo eliminar la foto: " + ex.getMessage());
+        }
+        return "redirect:/perfil";
     }
 
     @PostMapping("/cambiar-password")
@@ -106,7 +161,7 @@ public class PerfilController {
                         d.getNumeroDocumento(),
                         d.getTelefono() != null ? d.getTelefono() : "No registrado",
                         d.getDireccion() != null ? d.getDireccion() : "No registrada",
-                        "Docente " + (d.getEspecialidad() != null ? "– " + d.getEspecialidad() : ""),
+                        (d.getEspecialidad() != null && !d.getEspecialidad().isBlank()) ? d.getEspecialidad() : null,
                         usuario.getEmail(),
                         usuario.getRol()
                 );
@@ -152,7 +207,7 @@ public class PerfilController {
                 doc != null ? doc : "N/A",
                 "PBX IEACI",
                 "Cra 4 # 10-25, Cartagena del Chairá",
-                usuario.getRol(),
+                null,
                 usuario.getEmail(),
                 usuario.getRol()
         );

@@ -33,17 +33,15 @@
             
             <!-- Left Panel: Student Card -->
             <div class="bg-white rounded-xl border border-[#c4eec0]/40 shadow-soft p-6 flex flex-col items-center text-center gap-5">
-                <div class="relative size-24">
-                    <span class="w-full h-full rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center border border-sidebar/20 shadow-inner overflow-hidden">
-                        <img th:if="${student.foto != null and !#strings.isEmpty(student.foto)}" th:src="${student.foto}" class="w-full h-full object-cover">
-                        <i th:unless="${student.foto != null and !#strings.isEmpty(student.foto)}" data-lucide="user" class="size-12 stroke-[1.5]"></i>
-                    </span>
-                    <span class="absolute bottom-1 right-1 size-5 rounded-full border-2 border-white flex items-center justify-center shrink-0"
-                          th:classappend="${student.estado == 'Activo'} ? 'bg-sidebar' : 'bg-alert-red'"
-                          title="Estado">
-                        <i th:data-lucide="${student.estado == 'Activo' ? 'check' : 'x'}" class="size-2.5 text-white stroke-[3]"></i>
-                    </span>
-                </div>
+                <th:block th:replace="~{components/profile/avatar-upload :: avatarUpload(
+                    ${student.foto},
+                    null,
+                    '/estudiantes/' + ${student.id} + '/foto',
+                    '/estudiantes/' + ${student.id} + '/foto/eliminar',
+                    ${student.estado == 'Activo'},
+                    ${esAdmin or esAdministrativo},
+                    '/perfil'
+                )}"></th:block>
 
                 <div>
                     <h2 class="text-text-primary text-base font-black leading-tight" th:text="${student.nombreCompleto}">Santiago Gómez</h2>

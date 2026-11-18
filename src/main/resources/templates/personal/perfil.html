@@ -33,17 +33,15 @@
             
             <!-- Left Panel: Ficha Card -->
             <div class="bg-white rounded-xl border border-[#c4eec0]/40 shadow-soft p-6 flex flex-col items-center text-center gap-5">
-                <div class="relative size-24">
-                    <span class="w-full h-full rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center border border-sidebar/20 shadow-inner overflow-hidden">
-                        <img th:if="${staff.foto != null}" th:src="${staff.foto}" alt="Foto" class="w-full h-full object-cover">
-                        <i th:unless="${staff.foto != null}" data-lucide="user" class="size-12 stroke-[1.5]"></i>
-                    </span>
-                    <span class="absolute bottom-1 right-1 size-5 rounded-full border-2 border-white flex items-center justify-center shrink-0"
-                          th:classappend="${staff.estado == 'Activo'} ? 'bg-sidebar' : 'bg-alert-red'"
-                          title="Estado">
-                        <i th:data-lucide="${staff.estado == 'Activo' ? 'check' : 'x'}" class="size-2.5 text-white stroke-[3]"></i>
-                    </span>
-                </div>
+                <th:block th:replace="~{components/profile/avatar-upload :: avatarUpload(
+                    ${staff.foto},
+                    null,
+                    '/personal/' + ${staff.id} + '/foto',
+                    '/personal/' + ${staff.id} + '/foto/eliminar',
+                    ${staff.estado == 'Activo'},
+                    ${esAdmin or esAdministrativo},
+                    null
+                )}"></th:block>
 
                 <div>
                     <h2 class="text-text-primary text-base font-black leading-tight" th:text="${staff.nombreCompleto}">Carlos Mendoza</h2>
@@ -67,6 +65,22 @@
                         <span class="text-text-primary" th:text="${staff.tieneCuenta} ? 'Cuenta Activa' : 'Sin Cuenta de Acceso'">Sin Cuenta</span>
                     </div>
                 </div>
+
+                <form th:action="@{'/personal/' + ${staff.id} + '/toggle-estado'}" method="post" class="w-full mt-2">
+                    <button type="submit" class="w-full py-2.5 px-3 text-xs font-black rounded-lg transition-colors border flex items-center justify-center gap-2 cursor-pointer"
+                            th:classappend="${staff.estado == 'Activo'} ? 'border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100' : 'border-[#c4eec0] text-sidebar hover:bg-[#f1fbe4]'">
+                        <i th:data-lucide="${staff.estado == 'Activo' ? 'user-x' : 'user-check'}" class="size-4 stroke-2"></i>
+                        <span th:text="${staff.tipoPersona == 'docente' ? (staff.estado == 'Activo' ? 'Deshabilitar Docente' : 'Habilitar Docente') : (staff.estado == 'Activo' ? 'Deshabilitar Miembro' : 'Habilitar Miembro')}">Cambiar Estado</span>
+                    </button>
+                </form>
+
+                <form th:action="@{'/personal/' + ${staff.id} + '/eliminar'}" method="post" class="w-full mt-1.5"
+                      onsubmit="return confirm('¿Está seguro de ELIMINAR permanentemente a este miembro del personal y su cuenta institucional vinculada? Esta acción no se puede deshacer.');">
+                    <button type="submit" class="w-full py-2.5 px-3 text-xs font-black rounded-lg transition-colors border border-red-300 bg-red-50 text-alert-red hover:bg-red-100 flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="trash-2" class="size-4 stroke-2"></i>
+                        <span th:text="${staff.tipoPersona == 'docente' ? 'Eliminar Docente' : 'Eliminar Miembro'}">Eliminar</span>
+                    </button>
+                </form>
             </div>
 
             <!-- Right Panel: Tabs Content -->
