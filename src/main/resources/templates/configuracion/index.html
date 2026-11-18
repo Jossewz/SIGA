@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
             <div>
                 <h1 class="text-text-primary text-[28px] font-black tracking-tight leading-none mb-1.5">Configuración General</h1>
-                <p class="text-text-secondary text-sm font-semibold">Parámetros institucionales, periodos, escala de desempeños, asignaturas y permisos de roles.</p>
+                <p class="text-text-secondary text-sm font-semibold">Parámetros institucionales, periodos, escala de desempeños, asignaturas, gestión de usuarios y permisos de roles.</p>
             </div>
             <div class="flex items-center gap-2">
                 <span class="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-pill-green text-sidebar border border-[#cbe5c7] flex items-center gap-1.5 shadow-2xs">
@@ -54,6 +54,11 @@
                 <button type="button" sec:authorize="hasRole('ADMIN')" class="cfg-tab-btn w-full text-left px-4 py-3 rounded-lg text-[11px] font-black uppercase tracking-wider text-text-secondary hover:bg-brand-100/50 transition-all cursor-pointer" onclick="switchConfigTab(this, 'cfg-roles')">
                     <span class="flex items-center gap-2.5">
                         <i data-lucide="shield" class="size-4 stroke-2"></i> Roles y Permisos
+                    </span>
+                </button>
+                <button type="button" class="cfg-tab-btn w-full text-left px-4 py-3 rounded-lg text-[11px] font-black uppercase tracking-wider text-text-secondary hover:bg-brand-100/50 transition-all cursor-pointer" onclick="switchConfigTab(this, 'cfg-usuarios')">
+                    <span class="flex items-center gap-2.5">
+                        <i data-lucide="users" class="size-4 stroke-2"></i> Gestión de Usuarios
                     </span>
                 </button>
             </div>
@@ -371,6 +376,11 @@
                             <div th:replace="~{configuracion/fragments/panel-permisos :: panelPermisos}"></div>
                         </div>
                     </div>
+                </div>
+
+                <!-- ==================== TAB 5: GESTIÓN DE USUARIOS ==================== -->
+                <div id="cfg-usuarios" class="config-tab-content hidden flex flex-col gap-6">
+                    <div th:replace="~{configuracion/fragments/panel-usuarios :: panelUsuarios}"></div>
                 </div>
 
             </div>

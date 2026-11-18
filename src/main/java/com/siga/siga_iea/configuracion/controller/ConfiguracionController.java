@@ -6,6 +6,8 @@ import com.siga.siga_iea.configuracion.entity.*;
 import com.siga.siga_iea.configuracion.service.EscalaDesempenoService;
 import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.configuracion.service.RolPermisoService;
+import com.siga.siga_iea.usuarios.service.UsuarioDirectoryService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -21,22 +23,40 @@ public class ConfiguracionController {
     private final EscalaDesempenoService escalaDesempenoService;
     private final RolPermisoService rolPermisoService;
     private final CursoService cursoService;
+    private final UsuarioDirectoryService usuarioDirectoryService;
+
+    @Autowired
+    public ConfiguracionController(PeriodoConfigService periodoConfigService,
+                                   EscalaDesempenoService escalaDesempenoService,
+                                   RolPermisoService rolPermisoService,
+                                   CursoService cursoService,
+                                   @Autowired(required = false) UsuarioDirectoryService usuarioDirectoryService) {
+        this.periodoConfigService = periodoConfigService;
+        this.escalaDesempenoService = escalaDesempenoService;
+        this.rolPermisoService = rolPermisoService;
+        this.cursoService = cursoService;
+        this.usuarioDirectoryService = usuarioDirectoryService;
+    }
 
     public ConfiguracionController(PeriodoConfigService periodoConfigService,
                                    EscalaDesempenoService escalaDesempenoService,
                                    RolPermisoService rolPermisoService,
                                    CursoService cursoService) {
-        this.periodoConfigService = periodoConfigService;
-        this.escalaDesempenoService = escalaDesempenoService;
-        this.rolPermisoService = rolPermisoService;
-        this.cursoService = cursoService;
+        this(periodoConfigService, escalaDesempenoService, rolPermisoService, cursoService, null);
     }
 
     @GetMapping("/configuracion")
     public String index(@RequestParam(value = "rol", defaultValue = "ADMIN") String rolParam,
+                        @RequestParam(value = "tab", required = false) String tab,
+                        @RequestParam(value = "search", required = false) String search,
+                        @RequestParam(value = "estado", required = false) String estado,
+                        @RequestParam(value = "userRol", required = false) String userRol,
                         Model model) {
         model.addAttribute("title", "Configuración General – IEACI");
         model.addAttribute("activePage", "configuracion");
+        if (tab != null && !tab.isBlank() && !model.containsAttribute("activeTab")) {
+            model.addAttribute("activeTab", tab);
+        }
 
         // 1. Datos Institucionales
         ConfiguracionInstitucional cfg = periodoConfigService.obtenerConfiguracionInstitucional();
@@ -75,6 +95,23 @@ public class ConfiguracionController {
         model.addAttribute("rolesDisponibles", rolesDisponibles);
         model.addAttribute("rolSeleccionado", rolSeleccionado);
         model.addAttribute("permisosRol", permisosRol);
+
+        // 6. Gestión de Usuarios integrada
+        if (usuarioDirectoryService != null) {
+            UsuarioDirectoryService.ResumenUsuarios resumen = usuarioDirectoryService.consultarResumen(search, estado, userRol);
+            model.addAttribute("usuariosList", resumen.usuarios());
+            model.addAttribute("totalUsuarios", resumen.totalUsuarios());
+            model.addAttribute("activosCount", resumen.activosCount());
+            model.addAttribute("bloqueadosCount", resumen.bloqueadosCount());
+        } else {
+            model.addAttribute("usuariosList", Collections.emptyList());
+            model.addAttribute("totalUsuarios", 0);
+            model.addAttribute("activosCount", 0L);
+            model.addAttribute("bloqueadosCount", 0L);
+        }
+        model.addAttribute("search", search);
+        model.addAttribute("selectedEstado", estado);
+        model.addAttribute("selectedRol", userRol);
 
         return "configuracion/index";
     }
