@@ -15,6 +15,9 @@ import com.siga.siga_iea.clases.repository.CursoEstudianteRepository;
 import com.siga.siga_iea.clases.repository.CursoMateriaRepository;
 import com.siga.siga_iea.clases.repository.CursoRepository;
 import com.siga.siga_iea.clases.repository.MateriaRepository;
+import com.siga.siga_iea.configuracion.entity.RolPermiso;
+import com.siga.siga_iea.configuracion.repository.RolPermisoRepository;
+import com.siga.siga_iea.configuracion.service.RolPermisoService;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import com.siga.siga_iea.usuarios.entity.Estudiante;
 import com.siga.siga_iea.usuarios.entity.Usuario;
@@ -76,6 +79,8 @@ class ExcelImportExportTest {
     @Autowired private AsistenciaRepository asistenciaRepository;
     @Autowired private EvaluacionRepository evaluacionRepository;
     @Autowired private CalificacionesRepository calificacionesRepository;
+    @Autowired private RolPermisoService rolPermisoService;
+    @Autowired private RolPermisoRepository rolPermisoRepository;
 
     private Docente docenteTitular;
     private Docente docenteAjeno;
@@ -89,6 +94,11 @@ class ExcelImportExportTest {
 
     @BeforeEach
     void setup() {
+        rolPermisoService.listarPermisosPorRol("ESTUDIANTE");
+        rolPermisoRepository.findByRolAndModulo("ESTUDIANTE", "ASISTENCIAS").ifPresent(p -> {
+            p.setPuedeAcceder(true);
+            rolPermisoRepository.save(p);
+        });
         usuarioRepository.save(new Usuario("admin.excel@ieaci.edu.co", "h", "ADMIN", "100001"));
 
         docenteTitular = new Docente();
