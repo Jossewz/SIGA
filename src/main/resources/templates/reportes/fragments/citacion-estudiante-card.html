@@ -1,69 +1,183 @@
 <th:block xmlns:th="http://www.thymeleaf.org">
-    <!-- VISTA ROL ESTUDIANTE: Visualización de Citación a Dirección -->
+    <!-- VISTA ROL ESTUDIANTE: Citaciones Recibidas + Reportes de Convivencia -->
     <div th:fragment="citacionEstudianteCard" id="vista-estudiante" class="space-y-6" th:classappend="${esEstudiante} ? '' : 'hidden'">
-        <div class="bg-white rounded-xl border border-border shadow-soft p-6 space-y-6">
-            <div class="flex items-center justify-between pb-4 border-b border-border">
-                <div class="flex items-center gap-3">
-                    <div class="size-10 rounded-xl bg-sidebar text-white grid place-items-center shadow-md">
-                        <i data-lucide="user-check" class="size-5 stroke-[2.5]"></i>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Formulario Estudiante: Reportar Compañero o Docente -->
+            <div class="lg:col-span-5 bg-white rounded-xl border border-border shadow-soft p-6">
+                <div class="flex items-center gap-2.5 pb-4 mb-4 border-b border-border">
+                    <div class="size-9 rounded-lg bg-surface-sunken text-sidebar grid place-items-center border border-border">
+                        <i data-lucide="shield-alert" class="size-5 stroke-[2.5]"></i>
                     </div>
                     <div>
-                        <h3 class="text-sidebar text-lg font-black">Citaciones y Observaciones del Estudiante</h3>
-                        <p class="text-text-secondary text-xs font-semibold">Notificaciones de citación oficial a Dirección o Coordinación.</p>
+                        <h3 class="text-sidebar text-base font-black">Reportar Novedad de Convivencia</h3>
+                        <p class="text-text-secondary text-[11px] font-semibold">Informa situaciones con compañeros o docentes directamente a Coordinación.</p>
                     </div>
                 </div>
-                <span class="px-3 py-1 bg-pill-green text-sidebar border border-[#cbe5c7] rounded-md font-bold text-xs">Mis Notificaciones</span>
-            </div>
 
-            <!-- Banner cuando NO HAY citaciones activas -->
-            <div th:if="${#lists.isEmpty(reportesMock)}" class="p-8 rounded-2xl bg-surface-sunken border border-border text-center space-y-2">
-                <div class="size-12 rounded-full bg-pill-green text-sidebar grid place-items-center mx-auto border border-[#cbe5c7]">
-                    <i data-lucide="check-circle-2" class="size-6 stroke-2"></i>
-                </div>
-                <h4 class="text-sidebar text-base font-black">Sin citaciones ni observaciones pendientes</h4>
-                <p class="text-text-secondary text-xs font-semibold max-w-md mx-auto">No tiene citaciones registradas a Dirección o Coordinación. Continúe con su desempeño académico y disciplinario regular.</p>
-            </div>
+                <form th:action="@{/reportes/crear}" method="POST" class="space-y-4" x-data="{ target: 'ESTUDIANTE' }">
+                    <input type="hidden" name="objetivoTipo" :value="target">
 
-            <!-- Tarjeta de Citaciones Activas -->
-            <div th:each="rep : ${reportesMock}" class="p-6 rounded-2xl bg-surface-muted border-2 border-[#cbe5c7] shadow-md space-y-4 mb-4">
-                <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
-                    <div class="flex items-center gap-3">
-                        <div class="size-12 rounded-xl bg-sidebar text-white grid place-items-center shadow-md shrink-0">
-                            <i data-lucide="calendar-clock" class="size-6 stroke-[2.5]"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-sidebar text-base font-black" th:text="${rep.estado == 'Aceptado' ? '¡Tiene una Citación Oficial a Dirección!' : 'Reporte Registrado en Evaluación por Dirección'}">¡Tiene una Citación Oficial a Dirección!</h4>
-                            <p class="text-text-secondary text-xs font-semibold">Debe presentarse en la oficina de Coordinación Académica en la fecha programada.</p>
+                    <div>
+                        <span class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1.5 block">¿A quién va dirigido el reporte?</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" @click="target = 'ESTUDIANTE'"
+                                    :class="target === 'ESTUDIANTE' ? 'bg-sidebar text-white border-sidebar' : 'bg-white text-text-secondary border-border hover:bg-surface-sunken'"
+                                    class="py-2 px-3 rounded-lg border text-xs font-extrabold transition cursor-pointer">
+                                Compañero / Estudiante
+                            </button>
+                            <button type="button" @click="target = 'DOCENTE'"
+                                    :class="target === 'DOCENTE' ? 'bg-sidebar text-white border-sidebar' : 'bg-white text-text-secondary border-border hover:bg-surface-sunken'"
+                                    class="py-2 px-3 rounded-lg border text-xs font-extrabold transition cursor-pointer">
+                                Docente
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Badge Indicador de Acudiente -->
-                    <div th:if="${rep.requiereAcudiente}" class="px-4 py-2 bg-pill-red text-alert-red border border-[#f5cece] rounded-xl text-xs font-black flex items-center gap-2 shadow-2xs shrink-0">
-                        <i data-lucide="users" class="size-4 stroke-[2.5]"></i>
-                        <span>CITACIÓN CON ACUDIENTE / PADRE DE FAMILIA</span>
+                    <div x-show="target === 'ESTUDIANTE'">
+                        <label for="est-select-companero" class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1 block">
+                            Estudiante Reportado <span class="text-alert-red">*</span>
+                        </label>
+                        <select id="est-select-companero" name="estudianteId" :required="target === 'ESTUDIANTE'" :disabled="target !== 'ESTUDIANTE'"
+                                class="w-full p-3 bg-white border border-[#c4eec0] rounded-lg text-xs font-bold text-text-primary focus:ring-1 focus:ring-sidebar focus:outline-none">
+                            <option value="" disabled selected>-- Seleccione un compañero --</option>
+                            <option th:each="comp : ${companerosList}" th:value="${comp.id}" th:text="${comp.nombre + ' (' + comp.grado + ')'}"></option>
+                        </select>
+                    </div>
+
+                    <div x-show="target === 'DOCENTE'" x-cloak>
+                        <label for="est-select-docente" class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1 block">
+                            Docente Reportado <span class="text-alert-red">*</span>
+                        </label>
+                        <select id="est-select-docente" name="docenteId" :required="target === 'DOCENTE'" :disabled="target !== 'DOCENTE'"
+                                class="w-full p-3 bg-white border border-[#c4eec0] rounded-lg text-xs font-bold text-text-primary focus:ring-1 focus:ring-sidebar focus:outline-none">
+                            <option value="" disabled selected>-- Seleccione un docente --</option>
+                            <option th:each="doc : ${docentesList}" th:value="${doc.id}" th:text="${doc.nombreCompleto + (doc.especialidad != null ? ' (' + doc.especialidad + ')' : '')}"></option>
+                        </select>
+                    </div>
+
+                    <!-- Causas específicas para reporte entre estudiantes -->
+                    <div x-show="target === 'ESTUDIANTE'">
+                        <label for="est-razon-comp" class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1 block">
+                            Causa de Convivencia Escolar <span class="text-alert-red">*</span>
+                        </label>
+                        <select id="est-razon-comp" name="razon" :required="target === 'ESTUDIANTE'" :disabled="target !== 'ESTUDIANTE'"
+                                class="w-full p-3 bg-white border border-[#c4eec0] rounded-lg text-xs font-bold text-text-primary focus:ring-1 focus:ring-sidebar focus:outline-none">
+                            <option value="" disabled selected>-- Seleccione la causa --</option>
+                            <option value="Acoso escolar o bullying">Acoso escolar o bullying reiterado</option>
+                            <option value="Agresión física o verbal">Agresión física, insultos o amenazas</option>
+                            <option value="Ciberacoso o mal uso de redes">Ciberacoso o mensajes ofensivos en redes</option>
+                            <option value="Hurto o daño a pertenencias">Hurto o daño intencional a pertenencias</option>
+                            <option value="Exclusión o conflicto grave en el aula">Conflicto grave de convivencia en el aula</option>
+                            <option value="Otro">Otro (Especificar en detalles)</option>
+                        </select>
+                    </div>
+
+                    <!-- Causas específicas para reporte hacia docente -->
+                    <div x-show="target === 'DOCENTE'" x-cloak>
+                        <label for="est-razon-doc" class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1 block">
+                            Causa de la Novedad con Docente <span class="text-alert-red">*</span>
+                        </label>
+                        <select id="est-razon-doc" name="razon" :required="target === 'DOCENTE'" :disabled="target !== 'DOCENTE'"
+                                class="w-full p-3 bg-white border border-[#c4eec0] rounded-lg text-xs font-bold text-text-primary focus:ring-1 focus:ring-sidebar focus:outline-none">
+                            <option value="" disabled selected>-- Seleccione la causa --</option>
+                            <option value="Trato irrespetuoso o discriminación">Trato irrespetuoso, intimidación o discriminación</option>
+                            <option value="Inconformidad en evaluación o calificación">Inconformidad objetiva en evaluación o notas</option>
+                            <option value="Incumplimiento o ausencias reiteradas de clase">Incumplimiento reiterado de clase o entrega de notas</option>
+                            <option value="Otro">Otro (Especificar en detalles)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="est-detalles" class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1 block">
+                            Descripción de los Hechos <span class="text-alert-red">*</span>
+                        </label>
+                        <textarea id="est-detalles" name="detalles" rows="4" required
+                                  placeholder="Indica qué ocurrió, cuándo, dónde y si hubo testigos..."
+                                  class="w-full p-3 bg-white border border-[#c4eec0] rounded-lg text-xs font-semibold text-text-primary focus:ring-1 focus:ring-sidebar focus:outline-none resize-none"></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 text-xs font-black text-white bg-sidebar hover:brightness-97 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                        <i data-lucide="send" class="size-4 stroke-[2.5]"></i>
+                        <span>Enviar Reporte a Coordinación</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Columna Derecha: Mis Citaciones + Reportes Enviados -->
+            <div class="lg:col-span-7 space-y-6">
+                <!-- Mis Citaciones y Reportes Recibidos -->
+                <div class="bg-white rounded-xl border border-border shadow-soft p-6 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-border">
+                        <div class="flex items-center gap-3">
+                            <div class="size-9 rounded-xl bg-sidebar text-white grid place-items-center shadow-sm">
+                                <i data-lucide="calendar-clock" class="size-5 stroke-[2.5]"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sidebar text-base font-black">Mis Citaciones y Seguimientos</h3>
+                                <p class="text-text-secondary text-[11px] font-semibold">Notificaciones de citación oficial a Dirección o Coordinación.</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 bg-pill-green text-sidebar border border-[#cbe5c7] rounded-md font-bold text-[11px]"
+                              th:text="${(reportesRecibidosEst != null ? #lists.size(reportesRecibidosEst) : 0) + ' registros'}">0 registros</span>
+                    </div>
+
+                    <div th:if="${reportesRecibidosEst == null || #lists.isEmpty(reportesRecibidosEst)}" class="p-6 rounded-xl bg-surface-sunken border border-border text-center space-y-1.5">
+                        <h4 class="text-sidebar text-sm font-black">Sin citaciones ni observaciones pendientes</h4>
+                        <p class="text-text-secondary text-xs font-semibold">No tienes citaciones registradas en Dirección o Coordinación.</p>
+                    </div>
+
+                    <div th:each="rep : ${reportesRecibidosEst}" class="p-4 rounded-xl bg-surface-muted border border-[#cbe5c7] space-y-3">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                                <span class="text-[10px] font-black uppercase text-sidebar" th:text="${rep.id}">REP-001</span>
+                                <h4 class="text-text-primary text-sm font-black"
+                                    th:text="${rep.estado == 'Aceptado' ? 'Citación Oficial a Coordinación' : 'Reporte en Seguimiento (' + rep.estado + ')'}"></h4>
+                            </div>
+                            <span th:if="${rep.requiereAcudiente}" class="px-3 py-1 bg-pill-red text-alert-red border border-[#f5cece] rounded-lg text-[10px] font-black">
+                                REQUIERE ACUDIENTE
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                            <div class="p-2.5 bg-white rounded-lg border border-border">
+                                <span class="text-[10px] font-bold uppercase text-text-secondary block">Citación</span>
+                                <strong class="text-sidebar font-black" th:text="${rep.fechaCitacion != null ? rep.fechaCitacion : 'Por confirmar'}">Por confirmar</strong>
+                            </div>
+                            <div class="p-2.5 bg-white rounded-lg border border-border">
+                                <span class="text-[10px] font-bold uppercase text-text-secondary block">Motivo</span>
+                                <strong class="text-text-primary font-bold" th:text="${rep.razon}">Motivo</strong>
+                            </div>
+                            <div class="p-2.5 bg-white rounded-lg border border-border">
+                                <span class="text-[10px] font-bold uppercase text-text-secondary block">Emisor</span>
+                                <strong class="text-text-primary font-bold" th:text="${rep.docente}">Emisor</strong>
+                            </div>
+                        </div>
+                        <p class="text-xs font-semibold text-text-secondary bg-white p-3 rounded-lg border border-border"
+                           th:text="${rep.observacionesAdmin != null && rep.observacionesAdmin != '' ? rep.observacionesAdmin : rep.detalles}"></p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border">
-                    <div class="p-3 bg-white rounded-xl border border-border">
-                        <span class="text-[10px] font-black uppercase text-text-secondary block">Fecha y Hora de la Cita</span>
-                        <strong class="text-sidebar text-sm font-black" th:text="${rep.fechaCitacion != null ? rep.fechaCitacion : 'Fecha por definir'}">2026-08-04 - 08:30 AM</strong>
+                <!-- Reportes Enviados por el Estudiante -->
+                <div class="bg-white rounded-xl border border-border shadow-soft p-6 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-border">
+                        <h3 class="text-sidebar text-base font-black">Reportes que he Enviado</h3>
+                        <span class="px-2.5 py-1 bg-surface-sunken text-text-secondary border border-border rounded-md font-bold text-[11px]"
+                              th:text="${(reportesEnviadosEst != null ? #lists.size(reportesEnviadosEst) : 0) + ' enviados'}">0 enviados</span>
                     </div>
-                    <div class="p-3 bg-white rounded-xl border border-border">
-                        <span class="text-[10px] font-black uppercase text-text-secondary block">Motivo del Reporte</span>
-                        <strong class="text-text-primary text-xs font-bold" th:text="${rep.razon + ' (' + rep.categoria + ')'}">Bajo rendimiento (Razones Académicas)</strong>
-                    </div>
-                    <div class="p-3 bg-white rounded-xl border border-border">
-                        <span class="text-[10px] font-black uppercase text-text-secondary block">Reportado Por</span>
-                        <strong class="text-text-primary text-xs font-bold" th:text="${rep.docente}">Prof. Jorge Eliécer Rojas</strong>
-                    </div>
-                </div>
 
-                <div class="p-3.5 bg-white rounded-xl border border-border">
-                    <span class="text-[10px] font-black uppercase text-sidebar block mb-1">Observaciones e Indicaciones de Dirección:</span>
-                    <p class="text-text-primary text-xs font-semibold leading-relaxed" th:text="${rep.observacionesAdmin != null && rep.observacionesAdmin != '' ? rep.observacionesAdmin : rep.detalles}">
-                        Se requiere presencia obligatoria del acudiente por bajo desempeño acumulado...
-                    </p>
+                    <div th:if="${reportesEnviadosEst == null || #lists.isEmpty(reportesEnviadosEst)}" class="text-xs font-semibold text-text-secondary py-3 text-center">
+                        Aún no has enviado reportes de convivencia.
+                    </div>
+
+                    <div th:each="rep : ${reportesEnviadosEst}" class="p-4 rounded-xl border border-border bg-surface-sunken/40 flex flex-col gap-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-black text-sidebar" th:text="${rep.id + ' · Hacia: ' + rep.estudiante}">REP</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border"
+                                  th:classappend="${rep.estado == 'Aceptado'} ? 'bg-pill-green text-sidebar border-[#cbe5c7]' : (${rep.estado == 'Rechazado'} ? 'bg-pill-red text-alert-red border-[#f5cece]' : 'bg-pill-warning text-[#8f5b12] border-[#f0dec0]')"
+                                  th:text="${rep.estado}">Pendiente</span>
+                        </div>
+                        <p class="text-xs font-bold text-text-primary" th:text="${rep.razon + ' (' + rep.categoria + ')'}"></p>
+                        <p class="text-[11px] font-medium text-text-secondary" th:text="${rep.detalles}"></p>
+                    </div>
                 </div>
             </div>
         </div>

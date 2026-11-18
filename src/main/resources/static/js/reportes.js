@@ -91,7 +91,7 @@ function handleFormCrearReporte(e) {
     const detalles = document.getElementById('reporte-detalles-txt').value;
     const fechaHoy = new Date().toISOString().split('T')[0];
     const numCod = Math.floor(100 + Math.random() * 900);
-    const codId = 'REP-2026-' + numCod;
+    const codId = 'REP-' + new Date().getFullYear() + '-' + numCod;
 
     let categoria = 'Razones Académicas';
     if (['Agresión', 'Falta de respeto', 'Daño a la escuela'].includes(razon)) categoria = 'Convivencia y Disciplina';

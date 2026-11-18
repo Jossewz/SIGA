@@ -11,7 +11,9 @@ import java.util.UUID;
 @Repository
 public interface ReporteRepository extends JpaRepository<Reporte, UUID> {
     List<Reporte> findByDocenteIdOrderByCreatedAtDesc(UUID docenteId);
+    List<Reporte> findByDocenteIdAndReportanteTipoOrderByCreatedAtDesc(UUID docenteId, String reportanteTipo);
     List<Reporte> findByEstudianteIdOrderByCreatedAtDesc(UUID estudianteId);
+    List<Reporte> findByEstudianteIdOrReportanteEstudianteIdOrderByCreatedAtDesc(UUID estudianteId, UUID reportanteEstudianteId);
     List<Reporte> findAllByOrderByCreatedAtDesc();
     Optional<Reporte> findByCodigo(String codigo);
     List<Reporte> findByEstado(String estado);
