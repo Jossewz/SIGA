@@ -42,13 +42,42 @@
                 </span>
             </div>
 
-            <!-- Badge de Estado de Ponderación -->
-            <div id="peso-val-badge" 
-                 class="px-4 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs shrink-0"
-                 th:classappend="${sumaPesos != null && sumaPesos.intValue() == 100} ? 'bg-pill-green text-sidebar border border-[#8ce383]' : 'bg-pill-red text-alert-red border border-red-300'">
-                <i th:attr="data-lucide=${sumaPesos != null && sumaPesos.intValue() == 100 ? 'check-circle-2' : 'alert-circle'}" class="size-3.5 stroke-[2.5]"></i>
-                <span>Suma Periodo: <strong id="peso-total-val" th:text="${(sumaPesos != null ? (sumaPesos.doubleValue() % 1 == 0 ? sumaPesos.intValue() : #numbers.formatDecimal(sumaPesos, 1, 2)) : 0) + '%'}">100%</strong></span>
+            <!-- Acciones Excel + Badge de Estado de Ponderación -->
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <button type="button"
+                        onclick="exportarNotasExcel()"
+                        class="px-3 py-1.5 rounded-lg bg-white border border-border text-sidebar text-xs font-extrabold hover:bg-surface-sunken transition inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        title="Descargar planilla Excel (.xlsx) del período">
+                    <i data-lucide="download" class="size-3.5 stroke-2"></i>
+                    <span>Exportar Notas</span>
+                </button>
+                <label class="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-sidebar text-xs font-extrabold hover:bg-emerald-100 transition inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                       title="Importar calificaciones desde plantilla oficial (.xlsx)">
+                    <i data-lucide="upload" class="size-3.5 stroke-2"></i>
+                    <span>Importar Notas</span>
+                    <input type="file" accept=".xlsx" class="hidden" onchange="importarNotasExcel(this)">
+                </label>
+
+                <div id="peso-val-badge" 
+                     class="px-4 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs shrink-0"
+                     th:classappend="${sumaPesos != null && sumaPesos.intValue() == 100} ? 'bg-pill-green text-sidebar border border-[#8ce383]' : 'bg-pill-red text-alert-red border border-red-300'">
+                    <i th:attr="data-lucide=${sumaPesos != null && sumaPesos.intValue() == 100 ? 'check-circle-2' : 'alert-circle'}" class="size-3.5 stroke-[2.5]"></i>
+                    <span>Suma Periodo: <strong id="peso-total-val" th:text="${(sumaPesos != null ? (sumaPesos.doubleValue() % 1 == 0 ? sumaPesos.intValue() : #numbers.formatDecimal(sumaPesos, 1, 2)) : 0) + '%'}">100%</strong></span>
+                </div>
             </div>
+        </div>
+
+        <!-- Resultado de importación Excel de notas -->
+        <div th:if="${excelMensaje != null}"
+             class="mx-4 mt-4 mb-1 p-3.5 rounded-xl border text-xs font-bold"
+             th:classappend="${excelOk == true} ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-900'">
+            <div class="flex items-center gap-2">
+                <i th:attr="data-lucide=${excelOk == true ? 'check-circle-2' : 'alert-triangle'}" class="size-4 shrink-0 stroke-2"></i>
+                <span th:text="${excelMensaje}">Resultado Excel</span>
+            </div>
+            <ul th:if="${excelErrores != null and !#lists.isEmpty(excelErrores)}" class="mt-2 list-disc list-inside space-y-0.5 text-[11px] font-semibold">
+                <li th:each="err : ${excelErrores}" th:text="${err}">Error detalle</li>
+            </ul>
         </div>
 
         <!-- Out-Of-Band Swap para el Nombre del Día de la Semana -->

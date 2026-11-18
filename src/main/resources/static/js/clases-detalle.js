@@ -161,6 +161,80 @@ function prepararPromocion(event) {
     return confirm('¿Desea ejecutar el proceso de promoción/graduación para los estudiantes aprobados (nota final ≥ 3.0)?');
 }
 
+function exportarNotasExcel() {
+    const cursoId = document.getElementById('input-curso-id')?.value;
+    const materiaNombre = document.getElementById('select-materia')?.value || '';
+    const periodo = document.getElementById('input-periodo-activo')?.value || periodoActivo || '1';
+    if (!cursoId || !materiaNombre) {
+        alert('Seleccione una fecha con asignatura asignada antes de exportar la planilla de calificaciones.');
+        return;
+    }
+    const params = new URLSearchParams({
+        cursoId: cursoId,
+        materiaNombre: materiaNombre,
+        periodo: periodo
+    });
+    window.location.href = '/clases/calificaciones/excel/exportar?' + params.toString();
+}
+
+async function importarNotasExcel(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const cursoId = document.getElementById('input-curso-id')?.value;
+    const materiaNombre = document.getElementById('select-materia')?.value || '';
+    const periodo = document.getElementById('input-periodo-activo')?.value || periodoActivo || '1';
+    const fecha = document.getElementById('fecha-evaluacion')?.value || getHoyFechaLocalStr();
+    const vistaNotas = document.getElementById('input-vista-notas')?.value || vistaNotasActiva || 'PERIODO';
+
+    if (!cursoId || !materiaNombre) {
+        alert('Seleccione una asignatura antes de importar notas.');
+        input.value = '';
+        return;
+    }
+
+    const token = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+    const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+    const fd = new FormData();
+    fd.append('cursoId', cursoId);
+    fd.append('materiaNombre', materiaNombre);
+    fd.append('periodo', periodo);
+    fd.append('fecha', fecha);
+    fd.append('vistaNotas', vistaNotas);
+    fd.append('archivo', file);
+
+    try {
+        const headers = {};
+        if (token && header) headers[header] = token;
+        const res = await fetch('/clases/calificaciones/excel/importar', {
+            method: 'POST',
+            headers: headers,
+            body: fd
+        });
+        const html = await res.text();
+        const cont = document.getElementById('contenedor-tabla-notas');
+        if (res.ok && cont) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const newBarra = doc.getElementById('barra-acciones-calificaciones');
+            const curBarra = document.getElementById('barra-acciones-calificaciones');
+            if (newBarra && curBarra) {
+                curBarra.replaceWith(newBarra);
+            }
+            const newTabla = doc.getElementById('contenedor-tabla-notas');
+            if (newTabla) {
+                cont.replaceWith(newTabla);
+                if (window.htmx) window.htmx.process(newTabla);
+            }
+            if (window.lucide) lucide.createIcons();
+        } else {
+            alert('No tienes permisos o ocurrió un error al importar las calificaciones.');
+        }
+    } catch (e) {
+        alert('Error de red al importar las calificaciones.');
+    } finally {
+        input.value = '';
+    }
+}
+
 document.addEventListener('htmx:afterSwap', () => {
     if (window.lucide) {
         lucide.createIcons();

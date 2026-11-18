@@ -157,6 +157,7 @@
 
                 <!-- Columna Derecha: Panel de Toma de Asistencia (8 columnas en lg) -->
                 <div class="lg:col-span-8 bg-white rounded-2xl border border-border shadow-xs p-6 min-h-[500px] flex flex-col">
+                    <div id="mi-jornada-excel-alert" class="mb-4 empty:hidden"></div>
                     <div id="panel-toma-asistencia"
                          class="flex-1 flex flex-col"
                          th:classappend="${sesion == null} ? 'justify-center' : 'justify-start'">
@@ -185,6 +186,8 @@
         window.miJornadaActiveSesionId = window.miJornadaActiveSesionId || null;
         window.seleccionarSesionMiJornada = function(sesionId, fecha) {
             window.miJornadaActiveSesionId = sesionId || null;
+            const alertBox = document.getElementById('mi-jornada-excel-alert');
+            if (alertBox) alertBox.innerHTML = '';
             try {
                 const url = new URL(window.location.href);
                 if (fecha) url.searchParams.set('fecha', fecha);
@@ -194,6 +197,55 @@
             const listEl = document.getElementById('contenedor-sesiones');
             if (listEl && window.htmx) {
                 htmx.trigger(document.body, 'jornadaGuardada');
+            }
+        };
+        window.importarAsistenciaExcel = async function(input, sesionId) {
+            const file = input && input.files && input.files[0];
+            if (!file || !sesionId) return;
+            const alertBox = document.getElementById('mi-jornada-excel-alert');
+            const token = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            const fd = new FormData();
+            fd.append('archivo', file);
+
+            try {
+                const headers = {};
+                if (token && header) headers[header] = token;
+                const res = await fetch('/mi-jornada/sesiones/' + encodeURIComponent(sesionId) + '/excel/importar', {
+                    method: 'POST',
+                    headers: headers,
+                    body: fd
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    if (alertBox) {
+                        alertBox.innerHTML = '<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center justify-between gap-2">'
+                            + '<span>' + (data.mensaje || 'Asistencia importada correctamente.') + '</span>'
+                            + '<button type="button" onclick="this.closest(\'#mi-jornada-excel-alert\').innerHTML=\'\'" class="text-emerald-700 hover:underline font-black cursor-pointer">Cerrar</button>'
+                            + '</div>';
+                    }
+                    if (window.htmx) {
+                        htmx.ajax('GET', '/mi-jornada/sesiones/' + encodeURIComponent(sesionId), { target: '#panel-toma-asistencia', swap: 'innerHTML' });
+                        htmx.trigger(document.body, 'jornadaGuardada');
+                    }
+                } else {
+                    const errs = Array.isArray(data.errores) ? data.errores : [];
+                    const listHtml = errs.length > 0
+                        ? '<ul class="mt-2 list-disc list-inside space-y-0.5 text-[11px] font-semibold">' + errs.map(e => '<li>' + e.replace(/</g, '&lt;') + '</li>').join('') + '</ul>'
+                        : '';
+                    if (alertBox) {
+                        alertBox.innerHTML = '<div class="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold">'
+                            + '<div class="flex items-center justify-between gap-2"><span>' + ((data.mensaje || 'Error al validar la plantilla Excel.').replace(/</g, '&lt;')) + '</span>'
+                            + '<button type="button" onclick="this.closest(\'#mi-jornada-excel-alert\').innerHTML=\'\'" class="text-rose-700 hover:underline font-black cursor-pointer shrink-0">Cerrar</button></div>'
+                            + listHtml + '</div>';
+                    }
+                }
+            } catch (err) {
+                if (alertBox) {
+                    alertBox.innerHTML = '<div class="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold">Error de red al importar el archivo Excel.</div>';
+                }
+            } finally {
+                input.value = '';
             }
         };
         document.body.addEventListener('jornadaIniciada', function() {

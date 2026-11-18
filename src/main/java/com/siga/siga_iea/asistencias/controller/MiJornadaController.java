@@ -6,18 +6,25 @@ import com.siga.siga_iea.asistencias.dto.AsistenciaItemDto;
 import com.siga.siga_iea.asistencias.dto.FilaAsistenciaDto;
 import com.siga.siga_iea.asistencias.entity.SesionClase;
 import com.siga.siga_iea.asistencias.repository.SesionClaseRepository;
+import com.siga.siga_iea.asistencias.service.AsistenciaExcelService;
 import com.siga.siga_iea.asistencias.service.AsistenciaService;
 import com.siga.siga_iea.asistencias.service.AsistenciaTablaService;
 import com.siga.siga_iea.asistencias.service.MiJornadaService;
 import com.siga.siga_iea.auth.service.CurrentUserContextService;
+import com.siga.siga_iea.excel.ExcelImportResult;
+import com.siga.siga_iea.excel.ExcelPlantillaSupport;
+import com.siga.siga_iea.excel.ExcelValidationException;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -39,6 +46,24 @@ public class MiJornadaController {
     private final SesionClaseRepository sesionRepo;
     private final AsistenciaTablaService tabla;
     private final ObjectMapper objectMapper;
+    private final AsistenciaExcelService asistenciaExcelService;
+
+    @Autowired
+    public MiJornadaController(CurrentUserContextService ctx,
+                               MiJornadaService jornada,
+                               AsistenciaService asistencia,
+                               SesionClaseRepository sesionRepo,
+                               AsistenciaTablaService tabla,
+                               ObjectMapper objectMapper,
+                               @Autowired(required = false) AsistenciaExcelService asistenciaExcelService) {
+        this.ctx = ctx;
+        this.jornada = jornada;
+        this.asistencia = asistencia;
+        this.sesionRepo = sesionRepo;
+        this.tabla = tabla;
+        this.objectMapper = objectMapper;
+        this.asistenciaExcelService = asistenciaExcelService;
+    }
 
     public MiJornadaController(CurrentUserContextService ctx,
                                MiJornadaService jornada,
@@ -46,12 +71,7 @@ public class MiJornadaController {
                                SesionClaseRepository sesionRepo,
                                AsistenciaTablaService tabla,
                                ObjectMapper objectMapper) {
-        this.ctx = ctx;
-        this.jornada = jornada;
-        this.asistencia = asistencia;
-        this.sesionRepo = sesionRepo;
-        this.tabla = tabla;
-        this.objectMapper = objectMapper;
+        this(ctx, jornada, asistencia, sesionRepo, tabla, objectMapper, null);
     }
 
     @GetMapping
@@ -149,6 +169,39 @@ public class MiJornadaController {
         }
 
         return "mi-jornada/fragments :: mensaje";
+    }
+
+    @GetMapping("/sesiones/{id}/excel/exportar")
+    public ResponseEntity<byte[]> exportarExcel(@PathVariable UUID id) {
+        if (asistenciaExcelService == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Servicio Excel no disponible");
+        }
+        AsistenciaExcelService.ExportPayload payload = asistenciaExcelService.exportarPlantillaSesion(id);
+        return ExcelPlantillaSupport.buildDownloadResponse(payload.bytes(), payload.filename());
+    }
+
+    @PostMapping("/sesiones/{id}/excel/importar")
+    @ResponseBody
+    public ResponseEntity<ExcelImportResult> importarExcel(
+            @PathVariable UUID id,
+            @RequestParam("archivo") MultipartFile archivo) {
+        if (asistenciaExcelService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ExcelImportResult.fallo("Servicio Excel no disponible.", List.of()));
+        }
+        try {
+            ExcelImportResult result = asistenciaExcelService.importarPlantillaSesion(id, archivo);
+            return ResponseEntity.ok(result);
+        } catch (ExcelValidationException ex) {
+            return ResponseEntity.badRequest()
+                    .body(ExcelImportResult.fallo(ex.getMessage(), ex.getErrores()));
+        } catch (AccessDeniedException | SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ExcelImportResult.fallo(ex.getMessage(), List.of(ex.getMessage())));
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return ResponseEntity.badRequest()
+                    .body(ExcelImportResult.fallo(ex.getMessage(), List.of(ex.getMessage())));
+        }
     }
 
     private SesionClase resolverSesionInicial(List<SesionClase> sesiones, UUID sesionIdSolicitada) {

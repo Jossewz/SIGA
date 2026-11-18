@@ -16,7 +16,28 @@
                    th:text="${modoVista == 'ESTUDIANTE' ? 'Consulta de asistencia diaria, tardanzas y excusas registradas por asignatura.' : 'Resumen institucional de asistencia registrada por curso y fecha.'}">Seguimiento real de asistencia escolar.</p>
             </div>
 
-            <div th:if="${modoVista == 'ADMIN'}" class="flex items-center gap-2">
+            <div th:if="${modoVista == 'ADMIN'}" class="flex flex-wrap items-center gap-2">
+                <a th:href="@{/asistencias/excel/exportar(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, estado=${estadoFiltro}, materia=${materiaFiltro}, q=${queryFiltro})}"
+                   class="px-4 py-2.5 rounded-xl bg-white border border-border text-sidebar text-xs font-extrabold hover:bg-surface-sunken transition inline-flex items-center gap-2 shadow-2xs"
+                   th:title="${cursoSeleccionado != null ? 'Descargar plantilla oficial editable (.xlsx)' : 'Exportar reporte consolidado (.xlsx)'}">
+                    <i data-lucide="download" class="size-4 stroke-2"></i>
+                    <span th:text="${cursoSeleccionado != null ? 'Exportar Plantilla (.xlsx)' : 'Exportar Excel'}">Exportar Excel</span>
+                </a>
+
+                <form th:if="${cursoSeleccionado != null}"
+                      th:action="@{/asistencias/excel/importar}"
+                      method="post"
+                      enctype="multipart/form-data"
+                      class="m-0">
+                    <input type="hidden" name="cursoId" th:value="${cursoSeleccionado.id}">
+                    <input type="hidden" name="fecha" th:value="${fechaFiltro}">
+                    <label class="px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-sidebar text-xs font-extrabold hover:bg-emerald-100 transition inline-flex items-center gap-2 shadow-2xs cursor-pointer">
+                        <i data-lucide="upload" class="size-4 stroke-2"></i>
+                        <span>Importar Excel</span>
+                        <input type="file" name="archivo" accept=".xlsx" class="hidden" onchange="if(this.files.length) this.form.submit()">
+                    </label>
+                </form>
+
                 <a th:if="${cursoSeleccionado != null}"
                    th:href="@{/clases/gestion(codigo=${cursoSeleccionado.codigoCurso})}"
                    class="px-4 py-2.5 rounded-xl bg-sidebar text-white text-xs font-extrabold hover:brightness-110 transition inline-flex items-center gap-2 shadow-sm">
@@ -30,6 +51,21 @@
                     <span>Ir a Cursos</span>
                 </a>
             </div>
+        </div>
+
+        <!-- Mensajes de importación/validación Excel -->
+        <div th:if="${mensajeExito}" class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-sidebar flex items-center gap-2.5">
+            <i data-lucide="check-circle-2" class="size-4.5 shrink-0 stroke-2"></i>
+            <span th:text="${mensajeExito}">Éxito</span>
+        </div>
+        <div th:if="${mensajeError}" class="p-4 rounded-xl bg-rose-50 border border-rose-300 text-xs font-bold text-alert-red">
+            <div class="flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="size-4.5 shrink-0 stroke-2"></i>
+                <span th:text="${mensajeError}">Error</span>
+            </div>
+            <ul th:if="${erroresExcel != null and !#lists.isEmpty(erroresExcel)}" class="mt-2 list-disc list-inside space-y-0.5 text-[11px] font-semibold text-rose-800">
+                <li th:each="err : ${erroresExcel}" th:text="${err}">Detalle error</li>
+            </ul>
         </div>
 
         <!-- Tarjetas resumen reales (clickeables para filtrar por estado) -->

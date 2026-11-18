@@ -3,6 +3,7 @@ package com.siga.siga_iea.clases.controller;
 import com.siga.siga_iea.asistencias.entity.Asistencia;
 import com.siga.siga_iea.asistencias.service.AsistenciaService;
 import com.siga.siga_iea.auth.service.CurrentUserContextService;
+import com.siga.siga_iea.calificaciones.service.CalificacionExcelService;
 import com.siga.siga_iea.calificaciones.service.CalificacionesService;
 import com.siga.siga_iea.clases.application.CursoGestionAppService;
 import com.siga.siga_iea.clases.dto.CursoGestionDetalleDTO;
@@ -13,13 +14,18 @@ import com.siga.siga_iea.clases.entity.CursoMateria;
 import com.siga.siga_iea.clases.entity.Horario;
 import com.siga.siga_iea.clases.service.CursoService;
 import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
+import com.siga.siga_iea.excel.ExcelImportResult;
+import com.siga.siga_iea.excel.ExcelPlantillaSupport;
+import com.siga.siga_iea.excel.ExcelValidationException;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import com.siga.siga_iea.usuarios.service.PersonalService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
@@ -43,6 +49,7 @@ public class CursoController {
     private final AsistenciaService asistenciaService;
     private final CurrentUserContextService currentUserContextService;
     private final PeriodoConfigService periodoConfigService;
+    private final CalificacionExcelService calificacionExcelService;
 
     @Autowired
     public CursoController(CursoService cursoService,
@@ -51,7 +58,8 @@ public class CursoController {
             CalificacionesService calificacionesService,
             AsistenciaService asistenciaService,
             CurrentUserContextService currentUserContextService,
-            @Autowired(required = false) PeriodoConfigService periodoConfigService) {
+            @Autowired(required = false) PeriodoConfigService periodoConfigService,
+            @Autowired(required = false) CalificacionExcelService calificacionExcelService) {
         this.cursoService = cursoService;
         this.cursoGestionAppService = cursoGestionAppService;
         this.personalService = personalService;
@@ -59,6 +67,18 @@ public class CursoController {
         this.asistenciaService = asistenciaService;
         this.currentUserContextService = currentUserContextService;
         this.periodoConfigService = periodoConfigService;
+        this.calificacionExcelService = calificacionExcelService;
+    }
+
+    public CursoController(CursoService cursoService,
+            CursoGestionAppService cursoGestionAppService,
+            PersonalService personalService,
+            CalificacionesService calificacionesService,
+            AsistenciaService asistenciaService,
+            CurrentUserContextService currentUserContextService,
+            PeriodoConfigService periodoConfigService) {
+        this(cursoService, cursoGestionAppService, personalService, calificacionesService,
+                asistenciaService, currentUserContextService, periodoConfigService, null);
     }
 
     public CursoController(CursoService cursoService,
@@ -68,7 +88,7 @@ public class CursoController {
             AsistenciaService asistenciaService,
             CurrentUserContextService currentUserContextService) {
         this(cursoService, cursoGestionAppService, personalService, calificacionesService,
-                asistenciaService, currentUserContextService, null);
+                asistenciaService, currentUserContextService, null, null);
     }
 
     private String resolverAnioActivo() {
@@ -608,6 +628,51 @@ public class CursoController {
         model.addAttribute("notaFinal", notaFinal);
 
         return "clases/fragments/tabla-detalle-notas :: badgeNotaFinal";
+    }
+
+    @GetMapping("/clases/calificaciones/excel/exportar")
+    public ResponseEntity<byte[]> exportarNotasExcel(
+            @RequestParam("cursoId") UUID cursoId,
+            @RequestParam(value = "materiaId", required = false) UUID materiaId,
+            @RequestParam(value = "materiaNombre", required = false) String materiaNombre,
+            @RequestParam(value = "periodo", defaultValue = "1") Integer periodo) {
+        exigirDocenteOAdmin();
+        CalificacionExcelService.ExportPayload payload = calificacionExcelService
+                .exportarPlantillaNotas(cursoId, materiaId, materiaNombre, periodo);
+        return ExcelPlantillaSupport.buildDownloadResponse(payload.bytes(), payload.filename());
+    }
+
+    @PostMapping("/clases/calificaciones/excel/importar")
+    public String importarNotasExcel(
+            @RequestParam("cursoId") UUID cursoId,
+            @RequestParam(value = "materiaId", required = false) UUID materiaId,
+            @RequestParam(value = "materiaNombre", required = false) String materiaNombre,
+            @RequestParam(value = "periodo", defaultValue = "1") Integer periodo,
+            @RequestParam(value = "fecha", required = false) String fecha,
+            @RequestParam(value = "vistaNotas", defaultValue = "PERIODO") String vistaNotas,
+            @RequestParam("archivo") MultipartFile archivo,
+            Model model) {
+        exigirDocenteOAdmin();
+        String effectiveVista = vistaNotas;
+        try {
+            ExcelImportResult res = calificacionExcelService.importarNotas(
+                    cursoId, materiaId, materiaNombre, periodo, archivo);
+            model.addAttribute("excelOk", true);
+            model.addAttribute("excelMensaje", res.mensaje());
+            effectiveVista = "PERIODO";
+        } catch (ExcelValidationException ex) {
+            model.addAttribute("excelOk", false);
+            model.addAttribute("excelMensaje", ex.getMessage());
+            model.addAttribute("excelErrores", ex.getErrores());
+        } catch (AccessDeniedException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            model.addAttribute("excelOk", false);
+            model.addAttribute("excelMensaje", "Error al importar notas: " + ex.getMessage());
+            model.addAttribute("excelErrores", List.of(ex.getMessage()));
+        }
+
+        return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, effectiveVista, model);
     }
 
     @PostMapping("/clases/asistencias/marcar")

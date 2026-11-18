@@ -193,13 +193,34 @@
             </h3>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             <!-- Indicador Dirty State -->
             <span x-show="dirty" x-cloak
                   class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-300">
                 <span class="size-2 rounded-full bg-amber-500 animate-ping"></span>
                 Cambios sin guardar
             </span>
+
+            <!-- Exportar plantilla oficial Excel -->
+            <a th:href="@{/mi-jornada/sesiones/{id}/excel/exportar(id=${sesion.id})}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-sidebar font-bold text-xs border border-border hover:bg-surface-sunken transition shadow-2xs"
+               title="Descargar plantilla oficial Excel (.xlsx)">
+                <i data-lucide="download" class="size-3.5 stroke-2"></i>
+                <span>Exportar Excel</span>
+            </a>
+
+            <!-- Importar plantilla oficial Excel -->
+            <label th:if="${!soloLectura}"
+                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-sidebar font-bold text-xs border border-emerald-300 hover:bg-emerald-50 transition cursor-pointer shadow-2xs"
+                   title="Importar asistencia desde plantilla oficial (.xlsx)">
+                <i data-lucide="upload" class="size-3.5 stroke-2"></i>
+                <span>Importar Excel</span>
+                <input type="file"
+                       accept=".xlsx"
+                       class="hidden"
+                       th:attr="data-sesion-id=${sesion.id}"
+                       onchange="window.importarAsistenciaExcel && window.importarAsistenciaExcel(this, this.getAttribute('data-sesion-id'))">
+            </label>
 
             <!-- Botón Marcar Todos Presentes -->
             <button type="button"
