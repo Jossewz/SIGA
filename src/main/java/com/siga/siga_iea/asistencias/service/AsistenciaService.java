@@ -53,6 +53,7 @@ public class AsistenciaService {
     private final HorarioValidator horarioValidator;
     private final CurrentUserContextService currentUserContextService;
     private final Clock clock;
+    private final com.siga.siga_iea.notificaciones.service.NotificacionService notificacionService;
 
     @Autowired
     @Lazy
@@ -69,7 +70,9 @@ public class AsistenciaService {
                              DocenteRepository docenteRepository,
                              HorarioValidator horarioValidator,
                              CurrentUserContextService currentUserContextService,
-                             Clock clock) {
+                             Clock clock,
+                             @Autowired(required = false)
+                             com.siga.siga_iea.notificaciones.service.NotificacionService notificacionService) {
         this.sesionClaseRepository = sesionClaseRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.cursoRepository = cursoRepository;
@@ -81,6 +84,23 @@ public class AsistenciaService {
         this.horarioValidator = horarioValidator;
         this.currentUserContextService = currentUserContextService;
         this.clock = clock != null ? clock : Clock.system(ZoneId.of("America/Bogota"));
+        this.notificacionService = notificacionService;
+    }
+
+    public AsistenciaService(SesionClaseRepository sesionClaseRepository,
+                             AsistenciaRepository asistenciaRepository,
+                             CursoRepository cursoRepository,
+                             HorarioRepository horarioRepository,
+                             CursoMateriaRepository cursoMateriaRepository,
+                             CursoEstudianteRepository cursoEstudianteRepository,
+                             EstudianteRepository estudianteRepository,
+                             DocenteRepository docenteRepository,
+                             HorarioValidator horarioValidator,
+                             CurrentUserContextService currentUserContextService,
+                             Clock clock) {
+        this(sesionClaseRepository, asistenciaRepository, cursoRepository, horarioRepository,
+             cursoMateriaRepository, cursoEstudianteRepository, estudianteRepository,
+             docenteRepository, horarioValidator, currentUserContextService, clock, null);
     }
 
     public AsistenciaService(SesionClaseRepository sesionClaseRepository,
@@ -96,7 +116,7 @@ public class AsistenciaService {
         this(sesionClaseRepository, asistenciaRepository, cursoRepository, horarioRepository,
              cursoMateriaRepository, cursoEstudianteRepository, estudianteRepository,
              docenteRepository, horarioValidator, currentUserContextService,
-             Clock.system(ZoneId.of("America/Bogota")));
+             Clock.system(ZoneId.of("America/Bogota")), null);
     }
 
     /**
@@ -325,6 +345,7 @@ public class AsistenciaService {
 
             Optional<Asistencia> opt = asistenciaRepository.findBySesionIdAndEstudianteId(sesionId, item.estudianteId());
             Asistencia asistencia;
+            String estadoAnterior = opt.map(Asistencia::getEstado).orElse(null);
             String estadoNormalizado = normalizarEstado(item.estado());
 
             if (opt.isPresent()) {
@@ -339,10 +360,49 @@ public class AsistenciaService {
                 asistencia = new Asistencia(sesion, estudiante, estadoNormalizado, item.observaciones());
             }
 
-            guardadas.add(asistenciaRepository.saveAndFlush(asistencia));
+            Asistencia guardada = asistenciaRepository.saveAndFlush(asistencia);
+            guardadas.add(guardada);
+
+            if (notificacionService != null && !estadoNormalizado.equalsIgnoreCase(estadoAnterior)
+                    && ("AUSENTE".equals(estadoNormalizado) || "TARDE".equals(estadoNormalizado))) {
+                notificarNovedadAsistencia(sesion, guardada.getEstudiante(), estadoNormalizado);
+            }
         }
 
         return guardadas;
+    }
+
+    private void notificarNovedadAsistencia(SesionClase sesion, Estudiante estudiante, String estado) {
+        if (estudiante == null || sesion == null) return;
+        boolean esFalta = "AUSENTE".equals(estado);
+        String materia = (sesion.getCursoMateria() != null && sesion.getCursoMateria().getMateria() != null)
+                ? sesion.getCursoMateria().getMateria().getNombre()
+                : (sesion.getHorario() != null && sesion.getHorario().getMateria() != null
+                        ? sesion.getHorario().getMateria().getNombre()
+                        : "Jornada Académica");
+        String cursoNombre = sesion.getCurso() != null
+                ? sesion.getCurso().getGrado() + " - " + (sesion.getCurso().getGrupo() != null ? sesion.getCurso().getGrupo() : "01")
+                : "";
+        Map<String, String> detalles = new LinkedHashMap<>();
+        detalles.put("Estudiante", estudiante.getNombreCompleto());
+        detalles.put("Curso", cursoNombre);
+        detalles.put("Asignatura / Sesión", materia);
+        detalles.put("Fecha", sesion.getFecha() != null ? sesion.getFecha().toString() : "");
+        detalles.put("Estado registrado", esFalta ? "Inasistencia (FI)" : "Llegada Tarde (T)");
+
+        notificacionService.notificarEstudianteYAcudiente(
+                estudiante,
+                esFalta ? "ASISTENCIA_INASISTENCIA" : "ASISTENCIA_TARDANZA",
+                esFalta ? "Registro de inasistencia en " + materia : "Registro de llegada tarde en " + materia,
+                esFalta
+                        ? "Se registró una inasistencia injustificada para " + estudiante.getNombreCompleto() + " el " + sesion.getFecha() + "."
+                        : "Se registró una llegada tarde para " + estudiante.getNombreCompleto() + " el " + sesion.getFecha() + ".",
+                sesion.getId() != null ? sesion.getId().toString() : null,
+                esFalta ? "user-x" : "clock",
+                esFalta ? "rose" : "amber",
+                true,
+                detalles
+        );
     }
 
     /**
