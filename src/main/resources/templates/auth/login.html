@@ -93,7 +93,7 @@
 
                 <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-emerald-200 shadow-sm">
                     <span class="size-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Año Lectivo 2026</span>
+                    <span th:text="${'Año Lectivo ' + (anioLectivoActivo ?: '2026')}">Año Lectivo</span>
                 </div>
             </div>
 
@@ -151,7 +151,7 @@
                 </div>
                 <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pill-green text-sidebar text-[11px] font-bold">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                    <span>2026</span>
+                    <span th:text="${anioLectivoActivo ?: '2026'}">2026</span>
                 </div>
             </div>
 
@@ -255,7 +255,7 @@
 
             <!-- Pie del Panel Derecho -->
             <div class="pt-6 border-t border-gray-200/70 text-center text-[11px] text-text-muted flex flex-col gap-1">
-                <span>&copy; 2026 Institución Educativa Ambientalista de Cartagena de Indias.</span>
+                <span>&copy; <span th:text="${anioLectivoActivo ?: '2026'}">2026</span> Institución Educativa Ambientalista de Cartagena de Indias.</span>
                 <span>Todos los derechos reservados &bull; Versión 1.0</span>
             </div>
 
@@ -263,7 +263,7 @@
 
     </div>
 
-    <!-- Modal ¿Olvidaste tu clave? -->
+    <!-- Modal ¿Olvidaste tu clave? (Recuperación por Correo con Enlace Seguro) -->
     <div id="forgotModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="bg-white/95 backdrop-blur-2xl rounded-2xl border border-white/50 shadow-2xl max-w-md w-full p-6 flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
             <div class="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -271,30 +271,40 @@
                     <i data-lucide="key-round" class="size-4 stroke-[2.5]"></i>
                     <span>Restablecimiento de Contraseña</span>
                 </div>
-                <button type="button" onclick="closeForgotModal()" class="text-text-muted hover:text-text-primary cursor-pointer">
+                <button type="button" onclick="closeForgotModal()" class="text-text-muted hover:text-text-primary cursor-pointer" aria-label="Cerrar">
                     <i data-lucide="x" class="size-4 stroke-2"></i>
                 </button>
             </div>
 
             <p class="text-xs text-text-secondary leading-relaxed">
-                Por políticas de seguridad del sistema <strong>SIGA</strong>, el restablecimiento de contraseñas es gestionado presencialmente o vía correo institucional por la <strong>Secretaría Académica</strong>.
+                Ingresa tu <strong>correo electrónico institucional o registrado</strong>. Si la cuenta está activa, recibirás un enlace seguro (válido por 30 minutos) para definir una nueva contraseña.
             </p>
 
-            <div class="bg-pill-green p-3.5 rounded-xl border border-pill-green-border text-xs text-sidebar font-medium flex flex-col gap-1.5">
+            <form th:action="@{/forgot-password}" method="post" class="flex flex-col gap-3">
+                <div class="relative flex items-center">
+                    <i data-lucide="mail" class="absolute left-3.5 size-4 text-text-muted stroke-2 pointer-events-none"></i>
+                    <input type="email"
+                           name="email"
+                           required
+                           autocomplete="email"
+                           placeholder="usuario@ieaci.edu.co"
+                           class="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 bg-white text-xs font-medium text-text-primary focus:border-sidebar focus:ring-2 focus:ring-sidebar/20 outline-none transition-all">
+                </div>
+
+                <button type="submit"
+                        class="w-full py-2.5 rounded-xl bg-sidebar text-white text-xs font-extrabold hover:brightness-110 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm">
+                    <i data-lucide="send" class="size-3.5 stroke-[2.5]"></i>
+                    <span>Enviar Enlace al Correo</span>
+                </button>
+            </form>
+
+            <div class="bg-pill-green p-3 rounded-xl border border-pill-green-border text-[11px] text-sidebar font-medium flex flex-col gap-1">
                 <div class="font-extrabold flex items-center gap-1.5">
                     <i data-lucide="headphones" class="size-3.5"></i>
-                    <span>Contacto de Soporte:</span>
+                    <span>¿Sin acceso a tu correo? Contacta a Secretaría:</span>
                 </div>
-                <div>Correo: <strong class="font-bold">contacto@ieaci.edu.co</strong></div>
-                <div>Horario de atención: Lunes a Viernes (7:00 AM - 1:30 PM)</div>
-                <div>Sede Principal &bull; Ciénaga de la Virgen, Cartagena</div>
+                <div>Correo: <strong class="font-bold" th:text="${configInstitucional != null and configInstitucional.correoInst != null ? configInstitucional.correoInst : 'contacto@ieaci.edu.co'}">contacto@ieaci.edu.co</strong> · Lunes a Viernes (7:00 AM - 1:30 PM)</div>
             </div>
-
-            <button type="button"
-                    onclick="closeForgotModal()"
-                    class="w-full py-2.5 rounded-xl bg-sidebar text-white text-xs font-bold hover:brightness-110 transition-all cursor-pointer">
-                Entendido
-            </button>
         </div>
     </div>
 
