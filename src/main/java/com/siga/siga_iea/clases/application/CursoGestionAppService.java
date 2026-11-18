@@ -53,9 +53,15 @@ public class CursoGestionAppService {
         };
     }
 
+    private String resolverAnioActivo() {
+        return periodoConfigService != null
+                ? periodoConfigService.obtenerAnioLectivoCodigo()
+                : String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual());
+    }
+
     @Transactional
     public CursoGestionDetalleDTO prepararGestionDetalle(String codigo, Optional<Docente> docenteLogueadoOpt, boolean esAdmin) {
-        String anioActivo = periodoConfigService != null ? String.valueOf(periodoConfigService.obtenerAnioLectivoActual().getAnio()) : "2026";
+        String anioActivo = resolverAnioActivo();
         Optional<Curso> cursoOpt = cursoService.buscarPorCodigo(codigo, anioActivo);
         Curso c;
         if (cursoOpt.isPresent()) {
@@ -220,9 +226,10 @@ public class CursoGestionAppService {
         String docStr = (hSeleccionado.getDocente() != null) ? " • Docente: " + hSeleccionado.getDocente().getNombreCompleto() : "";
         dto.setHorarioBannerTexto("Horario: " + horaStr + docStr);
 
+        String anioActivo = resolverAnioActivo();
         CursoMateria cm = (selectedMateriaId != null)
-                ? calificacionesService.obtenerOCrearCursoMateria(cursoId, selectedMateriaId, "2026")
-                : calificacionesService.obtenerOCrearCursoMateriaPorNombre(cursoId, selectedMateriaNombre, "2026");
+                ? calificacionesService.obtenerOCrearCursoMateria(cursoId, selectedMateriaId, anioActivo)
+                : calificacionesService.obtenerOCrearCursoMateriaPorNombre(cursoId, selectedMateriaNombre, anioActivo);
 
         List<Evaluacion> evaluacionesPeriodo = calificacionesService.obtenerEvaluacionesPorCursoYMateria(cm.getId(), periodo);
         BigDecimal sumaPesos = evaluacionesPeriodo.stream()

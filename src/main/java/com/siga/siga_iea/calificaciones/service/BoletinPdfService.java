@@ -89,7 +89,8 @@ public class BoletinPdfService {
         agregarCeldaClaveValor(table, "ESTUDIANTE:", est.getNombreCompleto(), fontHeader, fontVal);
         agregarCeldaClaveValor(table, "DOCUMENTO:", (est.getTipoDocumento() != null ? est.getTipoDocumento() : "TI") + " " + est.getNumeroDocumento(), fontHeader, fontVal);
         agregarCeldaClaveValor(table, "GRADO / GRUPO:", grado != null ? grado : "Sin Grado", fontHeader, fontVal);
-        agregarCeldaClaveValor(table, "AÑO LECTIVO:", anioLectivo != null ? anioLectivo : "2026", fontHeader, fontVal);
+        String anioFallback = String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual());
+        agregarCeldaClaveValor(table, "AÑO LECTIVO:", anioLectivo != null ? anioLectivo : anioFallback, fontHeader, fontVal);
         agregarCeldaClaveValor(table, "FECHA EMISIÓN:", LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), fontHeader, fontVal);
         agregarCeldaClaveValor(table, "ESTADO:", est.getEstado() != null ? est.getEstado() : "Activo", fontHeader, fontVal);
 

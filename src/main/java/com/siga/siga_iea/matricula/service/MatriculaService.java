@@ -128,7 +128,7 @@ public class MatriculaService {
         Estudiante estudiante = matricula.getEstudiante();
         if (estudiante != null) {
             estudiante.setEstado("Activo");
-            String ano = matricula.getAnoLectivo() != null ? matricula.getAnoLectivo() : "2026";
+            String ano = resolverCodigoAnioActivo(matricula);
             Optional<CursoEstudiante> existente = cursoEstudianteRepository.findByEstudianteIdAndAnoLectivo(estudiante.getId(), ano);
             if (existente.isPresent()) {
                 CursoEstudiante ce = existente.get();
@@ -153,6 +153,18 @@ public class MatriculaService {
         return guardada;
     }
 
+    private String resolverCodigoAnioActivo(Matricula matricula) {
+        if (matricula != null && matricula.getAnoLectivo() != null && !matricula.getAnoLectivo().isBlank()) {
+            return matricula.getAnoLectivo();
+        }
+        if (anioLectivoRepository != null) {
+            return anioLectivoRepository.findByEsActualTrue()
+                    .map(a -> String.valueOf(a.getAnio()))
+                    .orElseGet(() -> String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
+        }
+        return String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual());
+    }
+
     /**
      * Sobrecarga para aprobar matrícula usando el curso ya asignado o buscando por grado/grupo.
      */
@@ -163,7 +175,7 @@ public class MatriculaService {
         if (matricula.getCurso() != null) {
             return aprobarMatricula(matriculaId, matricula.getCurso().getId());
         }
-        String ano = matricula.getAnoLectivo() != null ? matricula.getAnoLectivo() : "2026";
+        String ano = resolverCodigoAnioActivo(matricula);
         String salon = matricula.getSalon() != null ? matricula.getSalon() : "01";
         String grado = matricula.getGrado();
         Optional<Curso> cursoOpt = cursoRepository.findByGradoAndGrupoAndAnoLectivo(grado, salon, ano);
@@ -204,7 +216,7 @@ public class MatriculaService {
 
         Estudiante estudiante = matricula.getEstudiante();
         if (estudiante != null) {
-            String ano = matricula.getAnoLectivo() != null ? matricula.getAnoLectivo() : "2026";
+            String ano = resolverCodigoAnioActivo(matricula);
             Optional<CursoEstudiante> existente = cursoEstudianteRepository.findByEstudianteIdAndAnoLectivo(estudiante.getId(), ano);
             if (existente.isPresent()) {
                 CursoEstudiante ce = existente.get();

@@ -29,8 +29,41 @@
 
             <!-- Footer de protección de datos -->
             <div class="mt-8 pt-5 border-t border-[#c4eec0]/60 flex gap-2 items-center text-[10px] text-text-secondary font-bold">
-                <i data-lucide="shield-check" class="size-4 text-sidebar stroke-2"></i>
-                <span>Sus datos están protegidos bajo nuestra política de tratamiento de información institucional. <a href="#" class="underline text-sidebar font-black">Ver Políticas</a></span>
+                <i data-lucide="shield-check" class="size-4 text-sidebar stroke-2 shrink-0"></i>
+                <span>Sus datos están protegidos bajo nuestra política de tratamiento de información institucional.
+                    <button type="button" onclick="document.getElementById('modal-politicas-ley1581').classList.remove('hidden')" class="underline text-sidebar font-black cursor-pointer hover:brightness-90">Ver Políticas</button>
+                </span>
+            </div>
+
+            <!-- Modal Política de Tratamiento de Datos (Ley 1581 de 2012) -->
+            <div id="modal-politicas-ley1581" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="titulo-ley1581">
+                <div class="bg-white rounded-2xl border border-border shadow-2xl max-w-lg w-full p-6 flex flex-col gap-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-border">
+                        <div class="flex items-center gap-2 text-sidebar font-black text-sm">
+                            <i data-lucide="shield-check" class="size-5 stroke-2"></i>
+                            <h3 id="titulo-ley1581">Política de Tratamiento de Datos (Ley 1581 de 2012)</h3>
+                        </div>
+                        <button type="button" onclick="document.getElementById('modal-politicas-ley1581').classList.add('hidden')" class="text-text-muted hover:text-text-primary cursor-pointer" aria-label="Cerrar">
+                            <i data-lucide="x" class="size-4 stroke-2"></i>
+                        </button>
+                    </div>
+                    <div class="text-xs text-text-secondary space-y-2.5 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
+                        <p>
+                            En cumplimiento de la <strong>Ley Estatutaria 1581 de 2012</strong> y el <strong>Decreto 1377 de 2013</strong>, la
+                            <strong th:text="${configInstitucional != null ? configInstitucional.nombreInst : 'Institución Educativa Ambientalista de Cartagena de Indias (IEACI)'}">IEACI</strong>
+                            informa que los datos personales del estudiante y su acudiente recolectados en el proceso de matrícula serán tratados con estricta reserva y finalidad exclusivamente académica, administrativa, disciplinaria y de contacto institucional.
+                        </p>
+                        <p>
+                            El titular y su representante legal tienen derecho a conocer, actualizar, rectificar o solicitar la supresión de sus datos conforme a la ley mediante solicitud dirigida a la Secretaría Académica o al correo
+                            <strong th:text="${configInstitucional != null and configInstitucional.correoInst != null ? configInstitucional.correoInst : 'contacto@ieaci.edu.co'}">contacto@ieaci.edu.co</strong>.
+                        </p>
+                    </div>
+                    <div class="pt-2 border-t border-border flex justify-end">
+                        <button type="button" onclick="document.getElementById('modal-politicas-ley1581').classList.add('hidden')" class="px-5 py-2.5 rounded-xl bg-sidebar text-white text-xs font-extrabold cursor-pointer hover:brightness-110">
+                            Entendido
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 

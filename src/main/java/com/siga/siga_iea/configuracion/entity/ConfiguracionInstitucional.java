@@ -29,7 +29,7 @@ public class ConfiguracionInstitucional {
     private String correoInst;
 
     @Column(name = "ano_lectivo", columnDefinition = "VARCHAR", nullable = false)
-    private String anoLectivo = "2026";
+    private String anoLectivo = String.valueOf(java.time.Year.now(java.time.ZoneId.of("America/Bogota")).getValue());
 
     @Column(name = "rector_nombre", columnDefinition = "VARCHAR")
     private String rectorNombre;

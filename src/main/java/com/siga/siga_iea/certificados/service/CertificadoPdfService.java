@@ -121,7 +121,9 @@ public class CertificadoPdfService {
                 ? est.getTipoDocumento().toUpperCase(Locale.ROOT) : "T.I.";
         String numDoc = est != null && est.getNumeroDocumento() != null ? est.getNumeroDocumento() : "S/D";
         String grado = sol.getGradoReferencia() != null && !sol.getGradoReferencia().isBlank() ? sol.getGradoReferencia() : "11°";
-        String anio = sol.getAnoLectivo() != null && !sol.getAnoLectivo().isBlank() ? sol.getAnoLectivo() : "2026";
+        String anio = sol.getAnoLectivo() != null && !sol.getAnoLectivo().isBlank()
+                ? sol.getAnoLectivo()
+                : String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual());
         String motivo = sol.getMotivo() != null && !sol.getMotivo().isBlank() ? sol.getMotivo().trim() : null;
 
         Font fontTexto = FontFactory.getFont(FontFactory.HELVETICA, 10.5f, COLOR_TEXTO);

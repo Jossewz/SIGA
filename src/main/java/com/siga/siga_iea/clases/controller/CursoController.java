@@ -12,8 +12,11 @@ import com.siga.siga_iea.clases.entity.CursoEstudiante;
 import com.siga.siga_iea.clases.entity.CursoMateria;
 import com.siga.siga_iea.clases.entity.Horario;
 import com.siga.siga_iea.clases.service.CursoService;
+import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import com.siga.siga_iea.usuarios.service.PersonalService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -39,6 +42,24 @@ public class CursoController {
     private final CalificacionesService calificacionesService;
     private final AsistenciaService asistenciaService;
     private final CurrentUserContextService currentUserContextService;
+    private final PeriodoConfigService periodoConfigService;
+
+    @Autowired
+    public CursoController(CursoService cursoService,
+            CursoGestionAppService cursoGestionAppService,
+            PersonalService personalService,
+            CalificacionesService calificacionesService,
+            AsistenciaService asistenciaService,
+            CurrentUserContextService currentUserContextService,
+            @Autowired(required = false) PeriodoConfigService periodoConfigService) {
+        this.cursoService = cursoService;
+        this.cursoGestionAppService = cursoGestionAppService;
+        this.personalService = personalService;
+        this.calificacionesService = calificacionesService;
+        this.asistenciaService = asistenciaService;
+        this.currentUserContextService = currentUserContextService;
+        this.periodoConfigService = periodoConfigService;
+    }
 
     public CursoController(CursoService cursoService,
             CursoGestionAppService cursoGestionAppService,
@@ -46,12 +67,31 @@ public class CursoController {
             CalificacionesService calificacionesService,
             AsistenciaService asistenciaService,
             CurrentUserContextService currentUserContextService) {
-        this.cursoService = cursoService;
-        this.cursoGestionAppService = cursoGestionAppService;
-        this.personalService = personalService;
-        this.calificacionesService = calificacionesService;
-        this.asistenciaService = asistenciaService;
-        this.currentUserContextService = currentUserContextService;
+        this(cursoService, cursoGestionAppService, personalService, calificacionesService,
+                asistenciaService, currentUserContextService, null);
+    }
+
+    private String resolverAnioActivo() {
+        return periodoConfigService != null
+                ? periodoConfigService.obtenerAnioLectivoCodigo()
+                : String.valueOf(PeriodoConfigService.anioCalendarioActual());
+    }
+
+    private void exigirAdminOAdministrativo() {
+        if (currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && !currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("Solo Administración o Secretaría puede gestionar cursos y horarios.");
+        }
+    }
+
+    private void exigirDocenteOAdmin() {
+        if (currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && !currentUserContextService.esAdminOAdministrativo()
+                && !currentUserContextService.esDocente()) {
+            throw new AccessDeniedException("Solo Docentes y Administración pueden gestionar evaluaciones, calificaciones o asistencias.");
+        }
     }
 
     public static String obtenerNombreDiaEspanol(DayOfWeek dow) {
@@ -111,6 +151,7 @@ public class CursoController {
             @RequestParam("horaFin") String horaFin,
             @RequestParam(value = "salon", required = false) String salon) {
 
+        exigirAdminOAdministrativo();
         Map<String, Object> res = new HashMap<>();
         try {
             UUID horarioId = (horarioIdStr != null && !horarioIdStr.isBlank() && !horarioIdStr.equals("null"))
@@ -152,6 +193,7 @@ public class CursoController {
     @PostMapping("/clases/horarios/eliminar-item")
     @ResponseBody
     public Map<String, Object> eliminarHorarioItem(@RequestParam("horarioId") UUID horarioId) {
+        exigirAdminOAdministrativo();
         Map<String, Object> res = new HashMap<>();
         try {
             cursoService.eliminarHorario(horarioId);
@@ -166,6 +208,7 @@ public class CursoController {
     @PostMapping("/clases/horarios/limpiar")
     @ResponseBody
     public Map<String, Object> limpiarHorario(@RequestParam("cursoId") UUID cursoId) {
+        exigirAdminOAdministrativo();
         Map<String, Object> res = new HashMap<>();
         try {
             cursoService.limpiarHorarioCurso(cursoId);
@@ -182,7 +225,8 @@ public class CursoController {
         model.addAttribute("title", "Gestión de Cursos – IEACI");
         model.addAttribute("activePage", "clases");
 
-        List<Curso> cursosDB = cursoService.listarCursosPorAno("2026");
+        String anioActivo = resolverAnioActivo();
+        List<Curso> cursosDB = cursoService.listarCursosPorAno(anioActivo);
         if (cursosDB.isEmpty()) {
             cursosDB = cursoService.listarTodosLosCursos();
         }
@@ -225,18 +269,20 @@ public class CursoController {
             @RequestParam(value = "jornada", defaultValue = "Mañana") String jornada,
             @RequestParam(value = "cupos", defaultValue = "35") Integer cupos,
             @RequestParam(value = "directorId", required = false) String directorIdStr,
-            @RequestParam(value = "anoLectivo", defaultValue = "2026") String anoLectivo,
+            @RequestParam(value = "anoLectivo", required = false) String anoLectivo,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
+            String anioEfectivo = (anoLectivo != null && !anoLectivo.isBlank()) ? anoLectivo.trim() : resolverAnioActivo();
             UUID directorId = (directorIdStr != null && !directorIdStr.isBlank()) ? UUID.fromString(directorIdStr)
                     : null;
             if (idStr != null && !idStr.isBlank()) {
                 UUID cursoId = UUID.fromString(idStr);
-                cursoService.actualizarCurso(cursoId, grado, jornada, cupos, directorId, anoLectivo);
+                cursoService.actualizarCurso(cursoId, grado, jornada, cupos, directorId, anioEfectivo);
                 redirectAttributes.addFlashAttribute("mensajeExito", "Curso actualizado exitosamente.");
             } else {
-                cursoService.crearCurso(grado, grupo, jornada, cupos, directorId, anoLectivo);
+                cursoService.crearCurso(grado, grupo, jornada, cupos, directorId, anioEfectivo);
                 redirectAttributes.addFlashAttribute("mensajeExito", "Curso creado exitosamente.");
             }
         } catch (Exception ex) {
@@ -284,6 +330,7 @@ public class CursoController {
             @RequestParam(value = "salon", defaultValue = "Aula 101") String salon,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             UUID materiaId = (materiaIdStr != null && !materiaIdStr.isBlank()) ? UUID.fromString(materiaIdStr) : null;
             UUID docenteId = (docenteIdStr != null && !docenteIdStr.isBlank()) ? UUID.fromString(docenteIdStr) : null;
@@ -304,6 +351,7 @@ public class CursoController {
             @RequestParam Map<String, String> allParams,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             int guardados = cursoGestionAppService.procesarGuardadoHorarioGrid(cursoId, allParams);
             if (guardados > 0) {
@@ -329,14 +377,16 @@ public class CursoController {
             @RequestParam(value = "directorId", required = false) String directorId,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             UUID dirId = (directorId != null && !directorId.isBlank()) ? UUID.fromString(directorId) : null;
+            String anioActivo = resolverAnioActivo();
 
             if (id != null && !id.isBlank()) {
-                cursoService.actualizarCurso(UUID.fromString(id), grado, jornada, cupos, dirId, "2026");
+                cursoService.actualizarCurso(UUID.fromString(id), grado, jornada, cupos, dirId, anioActivo);
                 redirectAttributes.addFlashAttribute("mensajeExito", "Curso actualizado exitosamente.");
             } else {
-                cursoService.crearCurso(grado, grupo, jornada, cupos, dirId, "2026");
+                cursoService.crearCurso(grado, grupo, jornada, cupos, dirId, anioActivo);
                 redirectAttributes.addFlashAttribute("mensajeExito", "Curso creado exitosamente.");
             }
         } catch (Exception ex) {
@@ -351,6 +401,7 @@ public class CursoController {
             @RequestParam("id") UUID id,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             cursoService.eliminarCurso(id);
             redirectAttributes.addFlashAttribute("mensajeExito", "Curso eliminado exitosamente.");
@@ -474,13 +525,15 @@ public class CursoController {
             @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
+        exigirDocenteOAdmin();
         if ((materiaNombre == null || materiaNombre.isBlank()) && materiaId == null) {
             return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, vistaNotas, model);
         }
 
+        String anioActivo = resolverAnioActivo();
         CursoMateria cm = (materiaId != null)
-                ? calificacionesService.obtenerOCrearCursoMateria(cursoId, materiaId, "2026")
-                : calificacionesService.obtenerOCrearCursoMateriaPorNombre(cursoId, materiaNombre, "2026");
+                ? calificacionesService.obtenerOCrearCursoMateria(cursoId, materiaId, anioActivo)
+                : calificacionesService.obtenerOCrearCursoMateriaPorNombre(cursoId, materiaNombre, anioActivo);
 
         calificacionesService.crearEvaluacionAutoEquitativa(cm.getId(), periodo, fecha);
 
@@ -498,6 +551,7 @@ public class CursoController {
             @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
+        exigirDocenteOAdmin();
         calificacionesService.eliminarEvaluacion(evaluacionId);
 
         return obtenerFragmentoTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, vistaNotas, model);
@@ -515,6 +569,7 @@ public class CursoController {
             @RequestParam(value = "vistaNotas", defaultValue = "FECHA") String vistaNotas,
             Model model) {
 
+        exigirDocenteOAdmin();
         BigDecimal peso = BigDecimal.ZERO;
         if (pesoStr != null && !pesoStr.isBlank()) {
             try {
@@ -537,6 +592,7 @@ public class CursoController {
             @RequestParam("periodo") Integer periodo,
             Model model) {
 
+        exigirDocenteOAdmin();
         BigDecimal nota = BigDecimal.ZERO;
         if (notaStr != null && !notaStr.isBlank()) {
             try {
@@ -563,6 +619,7 @@ public class CursoController {
             @RequestParam("estado") String estado,
             Model model) {
 
+        exigirDocenteOAdmin();
         LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now();
         String estadoFinal;
         try {
@@ -597,6 +654,7 @@ public class CursoController {
             @RequestParam("fecha") String fechaStr,
             Model model) {
 
+        exigirDocenteOAdmin();
         LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now();
         Asistencia a = asistenciaService.toggleAsistencia(cursoId, estudianteId, fecha, materiaId);
         boolean puedeEditar = currentUserContextService.esAdminOAdministrativo()

@@ -175,7 +175,7 @@ public class HorarioValidator {
         if (anoLectivo == null || anoLectivo.isBlank()) {
             anoLectivo = anioLectivoRepository.findByEsActualTrue()
                     .map(a -> String.valueOf(a.getAnio()))
-                    .orElse("2026");
+                    .orElseGet(() -> String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
         }
 
         // 4. Resolución del docente efectivo (si no viene en DTO, buscar en CursoMateria)

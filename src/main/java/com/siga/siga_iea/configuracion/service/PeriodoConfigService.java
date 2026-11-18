@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Year;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
@@ -20,9 +22,15 @@ import java.util.Optional;
 @Service
 public class PeriodoConfigService {
 
+    private static final ZoneId ZONA_COLOMBIA = ZoneId.of("America/Bogota");
+
     private final PeriodoAcademicoRepository periodoAcademicoRepository;
     private final ConfiguracionInstitucionalRepository configuracionInstitucionalRepository;
     private final AnioLectivoRepository anioLectivoRepository;
+
+    private volatile Integer cachedAnioActual;
+    private volatile long cachedAnioTimestampMs;
+    private static final long ANIO_CACHE_TTL_MS = 10_000L;
 
     public PeriodoConfigService(PeriodoAcademicoRepository periodoAcademicoRepository,
                                 ConfiguracionInstitucionalRepository configuracionInstitucionalRepository,
@@ -32,11 +40,37 @@ public class PeriodoConfigService {
         this.anioLectivoRepository = anioLectivoRepository;
     }
 
+    public static int anioCalendarioActual() {
+        return Year.now(ZONA_COLOMBIA).getValue();
+    }
+
+    public void invalidarCacheAnio() {
+        this.cachedAnioActual = null;
+        this.cachedAnioTimestampMs = 0L;
+    }
+
+    public String obtenerAnioLectivoCodigo() {
+        long now = System.currentTimeMillis();
+        Integer cached = this.cachedAnioActual;
+        if (cached != null && (now - this.cachedAnioTimestampMs) < ANIO_CACHE_TTL_MS) {
+            return String.valueOf(cached);
+        }
+        AnioLectivo actual = obtenerAnioLectivoActual();
+        int anio = actual != null && actual.getAnio() != null ? actual.getAnio() : anioCalendarioActual();
+        this.cachedAnioActual = anio;
+        this.cachedAnioTimestampMs = now;
+        return String.valueOf(anio);
+    }
+
     public AnioLectivo obtenerAnioLectivoActual() {
+        int anioSistema = anioCalendarioActual();
         return anioLectivoRepository.findByEsActualTrue()
-                .orElseGet(() -> anioLectivoRepository.findByAnio(2026)
+                .orElseGet(() -> anioLectivoRepository.findByAnio(anioSistema)
                         .orElseGet(() -> anioLectivoRepository.save(new AnioLectivo(
-                                2026, "ACTIVO", LocalDate.of(2026, 1, 15), LocalDate.of(2026, 11, 30), true
+                                anioSistema, "ACTIVO",
+                                LocalDate.of(anioSistema, 1, 15),
+                                LocalDate.of(anioSistema, 11, 30),
+                                true
                         ))));
     }
 
@@ -46,12 +80,13 @@ public class PeriodoConfigService {
 
     public List<PeriodoAcademico> listarPeriodos() {
         AnioLectivo anio = obtenerAnioLectivoActual();
+        int a = anio.getAnio() != null ? anio.getAnio() : anioCalendarioActual();
         List<PeriodoAcademico> list = periodoAcademicoRepository.findByAnioLectivoOrderByNumeroPeriodoAsc(anio);
         if (list.isEmpty()) {
             list = List.of(
-                    periodoAcademicoRepository.save(new PeriodoAcademico(anio, 1, "Primer Período", new BigDecimal("33.00"), LocalDate.parse("2026-02-01"), LocalDate.parse("2026-06-15"), "Activo")),
-                    periodoAcademicoRepository.save(new PeriodoAcademico(anio, 2, "Segundo Período", new BigDecimal("33.00"), LocalDate.parse("2026-07-15"), LocalDate.parse("2026-09-15"), "Activo")),
-                    periodoAcademicoRepository.save(new PeriodoAcademico(anio, 3, "Tercer Período", new BigDecimal("34.00"), LocalDate.parse("2026-09-16"), LocalDate.parse("2026-11-30"), "Activo"))
+                    periodoAcademicoRepository.save(new PeriodoAcademico(anio, 1, "Primer Período", new BigDecimal("33.00"), LocalDate.of(a, 2, 1), LocalDate.of(a, 6, 15), "Activo")),
+                    periodoAcademicoRepository.save(new PeriodoAcademico(anio, 2, "Segundo Período", new BigDecimal("33.00"), LocalDate.of(a, 7, 15), LocalDate.of(a, 9, 15), "Activo")),
+                    periodoAcademicoRepository.save(new PeriodoAcademico(anio, 3, "Tercer Período", new BigDecimal("34.00"), LocalDate.of(a, 9, 16), LocalDate.of(a, 11, 30), "Activo"))
             );
         }
         return list;
@@ -98,6 +133,7 @@ public class PeriodoConfigService {
     }
 
     public ConfiguracionInstitucional obtenerConfiguracionInstitucional() {
+        String anioDefault = String.valueOf(anioCalendarioActual());
         return configuracionInstitucionalRepository.findFirstByOrderByUpdatedAtDesc()
                 .orElseGet(() -> configuracionInstitucionalRepository.save(new ConfiguracionInstitucional(
                         "800.124.567-2",
@@ -105,7 +141,7 @@ public class PeriodoConfigService {
                         "San José de los Campanos, Mz 32 Lote 9-11",
                         "300 987 6543",
                         "contacto@ieaci.edu.co",
-                        "2026"
+                        anioDefault
                 )));
     }
 
@@ -121,10 +157,22 @@ public class PeriodoConfigService {
             cfg.setAnoLectivo(anoLectivo.trim());
             try {
                 int anioInt = Integer.parseInt(anoLectivo.trim());
+                anioLectivoRepository.findByEsActualTrue().ifPresent(prev -> {
+                    if (prev.getAnio() == null || !prev.getAnio().equals(anioInt)) {
+                        prev.setEsActual(false);
+                        anioLectivoRepository.save(prev);
+                    }
+                });
                 Optional<AnioLectivo> anioOpt = anioLectivoRepository.findByAnio(anioInt);
-                if (anioOpt.isEmpty()) {
+                if (anioOpt.isPresent()) {
+                    AnioLectivo existente = anioOpt.get();
+                    existente.setEsActual(true);
+                    existente.setEstado("ACTIVO");
+                    anioLectivoRepository.save(existente);
+                } else {
                     anioLectivoRepository.save(new AnioLectivo(anioInt, "ACTIVO", LocalDate.of(anioInt, 1, 15), LocalDate.of(anioInt, 11, 30), true));
                 }
+                invalidarCacheAnio();
             } catch (NumberFormatException ignored) {}
         }
         configuracionInstitucionalRepository.save(cfg);
@@ -141,21 +189,27 @@ public class PeriodoConfigService {
     }
 
     public String getFechaInicioP1() {
-        return periodoAcademicoRepository.findByNumeroPeriodo(1).map(p -> p.getFechaInicio().toString()).orElse("2026-02-01");
+        String a = obtenerAnioLectivoCodigo();
+        return periodoAcademicoRepository.findByNumeroPeriodo(1).map(p -> p.getFechaInicio().toString()).orElse(a + "-02-01");
     }
     public String getFechaFinP1() {
-        return periodoAcademicoRepository.findByNumeroPeriodo(1).map(p -> p.getFechaFin().toString()).orElse("2026-06-15");
+        String a = obtenerAnioLectivoCodigo();
+        return periodoAcademicoRepository.findByNumeroPeriodo(1).map(p -> p.getFechaFin().toString()).orElse(a + "-06-15");
     }
     public String getFechaInicioP2() {
-        return periodoAcademicoRepository.findByNumeroPeriodo(2).map(p -> p.getFechaInicio().toString()).orElse("2026-07-15");
+        String a = obtenerAnioLectivoCodigo();
+        return periodoAcademicoRepository.findByNumeroPeriodo(2).map(p -> p.getFechaInicio().toString()).orElse(a + "-07-15");
     }
     public String getFechaFinP2() {
-        return periodoAcademicoRepository.findByNumeroPeriodo(2).map(p -> p.getFechaFin().toString()).orElse("2026-09-15");
+        String a = obtenerAnioLectivoCodigo();
+        return periodoAcademicoRepository.findByNumeroPeriodo(2).map(p -> p.getFechaFin().toString()).orElse(a + "-09-15");
     }
     public String getFechaInicioP3() {
-        return periodoAcademicoRepository.findByNumeroPeriodo(3).map(p -> p.getFechaInicio().toString()).orElse("2026-09-16");
+        String a = obtenerAnioLectivoCodigo();
+        return periodoAcademicoRepository.findByNumeroPeriodo(3).map(p -> p.getFechaInicio().toString()).orElse(a + "-09-16");
     }
     public String getFechaFinP3() {
-        return periodoAcademicoRepository.findByNumeroPeriodo(3).map(p -> p.getFechaFin().toString()).orElse("2026-11-30");
+        String a = obtenerAnioLectivoCodigo();
+        return periodoAcademicoRepository.findByNumeroPeriodo(3).map(p -> p.getFechaFin().toString()).orElse(a + "-11-30");
     }
 }

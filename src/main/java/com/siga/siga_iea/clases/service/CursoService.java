@@ -115,7 +115,9 @@ public class CursoService {
         if (al != null) {
             c.setAnioLectivo(al);
         } else {
-            c.setAnoLectivo(anoLectivo != null ? anoLectivo : "2026");
+            c.setAnoLectivo(anoLectivo != null && !anoLectivo.isBlank()
+                    ? anoLectivo
+                    : String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
         }
 
         if (directorId != null) {
@@ -339,9 +341,21 @@ public class CursoService {
         return horarioRepository.save(h);
     }
 
+    private String resolverAnioCurso(Curso curso) {
+        if (curso != null && curso.getAnioLectivo() != null && curso.getAnioLectivo().getAnio() != null) {
+            return String.valueOf(curso.getAnioLectivo().getAnio());
+        }
+        if (curso != null && curso.getAnoLectivo() != null && !curso.getAnoLectivo().isBlank()) {
+            return curso.getAnoLectivo();
+        }
+        return anioLectivoRepository.findByEsActualTrue()
+                .map(a -> String.valueOf(a.getAnio()))
+                .orElseGet(() -> String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
+    }
+
     private void sincronizarCursoMateriaDocente(Curso curso, UUID materiaId, UUID docenteId) {
         if (curso != null && materiaId != null && docenteId != null) {
-            String ano = curso.getAnoLectivo() != null ? curso.getAnoLectivo() : "2026";
+            String ano = resolverAnioCurso(curso);
             var cmOpt = cursoMateriaRepository.findByCursoIdAndMateriaIdAndAnoLectivo(curso.getId(), materiaId, ano);
             if (cmOpt.isPresent()) {
                 CursoMateria cm = cmOpt.get();
@@ -399,7 +413,7 @@ public class CursoService {
 
         String grado = curso.getGrado();
         String gradoLiso = grado != null ? grado.replaceAll("[^0-9]", "") : "11";
-        String anoLectivo = curso.getAnoLectivo() != null ? curso.getAnoLectivo() : "2026";
+        String anoLectivo = resolverAnioCurso(curso);
         int cuposMaximos = curso.getCuposMaximos() != null ? curso.getCuposMaximos() : 35;
 
         List<CursoEstudiante> inscritosActuales = cursoEstudianteRepository.findByCursoId(cursoId);
