@@ -22,6 +22,9 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, UUID> {
 
     List<Asistencia> findByEstudianteId(UUID estudianteId);
 
+    @Query("SELECT a FROM Asistencia a WHERE a.sesion.fecha = :fecha")
+    List<Asistencia> findByFecha(@Param("fecha") LocalDate fecha);
+
     @Query("SELECT a FROM Asistencia a WHERE a.sesion.curso.id = :cursoId AND a.sesion.fecha = :fecha")
     List<Asistencia> findByCursoIdAndFecha(@Param("cursoId") UUID cursoId, @Param("fecha") LocalDate fecha);
 
