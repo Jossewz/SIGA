@@ -1,0 +1,175 @@
+/// Tabla de hechos central (grano estudiante x curso x periodo) con promedio académico, áreas en bajo, porcentaje de inasistencia y conteos de reportes.
+table Fact_Seguimiento_Periodo
+	lineageTag: b88abe4d-24fc-4ce9-bbf3-806ef6205942
+
+	/// Conteo total de registros de seguimiento académico (grano estudiante x curso x periodo).
+	measure Registros = COUNTROWS(Fact_Seguimiento_Periodo)
+		formatString: #,##0
+		lineageTag: 442e7755-1c50-461e-af21-13aae7c68be6
+
+	/// Cantidad de registros estudiante-curso-periodo con desempeño aprobatorio (Básico, Alto o Superior; Dim_Nivel_Desempeno[Aprueba] = 1).
+	measure 'Registros Aprobados' =
+			CALCULATE(
+			    COUNTROWS(Fact_Seguimiento_Periodo),
+			    Dim_Nivel_Desempeno[Aprueba] = 1
+			)
+		formatString: #,##0
+		displayFolder: KPIs Institucionales
+		lineageTag: 40c3d86e-4baf-4c86-bd34-60ef6d93bc38
+
+	/// Cantidad de registros estudiante-curso-periodo en nivel de desempeño Bajo (rango 1.0 a 2.9; Dim_Nivel_Desempeno[Aprueba] = 0).
+	measure 'Registros En Bajo' =
+			CALCULATE(
+			    COUNTROWS(Fact_Seguimiento_Periodo),
+			    Dim_Nivel_Desempeno[Aprueba] = 0
+			)
+		formatString: #,##0
+		displayFolder: KPIs Institucionales
+		lineageTag: 4e0c1a9f-fe53-4145-8a4d-66718689dc31
+
+	/// Porcentaje de registros académicos aprobados (Dim_Nivel_Desempeno[Aprueba] = 1) sobre el total de registros evaluados.
+	measure 'Tasa de Aprobacion' = DIVIDE([Registros Aprobados], [Registros])
+		formatString: 0.0%
+		displayFolder: KPIs Institucionales
+		lineageTag: 52496a8f-c83e-4cc5-aa49-43f22edc63e9
+
+	/// Promedio académico general del periodo (escala SIEACI 1.0 a 5.0) calculado sobre Fact_Seguimiento_Periodo[Promedio_Periodo].
+	measure 'Promedio General' = AVERAGE(Fact_Seguimiento_Periodo[Promedio_Periodo])
+		formatString: 0.0
+		displayFolder: KPIs Institucionales
+		lineageTag: a3cb134c-98d2-446e-9c3d-714ee0e1d339
+
+	/// Cantidad de registros estudiante-periodo con alerta temprana de 1 a 2 áreas en desempeño Bajo.
+	measure 'Con 1 o 2 Areas en Bajo' = CALCULATE([Registros], Fact_Seguimiento_Periodo[Areas_En_Bajo] >= 1, Fact_Seguimiento_Periodo[Areas_En_Bajo] <= 2)
+		formatString: #,##0
+		lineageTag: df607092-d76f-4e00-8f14-cb07f94a6dff
+
+	/// Cantidad de registros estudiante-periodo en riesgo crítico con 3 o más áreas en desempeño Bajo.
+	measure 'Con 3 o mas Areas en Bajo' = CALCULATE([Registros], Fact_Seguimiento_Periodo[Areas_En_Bajo] >= 3)
+		formatString: #,##0
+		lineageTag: e34113f2-b437-49ef-a410-144e849a08a9
+
+	/// Porcentaje promedio de inasistencia escolar por estudiante-periodo expresado como proporción (Pct_Inasistencia / 100).
+	measure 'Inasistencia Promedio' = DIVIDE(AVERAGE(Fact_Seguimiento_Periodo[Pct_Inasistencia]), 100, 0)
+		formatString: 0.0%
+		displayFolder: KPIs Institucionales
+		lineageTag: b32654b4-84d4-4aa3-a7c2-bb2ec3cc92f2
+
+	/// Total acumulado de reportes institucionales registrados (convivencia, rendimiento académico y asistencia).
+	measure 'Reportes Total' = SUM(Fact_Seguimiento_Periodo[Reportes_Convivencia]) + SUM(Fact_Seguimiento_Periodo[Reportes_Rendimiento]) + SUM(Fact_Seguimiento_Periodo[Reportes_Asistencia])
+		formatString: #,##0
+		displayFolder: KPIs Institucionales
+		lineageTag: d14edfbe-47e2-4d6a-b260-6e87169b1091
+
+	/// Cantidad de reportes de seguimiento institucional pendientes de atención.
+	measure 'Reportes Pendientes' = SUM(Fact_Seguimiento_Periodo[Reportes_Pendientes])
+		formatString: #,##0
+		displayFolder: KPIs Institucionales
+		lineageTag: beb9bb68-cc7c-47b7-a6d4-f4ac7c982aeb
+
+	/// Cantidad de reportes de seguimiento institucional atendidos y cerrados.
+	measure 'Reportes Atendidos' = SUM(Fact_Seguimiento_Periodo[Reportes_Atendidos])
+		formatString: #,##0
+		displayFolder: KPIs Institucionales
+		lineageTag: eab4f030-a9ee-4c77-be34-0bc6a39eb595
+
+	column SeguimientoKey
+		dataType: string
+		isHidden
+		lineageTag: 34f4dad9-ec5e-45f5-8b07-e2ba053bb810
+		sourceColumn: SeguimientoKey
+
+	column EstudianteKey
+		dataType: string
+		isHidden
+		lineageTag: ca48caa2-01da-4145-a90d-bbe701fee4de
+		sourceColumn: EstudianteKey
+
+	column CursoKey
+		dataType: string
+		isHidden
+		lineageTag: b91e13ed-c4f8-48d5-8cf9-3ee179ce6734
+		sourceColumn: CursoKey
+
+	column PeriodoKey
+		dataType: int64
+		isHidden
+		lineageTag: e3dce6f7-46db-43be-9012-9577f2cb3ce1
+		sourceColumn: PeriodoKey
+
+	column NivelKey
+		dataType: int64
+		isHidden
+		lineageTag: 9fc3531c-4e0a-470a-9e3a-a34d234d5c55
+		sourceColumn: NivelKey
+
+	column Promedio_Periodo
+		dataType: double
+		lineageTag: edee77ce-1333-405b-b1eb-8cb37b9ae8b0
+		sourceColumn: Promedio_Periodo
+
+	column Areas_Evaluadas
+		dataType: int64
+		lineageTag: 47145732-0f62-4b0c-bc13-7da7086dc6ab
+		sourceColumn: Areas_Evaluadas
+
+	column Areas_En_Bajo
+		dataType: int64
+		lineageTag: 060f90e9-ba22-4b2e-a993-854d97ec34cf
+		sourceColumn: Areas_En_Bajo
+
+	column Pct_Inasistencia
+		dataType: double
+		lineageTag: fa16a826-c280-44d8-b003-1693bf540527
+		sourceColumn: Pct_Inasistencia
+
+	column Reportes_Convivencia
+		dataType: int64
+		lineageTag: 5a2aab11-ed0f-43ba-a009-6ee8a6159e23
+		sourceColumn: Reportes_Convivencia
+
+	column Reportes_Rendimiento
+		dataType: int64
+		lineageTag: 694ae9c0-b9c2-4757-943d-4c7446cc48ca
+		sourceColumn: Reportes_Rendimiento
+
+	column Reportes_Asistencia
+		dataType: int64
+		lineageTag: e7162368-897a-432a-a7b5-31b0afe85216
+		sourceColumn: Reportes_Asistencia
+
+	column Reportes_Pendientes
+		dataType: int64
+		lineageTag: dbecd2ae-bcce-4f0e-a727-e25c6ec7749b
+		sourceColumn: Reportes_Pendientes
+
+	column Reportes_Atendidos
+		dataType: int64
+		lineageTag: 73fa079f-f415-4aa7-98ee-3392cdf52af4
+		sourceColumn: Reportes_Atendidos
+
+	partition Fact_Seguimiento_Periodo = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database("localhost:5433", "siga"),
+				    Vista = Origen{[Schema="public",Item="vw_bi_fact_seguimiento_periodo"]}[Data],
+				    Tipos = Table.TransformColumnTypes(Vista,{
+				        {"SeguimientoKey", type text},
+				        {"EstudianteKey", type text},
+				        {"CursoKey", type text},
+				        {"PeriodoKey", Int64.Type},
+				        {"NivelKey", Int64.Type},
+				        {"Promedio_Periodo", type number},
+				        {"Areas_Evaluadas", Int64.Type},
+				        {"Areas_En_Bajo", Int64.Type},
+				        {"Pct_Inasistencia", type number},
+				        {"Reportes_Convivencia", Int64.Type},
+				        {"Reportes_Rendimiento", Int64.Type},
+				        {"Reportes_Asistencia", Int64.Type},
+				        {"Reportes_Pendientes", Int64.Type},
+				        {"Reportes_Atendidos", Int64.Type}
+				    })
+				in
+				    Tipos
+

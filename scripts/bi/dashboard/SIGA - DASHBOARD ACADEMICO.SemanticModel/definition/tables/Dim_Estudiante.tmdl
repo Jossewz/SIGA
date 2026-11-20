@@ -1,0 +1,33 @@
+/// Dimensión anonimizada de estudiantes (Ley 1581 de 2012) con clave sustituta, género y estado de matrícula.
+table Dim_Estudiante
+	lineageTag: b075a28b-85c1-4014-8d1f-08d9d67ab17a
+
+	column EstudianteKey
+		dataType: string
+		lineageTag: 955be267-35b5-45b2-a780-58c641d11867
+		sourceColumn: EstudianteKey
+
+	column Genero
+		dataType: string
+		lineageTag: 31f20a7b-9592-433d-9760-f99d6b00fbb1
+		sourceColumn: Genero
+
+	column Estado
+		dataType: string
+		lineageTag: 3e83ee55-4858-4e8d-afa4-ad748dd402ed
+		sourceColumn: Estado
+
+	partition Dim_Estudiante = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database("localhost:5433", "siga"),
+				    Vista = Origen{[Schema="public",Item="vw_bi_dim_estudiante"]}[Data],
+				    Tipos = Table.TransformColumnTypes(Vista,{
+				        {"EstudianteKey", type text},
+				        {"Genero", type text},
+				        {"Estado", type text}
+				    })
+				in
+				    Tipos
+

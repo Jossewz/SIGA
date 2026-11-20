@@ -1,0 +1,52 @@
+/// Dimensión normativa de niveles de desempeño SIEACI 5.4.11 (Bajo 1.0-2.9, Básico 3.0-3.9, Alto 4.0-4.5, Superior 4.6-5.0).
+table Dim_Nivel_Desempeno
+	lineageTag: 4f2fe0f2-36d9-4a2c-8864-a6cef7e41ee5
+
+	column NivelKey
+		dataType: int64
+		lineageTag: 2d28c877-68b9-44fb-a520-fd9bddb04b53
+		sourceColumn: NivelKey
+
+	column Nombre_Nivel
+		dataType: string
+		lineageTag: 4d8efcf5-6534-4399-a010-bb189d913d47
+		sourceColumn: Nombre
+		sortByColumn: Orden
+
+	column Rango_Min
+		dataType: double
+		lineageTag: e08996c7-5511-4613-8485-33fc051e30a1
+		sourceColumn: Rango_Min
+
+	column Rango_Max
+		dataType: double
+		lineageTag: cb0e7409-0489-464c-bb00-d47ec6e79a5d
+		sourceColumn: Rango_Max
+
+	column Orden
+		dataType: int64
+		lineageTag: 7b88fdc0-0628-496d-9253-65ddf16b8430
+		sourceColumn: Orden
+
+	column Aprueba
+		dataType: int64
+		lineageTag: cedf4542-5ca4-41a9-ae32-a4393e4561f3
+		sourceColumn: Aprueba
+
+	partition Dim_Nivel_Desempeno = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database("localhost:5433", "siga"),
+				    Vista = Origen{[Schema="public",Item="vw_bi_dim_nivel_desempeno"]}[Data],
+				    Tipos = Table.TransformColumnTypes(Vista,{
+				        {"NivelKey", Int64.Type},
+				        {"Nombre", type text},
+				        {"Rango_Min", type number},
+				        {"Rango_Max", type number},
+				        {"Orden", Int64.Type},
+				        {"Aprueba", Int64.Type}
+				    })
+				in
+				    Tipos
+
