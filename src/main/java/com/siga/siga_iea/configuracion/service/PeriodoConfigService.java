@@ -137,7 +137,7 @@ public class PeriodoConfigService {
         return configuracionInstitucionalRepository.findFirstByOrderByUpdatedAtDesc()
                 .orElseGet(() -> configuracionInstitucionalRepository.save(new ConfiguracionInstitucional(
                         "800.124.567-2",
-                        "Institución Educativa Ateneo de la Ciencia e Innovación (IEACI)",
+                        "Institución Educativa Ambientalista de Cartagena de Indias (IEACI)",
                         "San José de los Campanos, Mz 32 Lote 9-11",
                         "300 987 6543",
                         "contacto@ieaci.edu.co",

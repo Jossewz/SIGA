@@ -69,6 +69,7 @@ public class PerfilController {
                 ? perfilFotoService.construirUrl(perfilFotoService.resolverFotoKeyPorUsuario(usuario))
                 : null;
 
+        model.addAttribute("title", "Mi Perfil y Seguridad – IEACI");
         model.addAttribute("usuario", usuario);
         model.addAttribute("personaInfo", info);
         model.addAttribute("fotoUrl", fotoUrl);
@@ -206,7 +207,7 @@ public class PerfilController {
                 "CC",
                 doc != null ? doc : "N/A",
                 "PBX IEACI",
-                "Cra 4 # 10-25, Cartagena del Chairá",
+                "San José de los Campanos, Cartagena de Indias",
                 null,
                 usuario.getEmail(),
                 usuario.getRol()

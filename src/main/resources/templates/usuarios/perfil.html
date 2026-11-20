@@ -128,7 +128,7 @@
                                     Contraseña Actual <span class="text-alert-red">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input type="password" id="passwordActual" name="passwordActual" required
+                                    <input type="password" id="passwordActual" name="passwordActual" required autocomplete="current-password"
                                            class="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar pr-10"
                                            placeholder="••••••••">
                                     <button type="button" onclick="togglePassVisibility('passwordActual', this)" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer p-1">
@@ -143,7 +143,7 @@
                                     Nueva Contraseña <span class="text-alert-red">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input type="password" id="passwordNueva" name="passwordNueva" required minlength="6"
+                                    <input type="password" id="passwordNueva" name="passwordNueva" required minlength="6" autocomplete="new-password"
                                            class="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar pr-10"
                                            placeholder="Mín. 6 caracteres">
                                     <button type="button" onclick="togglePassVisibility('passwordNueva', this)" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer p-1">
@@ -158,7 +158,7 @@
                                     Confirmar Nueva Contraseña <span class="text-alert-red">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input type="password" id="passwordConfirmar" name="passwordConfirmar" required minlength="6"
+                                    <input type="password" id="passwordConfirmar" name="passwordConfirmar" required minlength="6" autocomplete="new-password"
                                            class="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar pr-10"
                                            placeholder="Repite la contraseña">
                                     <button type="button" onclick="togglePassVisibility('passwordConfirmar', this)" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer p-1">

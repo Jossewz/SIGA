@@ -79,6 +79,7 @@ public class MiJornadaController {
             @RequestParam(name = "fecha", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @RequestParam(name = "sesionId", required = false) UUID sesionId,
             Model model) {
+        model.addAttribute("title", "Mi Jornada – IEACI");
         model.addAttribute("activePage", "mi-jornada");
         Docente d = ctx.getDocenteAutenticado().orElse(null);
         if (d == null) {
