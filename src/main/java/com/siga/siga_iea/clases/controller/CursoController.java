@@ -13,6 +13,7 @@ import com.siga.siga_iea.clases.entity.CursoEstudiante;
 import com.siga.siga_iea.clases.entity.CursoMateria;
 import com.siga.siga_iea.clases.entity.Horario;
 import com.siga.siga_iea.clases.service.CursoService;
+import com.siga.siga_iea.clases.service.OptimizadorHorarioService;
 import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.excel.ExcelImportResult;
 import com.siga.siga_iea.excel.ExcelPlantillaSupport;
@@ -50,6 +51,7 @@ public class CursoController {
     private final CurrentUserContextService currentUserContextService;
     private final PeriodoConfigService periodoConfigService;
     private final CalificacionExcelService calificacionExcelService;
+    private final OptimizadorHorarioService optimizadorHorarioService;
 
     @Autowired
     public CursoController(CursoService cursoService,
@@ -59,7 +61,8 @@ public class CursoController {
             AsistenciaService asistenciaService,
             CurrentUserContextService currentUserContextService,
             @Autowired(required = false) PeriodoConfigService periodoConfigService,
-            @Autowired(required = false) CalificacionExcelService calificacionExcelService) {
+            @Autowired(required = false) CalificacionExcelService calificacionExcelService,
+            @Autowired(required = false) OptimizadorHorarioService optimizadorHorarioService) {
         this.cursoService = cursoService;
         this.cursoGestionAppService = cursoGestionAppService;
         this.personalService = personalService;
@@ -68,6 +71,19 @@ public class CursoController {
         this.currentUserContextService = currentUserContextService;
         this.periodoConfigService = periodoConfigService;
         this.calificacionExcelService = calificacionExcelService;
+        this.optimizadorHorarioService = optimizadorHorarioService;
+    }
+
+    public CursoController(CursoService cursoService,
+            CursoGestionAppService cursoGestionAppService,
+            PersonalService personalService,
+            CalificacionesService calificacionesService,
+            AsistenciaService asistenciaService,
+            CurrentUserContextService currentUserContextService,
+            PeriodoConfigService periodoConfigService,
+            CalificacionExcelService calificacionExcelService) {
+        this(cursoService, cursoGestionAppService, personalService, calificacionesService,
+                asistenciaService, currentUserContextService, periodoConfigService, calificacionExcelService, null);
     }
 
     public CursoController(CursoService cursoService,
@@ -78,7 +94,7 @@ public class CursoController {
             CurrentUserContextService currentUserContextService,
             PeriodoConfigService periodoConfigService) {
         this(cursoService, cursoGestionAppService, personalService, calificacionesService,
-                asistenciaService, currentUserContextService, periodoConfigService, null);
+                asistenciaService, currentUserContextService, periodoConfigService, null, null);
     }
 
     public CursoController(CursoService cursoService,
@@ -88,7 +104,7 @@ public class CursoController {
             AsistenciaService asistenciaService,
             CurrentUserContextService currentUserContextService) {
         this(cursoService, cursoGestionAppService, personalService, calificacionesService,
-                asistenciaService, currentUserContextService, null, null);
+                asistenciaService, currentUserContextService, null, null, null);
     }
 
     private String resolverAnioActivo() {
@@ -238,6 +254,112 @@ public class CursoController {
             res.put("error", ex.getMessage());
         }
         return res;
+    }
+
+    @GetMapping("/clases/horarios/modelo-io")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> obtenerAnalisisModeloIO(@RequestParam("cursoId") UUID cursoId) {
+        if (optimizadorHorarioService == null) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("estado", "error", "mensaje", "Servicio de optimización IO no disponible."));
+        }
+        try {
+            OptimizadorHorarioService.DatosRealesCursoDto datosReales =
+                    optimizadorHorarioService.obtenerDatosRealesCurso(cursoId);
+            OptimizadorHorarioService.ResultadoModeloMILP optimo =
+                    optimizadorHorarioService.resolverModelo(
+                            OptimizadorHorarioService.ParametrosModeloIO.institucionales(), datosReales);
+            List<Map<String, Object>> ranking = optimizadorHorarioService.topCombinaciones(
+                    5, OptimizadorHorarioService.ParametrosModeloIO.institucionales());
+
+            Map<String, Object> modeloInfo = new LinkedHashMap<>();
+            modeloInfo.put("objetivo", "Minimizar Z = 2·X1 + 3·X2");
+            modeloInfo.put("variables", List.of(
+                    "X1 = Horas semanales teóricas asignadas al curso (c1 = 2 ptos desgaste/h)",
+                    "X2 = Horas semanales prácticas, de taller o PRAE asignadas al curso (c2 = 3 ptos desgaste/h)"
+            ));
+            modeloInfo.put("restricciones", List.of(
+                    "X1 + X2 ≤ 30 (Capacidad horaria semanal de la jornada H)",
+                    "X1 + X2 ≥ 20 (Carga horaria semanal mínima obligatoria L - Ley 115/1994)",
+                    "X1 ≥ 12 (Mínimo pedagógico de horas teóricas M - Fundamentación Saber 11)",
+                    "X2 ≥ 6 (Mínimo curricular de horas prácticas/taller/PRAE P - SIEACI 5.4.4)",
+                    "X1, X2 ≥ 0 y enteros (Asignación en bloques horarios completos)"
+            ));
+            modeloInfo.put("articulacionEtapas", Map.of(
+                    "etapa1", "Etapa 1 (Táctica – Modelo MILP): Determina la cuota óptima semanal X1* = 14 h teóricas y X2* = 6 h prácticas/PRAE con desgaste institucional mínimo Z* = 46.",
+                    "etapa2", "Etapa 2 (Operativa – OptimizadorHorarioService + HorarioValidator): Asigna automáticamente las asignaturas del curso en la grilla Lunes a Viernes dentro de la jornada, garantizando 0 choques de docente, salón y grupo."
+            ));
+
+            Map<String, Object> estructura = optimizadorHorarioService.evaluarEstructuraSemanal(cursoId);
+
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("estado", "optimo");
+            resp.put("datosReales", datosReales);
+            resp.put("optimo", optimo);
+            resp.put("pertinencia", optimo.tablaPertinencia());
+            resp.put("vertices", optimo.verticesRegionFactible());
+            resp.put("ranking", ranking);
+            resp.put("modelo", modeloInfo);
+            resp.put("estructura", estructura);
+            return ResponseEntity.ok(resp);
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("estado", "error", "mensaje", ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/clases/horarios/modelo-io/evaluar")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> evaluarCombinacionModeloIO(
+            @RequestParam(defaultValue = "14") int x1,
+            @RequestParam(defaultValue = "6") int x2) {
+        if (optimizadorHorarioService == null) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Servicio de optimización IO no disponible."));
+        }
+        OptimizadorHorarioService.ResultadoEvaluacionPunto eval = optimizadorHorarioService.evaluarCombinacion(
+                x1, x2, OptimizadorHorarioService.ParametrosModeloIO.institucionales());
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("x1", eval.x1());
+        r.put("x2", eval.x2());
+        r.put("totalHoras", eval.x1() + eval.x2());
+        r.put("desgasteZ", eval.z());
+        r.put("diferenciaContraOptimo", eval.diferenciaContraOptimo());
+        r.put("factible", eval.factible());
+        r.put("detalle", eval.detalleRestricciones());
+        return ResponseEntity.ok(r);
+    }
+
+    @PostMapping("/clases/horarios/optimizar")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> optimizarHorarioCurso(
+            @RequestParam("cursoId") UUID cursoId,
+            @RequestParam(value = "reemplazar", defaultValue = "true") boolean reemplazar) {
+        exigirAdminOAdministrativo();
+        if (optimizadorHorarioService == null) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("success", false, "error", "Servicio OptimizadorHorarioService no disponible."));
+        }
+        try {
+            OptimizadorHorarioService.ResultadoOptimizacionCurso resultado =
+                    optimizadorHorarioService.optimizarYAsignarHorario(cursoId, reemplazar);
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("success", true);
+            res.put("bloquesCreados", resultado.bloquesCreados());
+            res.put("choquesDetectados", resultado.choquesDetectados());
+            res.put("x1OptimoTeoricas", resultado.etapa1Modelo().x1OptimoTeoricas());
+            res.put("x2OptimoPracticas", resultado.etapa1Modelo().x2OptimoPracticas());
+            res.put("zMinimoDesgaste", resultado.etapa1Modelo().zMinimoDesgaste());
+            res.put("interpretacion", resultado.etapa1Modelo().interpretacion());
+            res.put("datosAntes", resultado.datosAntes());
+            res.put("datosDespues", resultado.datosDespues());
+            res.put("horarios", obtenerHorariosDatosJson(cursoId));
+            return ResponseEntity.ok(res);
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "error", ex.getMessage()));
+        }
     }
 
     @GetMapping({"/clases", "/cursos"})

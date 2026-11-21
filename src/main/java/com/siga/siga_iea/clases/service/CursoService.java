@@ -37,7 +37,9 @@ public class CursoService {
     private final HorarioValidator horarioValidator;
     private final com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository;
     private final com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository;
+    private final PlanEstudiosGradoRepository planEstudiosGradoRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CursoService(CursoRepository cursoRepository,
                         MateriaRepository materiaRepository,
                         CursoMateriaRepository cursoMateriaRepository,
@@ -52,7 +54,9 @@ public class CursoService {
                         HorarioValidator horarioValidator,
                         com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository,
                         @org.springframework.beans.factory.annotation.Autowired(required = false)
-                        com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository) {
+                        com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false)
+                        PlanEstudiosGradoRepository planEstudiosGradoRepository) {
         this.cursoRepository = cursoRepository;
         this.materiaRepository = materiaRepository;
         this.cursoMateriaRepository = cursoMateriaRepository;
@@ -67,6 +71,27 @@ public class CursoService {
         this.horarioValidator = horarioValidator;
         this.anioLectivoRepository = anioLectivoRepository;
         this.asistenciaRepository = asistenciaRepository;
+        this.planEstudiosGradoRepository = planEstudiosGradoRepository;
+    }
+
+    public CursoService(CursoRepository cursoRepository,
+                        MateriaRepository materiaRepository,
+                        CursoMateriaRepository cursoMateriaRepository,
+                        CursoEstudianteRepository cursoEstudianteRepository,
+                        HorarioRepository horarioRepository,
+                        DocenteRepository docenteRepository,
+                        EstudianteRepository estudianteRepository,
+                        MatriculaRepository matriculaRepository,
+                        CalificacionesRepository calificacionesRepository,
+                        SalonRepository salonRepository,
+                        BloqueRepository bloqueRepository,
+                        HorarioValidator horarioValidator,
+                        com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository,
+                        com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository) {
+        this(cursoRepository, materiaRepository, cursoMateriaRepository, cursoEstudianteRepository,
+                horarioRepository, docenteRepository, estudianteRepository, matriculaRepository,
+                calificacionesRepository, salonRepository, bloqueRepository, horarioValidator,
+                anioLectivoRepository, asistenciaRepository, null);
     }
 
     public List<Curso> listarTodosLosCursos() {
@@ -186,6 +211,113 @@ public class CursoService {
     @Transactional
     public Materia guardarMateria(Materia materia) {
         return materiaRepository.save(materia);
+    }
+
+    public Map<UUID, Integer> listarIntensidadesPorGrado(String grado) {
+        String gradoNorm = PlanEstudiosGrado.normalizarGrado(grado);
+        List<Materia> materias = listarTodasMateriasOrdenadas();
+        Map<UUID, Integer> mapa = new LinkedHashMap<>();
+        for (Materia m : materias) {
+            mapa.put(m.getId(), sugerirIntensidadPorDefectoGrado(gradoNorm, m));
+        }
+        if (planEstudiosGradoRepository != null) {
+            for (PlanEstudiosGrado p : planEstudiosGradoRepository.findByGradoOrderByMateriaNombreAsc(gradoNorm)) {
+                if (p.getMateria() != null) {
+                    mapa.put(p.getMateria().getId(), p.getIntensidadHoraria());
+                }
+            }
+        }
+        return mapa;
+    }
+
+    public int resolverIntensidadPorGrado(String grado, Materia materia) {
+        if (materia == null) return 2;
+        String gradoNorm = PlanEstudiosGrado.normalizarGrado(grado);
+        if (planEstudiosGradoRepository != null && materia.getId() != null) {
+            Optional<PlanEstudiosGrado> opt = planEstudiosGradoRepository.findByGradoAndMateriaId(gradoNorm, materia.getId());
+            if (opt.isPresent() && opt.get().getIntensidadHoraria() != null) {
+                return opt.get().getIntensidadHoraria();
+            }
+        }
+        return sugerirIntensidadPorDefectoGrado(gradoNorm, materia);
+    }
+
+    @Transactional
+    public int guardarIntensidadesGrado(String grado, Map<UUID, Integer> intensidades) {
+        if (planEstudiosGradoRepository == null) {
+            throw new IllegalStateException("Repositorio de plan de estudios por grado no disponible.");
+        }
+        String gradoNorm = PlanEstudiosGrado.normalizarGrado(grado);
+        int sumaTotal = 0;
+        for (Map.Entry<UUID, Integer> entry : intensidades.entrySet()) {
+            int val = entry.getValue() != null ? entry.getValue() : 0;
+            if (val < 0 || val > 15) {
+                throw new IllegalArgumentException("La intensidad de cada asignatura debe estar entre 0 y 15 horas semanales.");
+            }
+            sumaTotal += val;
+        }
+        if (sumaTotal > 30) {
+            throw new IllegalArgumentException("La suma semanal del grado " + gradoNorm + " (" + sumaTotal
+                    + " h) supera el tope máximo de la jornada escolar (30 horas semanales).");
+        }
+        for (Map.Entry<UUID, Integer> entry : intensidades.entrySet()) {
+            UUID matId = entry.getKey();
+            Integer horas = entry.getValue();
+            Materia mat = materiaRepository.findById(matId).orElse(null);
+            if (mat == null) continue;
+            PlanEstudiosGrado peg = planEstudiosGradoRepository.findByGradoAndMateriaId(gradoNorm, matId)
+                    .orElseGet(() -> new PlanEstudiosGrado(gradoNorm, mat, horas));
+            peg.setIntensidadHoraria(horas);
+            planEstudiosGradoRepository.save(peg);
+        }
+        return sumaTotal;
+    }
+
+    public static int sugerirIntensidadPorDefectoGrado(String grado, Materia materia) {
+        if (materia == null) return 2;
+        String nom = materia.getNombre() != null ? materia.getNombre().toLowerCase(Locale.ROOT) : "";
+        int numGrado = 11;
+        if (grado != null) {
+            String digits = grado.replaceAll("[^0-9]", "");
+            if (!digits.isEmpty()) {
+                try { numGrado = Integer.parseInt(digits); } catch (NumberFormatException ignored) {}
+            }
+        }
+        if (numGrado <= 5) {
+            if (nom.contains("matem")) return 5;
+            if (nom.contains("espa") || nom.contains("castell")) return 5;
+            if (nom.contains("natural")) return 3;
+            if (nom.contains("social")) return 2;
+            if (nom.contains("ingl")) return 1;
+            if (nom.contains("tecnolog") || nom.contains("inform")) return 2;
+            if (nom.contains("físic") || nom.contains("fisic")) return 2;
+            if (nom.contains("art")) return 1;
+            if (nom.contains("ética") || nom.contains("etica")) return 1;
+            if (nom.contains("filosof")) return 0;
+        } else if (numGrado <= 9) {
+            if (nom.contains("matem")) return 4;
+            if (nom.contains("espa") || nom.contains("castell")) return 4;
+            if (nom.contains("natural")) return 3;
+            if (nom.contains("social")) return 3;
+            if (nom.contains("ingl")) return 2;
+            if (nom.contains("tecnolog") || nom.contains("inform")) return 2;
+            if (nom.contains("físic") || nom.contains("fisic")) return 2;
+            if (nom.contains("art")) return 1;
+            if (nom.contains("ética") || nom.contains("etica")) return 1;
+            if (nom.contains("filosof")) return numGrado == 9 ? 1 : 0;
+        } else {
+            if (nom.contains("matem")) return 4;
+            if (nom.contains("espa") || nom.contains("castell")) return 3;
+            if (nom.contains("natural")) return 3;
+            if (nom.contains("ingl")) return 3;
+            if (nom.contains("social")) return 2;
+            if (nom.contains("tecnolog") || nom.contains("inform")) return 2;
+            if (nom.contains("físic") || nom.contains("fisic")) return 2;
+            if (nom.contains("filosof")) return 2;
+            if (nom.contains("art")) return 1;
+            if (nom.contains("ética") || nom.contains("etica")) return 1;
+        }
+        return materia.getIntensidadHoraria() != null ? materia.getIntensidadHoraria() : 2;
     }
 
     @Transactional

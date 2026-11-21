@@ -4,12 +4,16 @@ import com.siga.siga_iea.clases.dto.HorarioDto;
 import com.siga.siga_iea.clases.entity.Bloque;
 import com.siga.siga_iea.clases.entity.Curso;
 import com.siga.siga_iea.clases.entity.Horario;
+import com.siga.siga_iea.clases.entity.Materia;
+import com.siga.siga_iea.clases.entity.PlanEstudiosGrado;
 import com.siga.siga_iea.clases.repository.BloqueRepository;
 import com.siga.siga_iea.clases.repository.CursoMateriaRepository;
 import com.siga.siga_iea.clases.repository.CursoRepository;
 import com.siga.siga_iea.clases.repository.HorarioRepository;
 import com.siga.siga_iea.clases.repository.MateriaRepository;
+import com.siga.siga_iea.clases.repository.PlanEstudiosGradoRepository;
 import com.siga.siga_iea.configuracion.repository.AnioLectivoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +21,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -42,14 +47,14 @@ public class HorarioValidator {
     @Value("${siga.jornada.manana.inicio:07:00}")
     private String configMananaInicio = "07:00";
 
-    @Value("${siga.jornada.manana.fin:12:00}")
-    private String configMananaFin = "12:00";
+    @Value("${siga.jornada.manana.fin:12:30}")
+    private String configMananaFin = "12:30";
 
     @Value("${siga.jornada.tarde.inicio:13:00}")
     private String configTardeInicio = "13:00";
 
-    @Value("${siga.jornada.tarde.fin:18:00}")
-    private String configTardeFin = "18:00";
+    @Value("${siga.jornada.tarde.fin:18:30}")
+    private String configTardeFin = "18:30";
 
     @Value("${siga.jornada.tolerancia-minutos:0}")
     private int configToleranciaMinutos = 0;
@@ -60,6 +65,26 @@ public class HorarioValidator {
     private final CursoMateriaRepository cursoMateriaRepository;
     private final BloqueRepository bloqueRepository;
     private final AnioLectivoRepository anioLectivoRepository;
+    private final PlanEstudiosGradoRepository planEstudiosGradoRepository;
+
+    @Autowired
+    public HorarioValidator(
+            HorarioRepository horarioRepository,
+            CursoRepository cursoRepository,
+            MateriaRepository materiaRepository,
+            CursoMateriaRepository cursoMateriaRepository,
+            BloqueRepository bloqueRepository,
+            AnioLectivoRepository anioLectivoRepository,
+            @Autowired(required = false) PlanEstudiosGradoRepository planEstudiosGradoRepository
+    ) {
+        this.horarioRepository = horarioRepository;
+        this.cursoRepository = cursoRepository;
+        this.materiaRepository = materiaRepository;
+        this.cursoMateriaRepository = cursoMateriaRepository;
+        this.bloqueRepository = bloqueRepository;
+        this.anioLectivoRepository = anioLectivoRepository;
+        this.planEstudiosGradoRepository = planEstudiosGradoRepository;
+    }
 
     public HorarioValidator(
             HorarioRepository horarioRepository,
@@ -69,12 +94,8 @@ public class HorarioValidator {
             BloqueRepository bloqueRepository,
             AnioLectivoRepository anioLectivoRepository
     ) {
-        this.horarioRepository = horarioRepository;
-        this.cursoRepository = cursoRepository;
-        this.materiaRepository = materiaRepository;
-        this.cursoMateriaRepository = cursoMateriaRepository;
-        this.bloqueRepository = bloqueRepository;
-        this.anioLectivoRepository = anioLectivoRepository;
+        this(horarioRepository, cursoRepository, materiaRepository, cursoMateriaRepository,
+                bloqueRepository, anioLectivoRepository, null);
     }
 
     /**
@@ -84,6 +105,19 @@ public class HorarioValidator {
      */
     public static boolean seSolapan(LocalTime iniA, LocalTime finA, LocalTime iniB, LocalTime finB) {
         return iniA.isBefore(finB) && finA.isAfter(iniB);
+    }
+
+    public static LimitesJornada obtenerDescansoJornada(String jornada) {
+        String jNorm = jornada != null ? jornada.trim().toLowerCase() : "mañana";
+        if (jNorm.contains("tar")) {
+            return new LimitesJornada(LocalTime.of(15, 0), LocalTime.of(15, 30));
+        }
+        return new LimitesJornada(LocalTime.of(9, 30), LocalTime.of(10, 0));
+    }
+
+    public static boolean seSolapaConDescanso(String jornada, LocalTime ini, LocalTime fin) {
+        LimitesJornada descanso = obtenerDescansoJornada(jornada);
+        return seSolapan(ini, fin, descanso.inicio(), descanso.fin());
     }
 
     public record LimitesJornada(LocalTime inicio, LocalTime fin) {}
@@ -228,11 +262,16 @@ public class HorarioValidator {
                     " el " + dto.diaSemana() + " de " + c.getHoraInicio() + " a " + c.getHoraFin());
         }
 
-        // 8. Advertencia (no bloqueante) de Intensidad Horaria Semanal
+        // 8. Advertencia (no bloqueante) de Intensidad Horaria Semanal (dinámica por grado si existe) y Descanso
         List<String> advertencias = new ArrayList<>();
+        if (seSolapaConDescanso(curso.getJornada(), dto.horaInicio(), dto.horaFin())) {
+            LimitesJornada desc = obtenerDescansoJornada(curso.getJornada());
+            advertencias.add("Advertencia: La franja elegida se cruza con el horario de descanso (" +
+                    desc.inicio() + " - " + desc.fin() + ").");
+        }
         if (dto.materiaId() != null) {
             materiaRepository.findById(dto.materiaId()).ifPresent(mat -> {
-                int intensidadPlanificada = mat.getIntensidadHoraria() != null ? mat.getIntensidadHoraria() : 0;
+                int intensidadPlanificada = resolverIntensidadPlanificada(curso, mat);
                 if (intensidadPlanificada > 0) {
                     List<Horario> horariosMateria = horarioRepository.findByCursoIdAndMateriaId(dto.cursoId(), dto.materiaId());
                     long minutosTotales = 0;
@@ -245,13 +284,27 @@ public class HorarioValidator {
                     double horasProgramadas = minutosTotales / 60.0;
                     if (horasProgramadas > intensidadPlanificada) {
                         advertencias.add("Advertencia: Las horas programadas (" + String.format("%.1f", horasProgramadas) +
-                                "h) superan la intensidad sugerida para " + mat.getNombre() + " (" + intensidadPlanificada + "h semanales).");
+                                "h) superan la intensidad sugerida para " + mat.getNombre() + " en grado " +
+                                (curso.getGrado() != null ? curso.getGrado() : "") +
+                                " (" + intensidadPlanificada + "h semanales).");
                     }
                 }
             });
         }
 
         return new ValidacionResultado(true, advertencias);
+    }
+
+    public int resolverIntensidadPlanificada(Curso curso, Materia mat) {
+        if (mat == null) return 0;
+        if (planEstudiosGradoRepository != null && curso != null && curso.getGrado() != null) {
+            String gradoNorm = PlanEstudiosGrado.normalizarGrado(curso.getGrado());
+            Optional<PlanEstudiosGrado> planOpt = planEstudiosGradoRepository.findByGradoAndMateriaId(gradoNorm, mat.getId());
+            if (planOpt.isPresent() && planOpt.get().getIntensidadHoraria() != null) {
+                return planOpt.get().getIntensidadHoraria();
+            }
+        }
+        return mat.getIntensidadHoraria() != null ? mat.getIntensidadHoraria() : 0;
     }
 
     // Setters auxiliares para tests o reconfiguración dinámica

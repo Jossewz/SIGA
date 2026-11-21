@@ -47,6 +47,7 @@ public class ConfiguracionController {
 
     @GetMapping("/configuracion")
     public String index(@RequestParam(value = "rol", defaultValue = "ADMIN") String rolParam,
+                        @RequestParam(value = "gradoPlan", defaultValue = "11°") String gradoPlanParam,
                         @RequestParam(value = "tab", required = false) String tab,
                         @RequestParam(value = "search", required = false) String search,
                         @RequestParam(value = "estado", required = false) String estado,
@@ -84,9 +85,24 @@ public class ConfiguracionController {
         List<EscalaDesempeno> escalas = escalaDesempenoService.listarEscalaCompleta();
         model.addAttribute("escalas", escalas);
 
-        // 4. Asignaturas del Colegio
+        // 4. Asignaturas del Colegio y Plan de Estudios Dinámico por Grado
         List<Materia> materias = cursoService.listarTodasMateriasOrdenadas();
         model.addAttribute("materias", materias);
+
+        List<String> gradosDisponibles = List.of("1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°");
+        String gradoNorm = com.siga.siga_iea.clases.entity.PlanEstudiosGrado.normalizarGrado(gradoPlanParam);
+        String gradoPlanSeleccionado = gradosDisponibles.contains(gradoNorm) ? gradoNorm : "11°";
+        Map<UUID, Integer> intensidadesGrado = cursoService.listarIntensidadesPorGrado(gradoPlanSeleccionado);
+        int totalHorasGrado = 0;
+        for (Materia m : materias) {
+            if ("Activo".equalsIgnoreCase(m.getEstado())) {
+                totalHorasGrado += intensidadesGrado.getOrDefault(m.getId(), 0);
+            }
+        }
+        model.addAttribute("gradosDisponibles", gradosDisponibles);
+        model.addAttribute("gradoPlanSeleccionado", gradoPlanSeleccionado);
+        model.addAttribute("intensidadesGrado", intensidadesGrado);
+        model.addAttribute("totalHorasGrado", totalHorasGrado);
 
         // 5. Roles y Permisos
         List<String> rolesDisponibles = List.of("ADMIN", "PERSONAL_ADMINISTRATIVO", "DOCENTE", "ESTUDIANTE");
@@ -219,6 +235,38 @@ public class ConfiguracionController {
         }
 
         redirectAttributes.addFlashAttribute("activeTab", "cfg-asignaturas");
+        return "redirect:/configuracion";
+    }
+
+    @PostMapping("/configuracion/materias/intensidades-grado")
+    public String guardarIntensidadesPorGrado(
+            @RequestParam("grado") String grado,
+            @RequestParam Map<String, String> allParams,
+            RedirectAttributes redirectAttributes) {
+        try {
+            Map<UUID, Integer> intensidades = new LinkedHashMap<>();
+            for (Map.Entry<String, String> entry : allParams.entrySet()) {
+                if (entry.getKey().startsWith("ih_")) {
+                    String idStr = entry.getKey().substring(3);
+                    UUID matId = UUID.fromString(idStr);
+                    int horas = (entry.getValue() != null && !entry.getValue().isBlank())
+                            ? Integer.parseInt(entry.getValue().trim())
+                            : 0;
+                    intensidades.put(matId, horas);
+                }
+            }
+            int sumaTotal = cursoService.guardarIntensidadesGrado(grado, intensidades);
+            String msg = "Plan de estudios de grado " + grado + " actualizado (" + sumaTotal + " horas semanales).";
+            if (sumaTotal < 20) {
+                msg += " Recuerde que la carga mínima sugerida es de 20 horas semanales.";
+            }
+            redirectAttributes.addFlashAttribute("mensajeExito", msg);
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "No se pudo guardar el plan de estudios: " + ex.getMessage());
+        }
+        redirectAttributes.addFlashAttribute("activeTab", "cfg-asignaturas");
+        redirectAttributes.addAttribute("gradoPlan", grado);
+        redirectAttributes.addAttribute("tab", "cfg-asignaturas");
         return "redirect:/configuracion";
     }
 

@@ -247,7 +247,7 @@ class RbacYNotificacionesTest {
         cursoEstudianteRepository.save(new CursoEstudiante(curso, est1, "2026"));
 
         SesionClase sesion = sesionClaseRepository.save(new SesionClase(
-                curso, null, null, doc1, LocalDate.now(), LocalTime.of(7, 0), LocalTime.of(8, 30), "JORNADA"));
+                curso, null, null, doc1, LocalDate.now(java.time.ZoneId.of("America/Bogota")), LocalTime.of(7, 0), LocalTime.of(8, 30), "JORNADA"));
 
         asistenciaService.registrar(
                 sesion.getId(),

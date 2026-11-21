@@ -26,33 +26,39 @@
                 </div>
 
                 <!-- Lado Derecho: Conmutador de Vistas + Botón Nueva Clase + Cerrar -->
-                <div class="flex items-center gap-2.5 flex-wrap self-end md:self-auto">
+                <div class="flex items-center gap-2 shrink-0 self-end md:self-auto">
                     <!-- Conmutador de vista estilo SEGI -->
-                    <div class="inline-flex items-center rounded-xl border border-[#c4eec0] bg-[#f7fcf6] p-1 shadow-2xs">
+                    <div class="inline-flex items-center rounded-xl border border-[#c4eec0] bg-[#f7fcf6] p-1 shadow-2xs shrink-0">
                         <button type="button" id="btn-vista-semana" onclick="cambiarVistaHorario('semana')"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs cursor-pointer whitespace-nowrap"
                                 title="Vista Semanal tipo Google Calendar">
                             <i data-lucide="columns-3" class="size-3.5 stroke-[2.5]"></i>
                             <span>Semana</span>
                         </button>
                         <button type="button" id="btn-vista-agenda" onclick="cambiarVistaHorario('agenda')"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar cursor-pointer whitespace-nowrap"
                                 title="Vista Agenda / Lista Cronológica">
                             <i data-lucide="list-ordered" class="size-3.5 stroke-[2.5]"></i>
                             <span>Agenda</span>
+                        </button>
+                        <button type="button" id="btn-vista-modelo-io" onclick="cambiarVistaHorario('modelo-io')"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar cursor-pointer whitespace-nowrap"
+                                title="Ver recomendación y optimizar el horario del curso">
+                            <i data-lucide="bar-chart-3" class="size-3.5 stroke-[2.5]"></i>
+                            <span>Recomendación</span>
                         </button>
                     </div>
 
                     <!-- Botón + Nueva Clase -->
                     <button type="button" onclick="abrirModalCrearClase()" 
-                            class="inline-flex items-center gap-1.5 rounded-xl bg-sidebar px-4 py-2 text-xs font-black text-white shadow-md hover:brightness-97 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer">
+                            class="inline-flex items-center gap-1.5 rounded-xl bg-sidebar px-3.5 py-2 text-xs font-black text-white shadow-md hover:brightness-97 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0">
                         <i data-lucide="plus" class="size-4 stroke-[2.5]"></i>
                         <span>Programar Clase</span>
                     </button>
 
                     <!-- Botón Cerrar -->
                     <button type="button" onclick="closeHorarioModal()" 
-                            class="size-9 rounded-xl border border-[#c4eec0]/60 hover:bg-red-50 text-text-secondary hover:text-alert-red flex items-center justify-center transition-colors cursor-pointer"
+                            class="size-9 rounded-xl border border-[#c4eec0]/60 hover:bg-red-50 text-text-secondary hover:text-alert-red flex items-center justify-center transition-colors cursor-pointer shrink-0"
                             title="Cerrar ventana">
                         <i data-lucide="x" class="size-5 stroke-2"></i>
                     </button>
@@ -166,6 +172,13 @@
                     <!-- Inyectado por JS -->
                 </div>
 
+                <!-- ============================================================== -->
+                <!-- VISTA 3: MODELO MATEMÁTICO IO & VALIDACIÓN DE PERTINENCIA -->
+                <!-- ============================================================== -->
+                <div id="horario-modelo-io-container" class="hidden space-y-5">
+                    <!-- Inyectado dinámicamente desde /clases/horarios/modelo-io -->
+                </div>
+
             </div>
 
             <!-- BARRA INFERIOR / RESUMEN Y ACCIONES -->
@@ -264,18 +277,19 @@
                                             </div>
                                             <div>
                                                 <span class="block text-[10px] font-extrabold text-text-secondary uppercase mb-1">Hora Fin</span>
-                                                <input type="time" id="fc-hora-fin" required value="08:30"
+                                                <input type="time" id="fc-hora-fin" required value="08:00"
                                                        class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-black text-sidebar text-center focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
                                             </div>
                                         </div>
 
                                         <!-- Botones de Acceso Rápido / Presets según Jornada -->
                                         <div>
-                                            <span class="block text-[9px] font-black text-text-secondary uppercase tracking-wider mb-1.5">Presets sugeridos (Click para aplicar):</span>
+                                            <span class="block text-[9px] font-black text-text-secondary uppercase tracking-wider mb-1.5">Bloques oficiales (respetando el descanso):</span>
                                             <div id="fc-presets-container" class="flex flex-wrap gap-1.5">
-                                                <button type="button" onclick="aplicarPresetHoras('07:00', '08:30')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">07:00 - 08:30</button>
-                                                <button type="button" onclick="aplicarPresetHoras('08:30', '10:00')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">08:30 - 10:00</button>
-                                                <button type="button" onclick="aplicarPresetHoras('10:30', '12:00')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">10:30 - 12:00</button>
+                                                <button type="button" onclick="aplicarPresetHoras('07:00', '08:00')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">07:00 - 08:00</button>
+                                                <button type="button" onclick="aplicarPresetHoras('08:00', '09:30')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">08:00 - 09:30</button>
+                                                <button type="button" onclick="aplicarPresetHoras('10:00', '11:00')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">10:00 - 11:00</button>
+                                                <button type="button" onclick="aplicarPresetHoras('11:00', '12:30')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">11:00 - 12:30</button>
                                             </div>
                                         </div>
                                     </div>

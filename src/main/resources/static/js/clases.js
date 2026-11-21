@@ -64,8 +64,8 @@ async function openHorarioModal(cursoId, codigo, jornada) {
     if (subtituloElem) {
         const esTarde = window.jornadaActualCurso.toLowerCase().includes('tar');
         subtituloElem.innerText = esTarde
-            ? 'Jornada Tarde (13:00 – 18:00) • Gestión flexible de franjas horarias, materias, docentes y aulas.'
-            : 'Jornada Mañana (07:00 – 12:00) • Gestión flexible de franjas horarias, materias, docentes y aulas.';
+            ? 'Jornada Tarde (13:00 – 18:30) • Gestión flexible de franjas horarias, materias, docentes y aulas.'
+            : 'Jornada Mañana (07:00 – 12:30) • Gestión flexible de franjas horarias, materias, docentes y aulas.';
     }
 
     const cursoIdInput = document.getElementById('h-curso-id');
@@ -80,6 +80,8 @@ async function openHorarioModal(cursoId, codigo, jornada) {
     if (loading) loading.classList.remove('hidden');
     if (semanaContainer) semanaContainer.classList.add('hidden');
     if (agendaContainer) agendaContainer.classList.add('hidden');
+    const modeloIoContainer = document.getElementById('horario-modelo-io-container');
+    if (modeloIoContainer) modeloIoContainer.classList.add('hidden');
     const modalForm = document.getElementById('modal-form-clase');
     if (modalForm) modalForm.classList.add('hidden');
     if (dialog) dialog.classList.remove('hidden');
@@ -127,14 +129,16 @@ function cambiarVistaHorario(vista) {
 function actualizarBotonesVista() {
     const btnSemana = document.getElementById('btn-vista-semana');
     const btnAgenda = document.getElementById('btn-vista-agenda');
+    const btnModelo = document.getElementById('btn-vista-modelo-io');
     if (!btnSemana || !btnAgenda) return;
 
-    if (vistaActualHorario === 'semana') {
-        btnSemana.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs";
-        btnAgenda.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar";
-    } else {
-        btnAgenda.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs";
-        btnSemana.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar";
+    const activeCls = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs cursor-pointer";
+    const inactiveCls = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar cursor-pointer";
+
+    btnSemana.className = vistaActualHorario === 'semana' ? activeCls : inactiveCls;
+    btnAgenda.className = vistaActualHorario === 'agenda' ? activeCls : inactiveCls;
+    if (btnModelo) {
+        btnModelo.className = vistaActualHorario === 'modelo-io' ? activeCls : inactiveCls;
     }
 }
 
@@ -160,6 +164,7 @@ function renderHorarioCompleto() {
     const loading = document.getElementById('horario-loading');
     const semanaContainer = document.getElementById('horario-semana-container');
     const agendaContainer = document.getElementById('horario-agenda-container');
+    const modeloIoContainer = document.getElementById('horario-modelo-io-container');
     const badgeConteo = document.getElementById('horario-conteo-badge');
     const labelHorasTotales = document.getElementById('horario-horas-totales');
     const labelMateriasTotales = document.getElementById('horario-materias-totales');
@@ -184,11 +189,18 @@ function renderHorarioCompleto() {
     if (vistaActualHorario === 'semana') {
         if (semanaContainer) semanaContainer.classList.remove('hidden');
         if (agendaContainer) agendaContainer.classList.add('hidden');
+        if (modeloIoContainer) modeloIoContainer.classList.add('hidden');
         renderVistaSemanalGoogleCalendar();
-    } else {
+    } else if (vistaActualHorario === 'agenda') {
         if (agendaContainer) agendaContainer.classList.remove('hidden');
         if (semanaContainer) semanaContainer.classList.add('hidden');
+        if (modeloIoContainer) modeloIoContainer.classList.add('hidden');
         renderVistaAgendaSEGI();
+    } else if (vistaActualHorario === 'modelo-io') {
+        if (modeloIoContainer) modeloIoContainer.classList.remove('hidden');
+        if (semanaContainer) semanaContainer.classList.add('hidden');
+        if (agendaContainer) agendaContainer.classList.add('hidden');
+        cargarYRenderizarModeloIO();
     }
 
     if (window.lucide) lucide.createIcons();
@@ -261,11 +273,11 @@ function renderVistaSemanalGoogleCalendar() {
                 </div>
 
                 <div class="flex items-center justify-between gap-1 pt-1 border-t border-[#f0f9ef]">
-                    <span class="text-[10px] font-semibold text-text-secondary truncate flex items-center gap-1" title="${c.docenteNombre || 'Sin Docente'}">
-                        <i data-lucide="user-tie" class="size-3 stroke-2 text-text-muted shrink-0"></i>
+                    <span class="text-[10px] font-semibold text-text-secondary truncate flex items-center gap-1 min-w-0" title="${c.docenteNombre || 'Sin Docente'}">
+                        <i data-lucide="user" class="size-3 stroke-2 text-text-muted shrink-0"></i>
                         <span class="truncate">${c.docenteNombre ? c.docenteNombre.split(' ')[0] : 'Sin Docente'}</span>
                     </span>
-                    <span class="px-1.5 py-0.5 rounded bg-[#eafbe4] text-sidebar border border-[#c4eec0] text-[9px] font-black uppercase tracking-wider shrink-0">
+                    <span class="px-1.5 py-0.5 rounded bg-[#eafbe4] text-sidebar border border-[#c4eec0] text-[9px] font-black uppercase tracking-wider truncate max-w-[125px]" title="${c.salon || 'Aula 101'}">
                         ${c.salon || 'Aula 101'}
                     </span>
                 </div>
@@ -328,7 +340,7 @@ function renderVistaAgendaSEGI() {
                             </div>
                             <div class="flex items-center gap-3 text-xs font-semibold text-text-secondary mt-1">
                                 <span class="flex items-center gap-1">
-                                    <i data-lucide="user-tie" class="size-3.5 stroke-2"></i>
+                                    <i data-lucide="user" class="size-3.5 stroke-2"></i>
                                     <span>${c.docenteNombre || 'Sin docente asignado'}</span>
                                 </span>
                                 <span>•</span>
@@ -379,24 +391,30 @@ function obtenerPresetsPorJornada(jornada) {
     const esTarde = (jornada || '').toLowerCase().includes('tar');
     if (esTarde) {
         return {
-            etiqueta: 'Jornada Tarde (13:00 - 18:00)',
+            etiqueta: 'Jornada Tarde (1:00 PM - 6:30 PM • Descanso 3:00 - 3:30 PM)',
             inicioDefecto: '13:00',
-            finDefecto: '14:30',
+            finDefecto: '14:00',
             presets: [
-                { inicio: '13:00', fin: '14:30' },
-                { inicio: '14:30', fin: '16:00' },
-                { inicio: '16:30', fin: '18:00' }
+                { inicio: '13:00', fin: '14:00' },
+                { inicio: '14:00', fin: '15:00' },
+                { inicio: '15:30', fin: '16:30' },
+                { inicio: '16:30', fin: '17:30' },
+                { inicio: '17:30', fin: '18:30' },
+                { inicio: '15:30', fin: '17:30' }
             ]
         };
     }
     return {
-        etiqueta: 'Jornada Mañana (07:00 - 12:00)',
+        etiqueta: 'Jornada Mañana (7:00 AM - 12:30 PM • Descanso 9:30 - 10:00 AM)',
         inicioDefecto: '07:00',
-        finDefecto: '08:30',
+        finDefecto: '08:00',
         presets: [
+            { inicio: '07:00', fin: '08:00' },
+            { inicio: '08:00', fin: '09:30' },
+            { inicio: '10:00', fin: '11:00' },
+            { inicio: '11:00', fin: '12:30' },
             { inicio: '07:00', fin: '08:30' },
-            { inicio: '08:30', fin: '10:00' },
-            { inicio: '10:30', fin: '12:00' }
+            { inicio: '10:00', fin: '12:00' }
         ]
     };
 }
@@ -779,4 +797,377 @@ function closeCursoModal() {
     setTimeout(() => {
         modal.classList.add('hidden');
     }, 250);
+}
+
+// -------------------------------------------------------------------------
+// RECOMENDACIÓN Y GENERACIÓN AUTOMÁTICA DE HORARIO PARA EL CURSO
+// -------------------------------------------------------------------------
+async function optimizarHorarioCursoIO() {
+    const cursoId = document.getElementById('h-curso-id')?.value;
+    if (!cursoId) {
+        alert('No se ha identificado el curso.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-optimizar-horario-io');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="size-4 animate-spin"></i><span>Organizando horario...</span>`;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    const csrf = obtenerCsrfInfo();
+    const formData = new URLSearchParams();
+    formData.append('cursoId', cursoId);
+    formData.append('reemplazar', 'true');
+    if (csrf.token) formData.append('_csrf', csrf.token);
+
+    const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    if (csrf.token) headers[csrf.header] = csrf.token;
+
+    try {
+        const resp = await fetch('/clases/horarios/optimizar', {
+            method: 'POST',
+            headers: headers,
+            body: formData.toString()
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${resp.status}`);
+        }
+
+        window.horariosActuales = Array.isArray(data.horarios) ? data.horarios : [];
+        window.ultimoResultadoOptimizacionIO = data;
+
+        const tableBtn = document.querySelector(`button[data-id="${cursoId}"]`);
+        if (tableBtn) {
+            tableBtn.className = "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide leading-none transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs bg-pill-green text-sidebar border border-[#8ce383] hover:brightness-95";
+            const sp = tableBtn.querySelector('span');
+            if (sp) sp.innerText = 'Asignado';
+        }
+
+        renderHorarioCompleto();
+    } catch (err) {
+        alert('Error al organizar el horario: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+async function cargarYRenderizarModeloIO() {
+    const container = document.getElementById('horario-modelo-io-container');
+    const cursoId = document.getElementById('h-curso-id')?.value;
+    if (!container || !cursoId) return;
+
+    container.innerHTML = `
+        <div class="p-10 bg-[#f7fcf6] border border-[#c4eec0] rounded-2xl text-center">
+            <div class="size-10 rounded-full border-4 border-[#c4eec0] border-t-sidebar animate-spin mx-auto mb-3"></div>
+            <p class="text-xs font-black text-sidebar">Analizando el horario actual del curso y preparando recomendaciones...</p>
+        </div>
+    `;
+
+    try {
+        const resp = await fetch('/clases/horarios/modelo-io?cursoId=' + encodeURIComponent(cursoId));
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        container.innerHTML = renderPanelModeloIO(data);
+        inicializarEvaluadorModeloIO();
+        if (window.lucide) lucide.createIcons();
+    } catch (err) {
+        container.innerHTML = `
+            <div class="p-6 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-alert-red">
+                No fue posible cargar la recomendación de horario: ${err.message}
+            </div>
+        `;
+    }
+}
+
+function renderPanelModeloIO(data) {
+    const rt = data.datosReales || {};
+    const opt = data.optimo || {};
+    const params = opt.parametros || { hTopeSemanal: 30, lCargaMinima: 20, mMinimoTeorico: 12, pMinimoPractico: 6 };
+    const ranking = data.ranking || [];
+    const est = data.estructura || {};
+    const planGrado = Array.isArray(est.planGrado) ? est.planGrado : [];
+
+    const clasesDiariasTexto = (est.clasesPorDiaMin || 0) === (est.clasesPorDiaMax || 0)
+        ? `${est.clasesPorDiaMin || 0} clases por día`
+        : `${est.clasesPorDiaMin || 0} a ${est.clasesPorDiaMax || 0} clases por día`;
+
+    const cumpleTodo = Boolean(rt.cumpleRegionFactible) && Boolean(est.cumpleEstructuraDiaria);
+    const badgeEstadoReal = cumpleTodo
+        ? `<span class="px-2.5 py-1 rounded-full bg-pill-green text-sidebar border border-[#8ce383] text-[10px] font-black uppercase">✓ Horario equilibrado (${clasesDiariasTexto})</span>`
+        : (rt.cumpleRegionFactible
+            ? `<span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase">Organizable en 3 a 5 clases por día con descanso</span>`
+            : `<span class="px-2.5 py-1 rounded-full bg-red-100 text-alert-red border border-red-300 text-[10px] font-black uppercase">Horario incompleto • ${rt.totalHorasReal || 0} de ${params.lCargaMinima} horas mínimas</span>`);
+
+    const totalPlanGrado = est.totalHorasPlanGrado || opt.totalHorasOptimo || 22;
+
+    return `
+        <!-- 1. RESUMEN PRINCIPAL EN LENGUAJE CLARO -->
+        <div class="bg-gradient-to-r from-[#f2fbf0] via-white to-[#f2fbf0] border border-[#c4eec0] rounded-2xl p-5 shadow-2xs">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div class="space-y-1.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-2.5 py-0.5 rounded-full bg-sidebar text-white text-[10px] font-black uppercase tracking-wider">Distribución Recomendada</span>
+                        ${badgeEstadoReal}
+                    </div>
+                    <h4 class="text-base font-black text-text-primary">Recomendación de Horario Semanal — Curso ${rt.codigoCurso || ''}</h4>
+                    <p class="text-xs text-text-secondary font-semibold leading-relaxed">${opt.interpretacion || ''}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" id="btn-optimizar-horario-io" onclick="optimizarHorarioCursoIO()"
+                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md hover:scale-[1.02] active:scale-95 transition-all cursor-pointer">
+                        <i data-lucide="sparkles" class="size-4 stroke-[2.5]"></i>
+                        <span>Optimizar Horario</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. TARJETAS DE RESUMEN CLARAS PARA DOCENTES Y COORDINACIÓN -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div class="bg-white border border-[#c4eec0] rounded-xl p-4 shadow-2xs">
+                <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Clases por Día</span>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <strong class="text-2xl font-black text-sidebar">4 – 5</strong>
+                    <span class="text-xs font-bold text-text-secondary">actual: ${est.clasesPorDiaMin ?? 0}–${est.clasesPorDiaMax ?? 0}</span>
+                </div>
+                <span class="text-[10px] font-semibold text-emerald-700">Mínimo 3, máximo 5 asignaturas diarias</span>
+            </div>
+
+            <div class="bg-white border border-[#c4eec0] rounded-xl p-4 shadow-2xs">
+                <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Jornada y Descanso</span>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <strong class="text-lg font-black text-sidebar">${est.horarioJornada || '7:00 a. m. – 12:00 p. m.'}</strong>
+                </div>
+                <span class="text-[10px] font-semibold ${est.cruzaDescanso ? 'text-alert-red font-bold' : 'text-emerald-700'}">Descanso: ${est.horarioDescanso || '9:30 a. m. – 10:00 a. m.'}</span>
+            </div>
+
+            <div class="bg-white border border-[#c4eec0] rounded-xl p-4 shadow-2xs">
+                <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Plan del Grado ${est.grado || ''}</span>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <strong class="text-2xl font-black text-sidebar">${totalPlanGrado} h</strong>
+                    <span class="text-xs font-bold text-text-secondary">actual: ${rt.totalHorasReal ?? 0} h</span>
+                </div>
+                <span class="text-[10px] font-semibold text-emerald-700">${est.materiasActivasGrado || 9} asignaturas activas del grado</span>
+            </div>
+
+            <div class="bg-white border border-[#c4eec0] rounded-xl p-4 shadow-2xs">
+                <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Horas en Aula y Práctica</span>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <strong class="text-xl font-black text-emerald-700">${rt.x1TeoricasReal ?? 0}h / ${rt.x2PracticasReal ?? 0}h</strong>
+                </div>
+                <span class="text-[10px] font-semibold text-emerald-700">Mínimo ${params.mMinimoTeorico}h aula y ${params.pMinimoPractico}h práctica</span>
+            </div>
+        </div>
+
+        <!-- 3. ¿POR QUÉ SE RECOMIENDA ESTE HORARIO? + COMPARATIVA ACTUAL VS RECOMENDADO -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <!-- Explicación sencilla de las razones -->
+            <div class="lg:col-span-6 bg-white border border-[#c4eec0] rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+                <div>
+                    <h5 class="text-xs font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5 mb-3">
+                        <i data-lucide="lightbulb" class="size-4 stroke-2"></i>
+                        <span>¿Por qué se recomienda esta distribución?</span>
+                    </h5>
+                    <div class="space-y-2.5 text-xs">
+                        <div class="p-3 rounded-xl bg-[#f7fcf6] border border-[#c4eec0]/70 flex items-start gap-2.5">
+                            <i data-lucide="clock-3" class="size-4 text-sidebar shrink-0 mt-0.5"></i>
+                            <div>
+                                <strong class="font-black text-text-primary block">Horario completo hasta la salida con descanso respetado</strong>
+                                <span class="text-text-secondary font-semibold">La jornada cubre de ${est.horarioJornada || '7:00 a. m. a 12:00 p. m.'}, respetando el descanso de ${est.horarioDescanso || '9:30 a 10:00 a. m.'} sin programar clases encima del receso.</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#f7fcf6] border border-[#c4eec0]/70 flex items-start gap-2.5">
+                            <i data-lucide="layout-grid" class="size-4 text-emerald-700 shrink-0 mt-0.5"></i>
+                            <div>
+                                <strong class="font-black text-text-primary block">Entre 3 y 5 clases por día para cubrir todas las asignaturas</strong>
+                                <span class="text-text-secondary font-semibold">En lugar de solo 2 bloques largos, se organizan 4 a 5 clases diarias de lunes a viernes para incluir las ${est.materiasActivasGrado || 9} materias del grado ${est.grado || ''} según su intensidad semanal.</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#f7fcf6] border border-[#c4eec0]/70 flex items-start gap-2.5">
+                            <i data-lucide="flask-conical" class="size-4 text-emerald-700 shrink-0 mt-0.5"></i>
+                            <div>
+                                <strong class="font-black text-text-primary block">Uso ordenado de laboratorios y salas de sistemas</strong>
+                                <span class="text-text-secondary font-semibold">Las clases de ciencias, sistemas y actividades ambientales se ubican en laboratorio o sala de cómputo asegurando al menos ${params.pMinimoPractico} horas prácticas sin saturar los espacios.</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#f7fcf6] border border-[#c4eec0]/70 flex items-start gap-2.5">
+                            <i data-lucide="calendar-check-2" class="size-4 text-sidebar shrink-0 mt-0.5"></i>
+                            <div>
+                                <strong class="font-black text-text-primary block">Cero cruces entre docentes y salones</strong>
+                                <span class="text-text-secondary font-semibold">Cada bloque verifica automáticamente que ningún docente ni aula tenga dos cursos asignados a la misma hora.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plan del Grado + Requisitos del Colegio -->
+            <div class="lg:col-span-6 flex flex-col gap-4">
+                <div class="bg-white border border-[#c4eec0] rounded-2xl p-4 shadow-2xs">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <h5 class="text-xs font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5">
+                            <i data-lucide="book-open" class="size-4 stroke-2"></i>
+                            <span>Intensidad Horaria del Grado ${est.grado || ''}</span>
+                        </h5>
+                        <span class="text-[10px] font-bold text-text-secondary">Configurable en Configuración → Asignaturas</span>
+                    </div>
+                    <div class="max-h-44 overflow-y-auto pr-1">
+                        <table class="w-full text-xs text-left">
+                            <thead>
+                                <tr class="border-b border-[#c4eec0] text-[10px] font-black uppercase text-text-secondary">
+                                    <th class="pb-1.5">Asignatura</th>
+                                    <th class="pb-1.5 text-center">Espacio</th>
+                                    <th class="pb-1.5 text-right">Horas / Sem</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-[#c4eec0]/40 font-semibold">
+                                ${planGrado.map(item => `
+                                    <tr>
+                                        <td class="py-1.5 font-bold text-text-primary">${item.materia}</td>
+                                        <td class="py-1.5 text-center text-[11px] text-text-secondary">${item.tipo}</td>
+                                        <td class="py-1.5 text-right font-black text-sidebar">${item.horasGrado} h</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Verificación de Requisitos Institucionales -->
+                <div class="bg-white border border-[#c4eec0] rounded-2xl p-4 shadow-2xs flex-1">
+                    <h5 class="text-xs font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5 mb-2.5">
+                        <i data-lucide="shield-check" class="size-4 stroke-2"></i>
+                        <span>Cumplimiento de Reglas Académicas del Colegio</span>
+                    </h5>
+                    <div class="space-y-1.5 text-xs">
+                        ${Object.entries(opt.restriccionesOptimo || {}).map(([label, cumpleOpt]) => {
+                            return `
+                                <div class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-[#f7fcf6] border border-[#c4eec0]/60">
+                                    <span class="font-bold text-text-primary">${label}</span>
+                                    <span class="font-black text-emerald-700">${cumpleOpt ? '✓ Cumple' : '✗ No cumple'}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. OPCIONES DE DISTRIBUCIÓN + SIMULADOR SENCILLO -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <!-- Opciones de distribución -->
+            <div class="lg:col-span-6 bg-white border border-[#c4eec0] rounded-2xl p-4 shadow-2xs">
+                <h5 class="text-xs font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5 mb-3">
+                    <i data-lucide="award" class="size-4 stroke-2"></i>
+                    <span>Mejores Opciones de Distribución Semanal</span>
+                </h5>
+                <table class="w-full text-xs text-left">
+                    <thead>
+                        <tr class="border-b border-[#c4eec0] text-[10px] font-black uppercase text-text-secondary">
+                            <th class="pb-2">Opción</th>
+                            <th class="pb-2 text-center">Horas en Aula</th>
+                            <th class="pb-2 text-center">Horas Prácticas</th>
+                            <th class="pb-2 text-center">Total</th>
+                            <th class="pb-2 text-center">Horas Libres</th>
+                            <th class="pb-2 text-right">Uso de Espacios</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#c4eec0]/40 font-semibold">
+                        ${ranking.map((r, i) => `
+                            <tr class="${i === 0 ? 'bg-pill-green/40 font-black text-sidebar' : ''}">
+                                <td class="py-2">${i === 0 ? '🥇 Recomendada' : 'Opción ' + r.posicion}</td>
+                                <td class="py-2 text-center">${r.x1Teoricas} h</td>
+                                <td class="py-2 text-center">${r.x2Practicas} h</td>
+                                <td class="py-2 text-center">${r.totalHoras} h</td>
+                                <td class="py-2 text-center">${r.holguraJornada} h</td>
+                                <td class="py-2 text-right font-black">${i === 0 ? 'Muy equilibrado' : (i <= 2 ? 'Equilibrado' : 'Mayor ocupación')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Simulador sencillo para Coordinación / Docentes -->
+            <div class="lg:col-span-6 bg-white border border-[#c4eec0] rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+                <div>
+                    <h5 class="text-xs font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5 mb-1">
+                        <i data-lucide="calculator" class="size-4 stroke-2"></i>
+                        <span>Consultar Otra Distribución de Horas</span>
+                    </h5>
+                    <p class="text-[11px] text-text-secondary font-semibold mb-3">Ingrese una cantidad de horas en aula y horas prácticas para comprobar si cumple los requisitos del colegio.</p>
+
+                    <div class="flex flex-wrap items-end gap-3 mb-3">
+                        <div>
+                            <label for="eval-io-x1" class="block text-[10px] font-black uppercase text-text-secondary mb-1">Horas en Aula</label>
+                            <input id="eval-io-x1" type="number" min="0" max="40" value="16"
+                                   class="h-9 w-28 px-3 rounded-xl border border-[#c4eec0] text-xs font-black text-sidebar focus:outline-none focus:ring-2 focus:ring-sidebar/20">
+                        </div>
+                        <div>
+                            <label for="eval-io-x2" class="block text-[10px] font-black uppercase text-text-secondary mb-1">Horas Prácticas</label>
+                            <input id="eval-io-x2" type="number" min="0" max="40" value="7"
+                                   class="h-9 w-28 px-3 rounded-xl border border-[#c4eec0] text-xs font-black text-sidebar focus:outline-none focus:ring-2 focus:ring-sidebar/20">
+                        </div>
+                        <button type="button" id="btn-evaluar-io"
+                                class="h-9 px-4 rounded-xl bg-sidebar hover:brightness-110 text-white text-xs font-black inline-flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                            <i data-lucide="check-circle-2" class="size-3.5 stroke-[2.5]"></i>
+                            <span>Comprobar Horario</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="eval-io-resultado" class="text-xs"></div>
+            </div>
+        </div>
+    `;
+}
+
+function inicializarEvaluadorModeloIO() {
+    const btn = document.getElementById('btn-evaluar-io');
+    if (!btn) return;
+    const ejecutar = async () => {
+        const x1 = parseInt(document.getElementById('eval-io-x1')?.value || '14', 10);
+        const x2 = parseInt(document.getElementById('eval-io-x2')?.value || '6', 10);
+        const out = document.getElementById('eval-io-resultado');
+        if (!out) return;
+        try {
+            const resp = await fetch(`/clases/horarios/modelo-io/evaluar?x1=${encodeURIComponent(x1)}&x2=${encodeURIComponent(x2)}`);
+            const d = await resp.json();
+            const ok = d.factible;
+            const esLaRecomendada = ok && d.diferenciaContraOptimo === 0;
+            const estadoOcupacion = esLaRecomendada
+                ? 'Distribución ideal para aulas y laboratorios'
+                : (ok ? 'Requiere mayor uso de salones o laboratorios' : 'No cumple las horas requeridas');
+            out.innerHTML = `
+                <div class="p-3 rounded-xl border ${ok ? 'bg-[#f2fbf0] border-[#8ce383]' : 'bg-red-50 border-red-200'}">
+                    <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <strong class="font-black ${ok ? 'text-sidebar' : 'text-alert-red'}">
+                            ${ok ? '✓ Horario válido para el curso' : '✗ Horario no permitido'} — ${d.x1} h en aula y ${d.x2} h prácticas (${d.totalHoras} h en total)
+                        </strong>
+                        <span class="px-2.5 py-0.5 rounded-full bg-white border text-[11px] font-black ${ok ? 'text-sidebar border-[#8ce383]' : 'text-alert-red border-red-200'}">
+                            ${estadoOcupacion}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                        ${Object.entries(d.detalle || {}).map(([k, v]) => `
+                            <div class="flex items-center justify-between gap-2 bg-white/80 px-2.5 py-1 rounded border border-[#c4eec0]/40">
+                                <span class="text-text-secondary font-semibold truncate">${k}</span>
+                                <span class="font-black ${String(v).startsWith('✓') ? 'text-emerald-700' : 'text-alert-red'}">${v}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            out.innerHTML = `<span class="text-alert-red font-bold">Error al comprobar el horario: ${e.message}</span>`;
+        }
+    };
+    btn.addEventListener('click', ejecutar);
+    ejecutar();
 }
