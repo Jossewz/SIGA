@@ -90,11 +90,6 @@
                         <span class="text-[11px] font-semibold text-emerald-200/90 mt-1">Institución Educativa Ambientalista de Cartagena</span>
                     </div>
                 </div>
-
-                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-emerald-200 shadow-sm">
-                    <span class="size-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span th:text="${'Año Lectivo ' + (anioLectivoActivo ?: '2026')}">Año Lectivo</span>
-                </div>
             </div>
 
             <!-- Bloque Central: Lema y Declaración Institucional -->
@@ -113,17 +108,6 @@
                 <p class="text-base xl:text-lg text-emerald-100/90 leading-relaxed font-normal max-w-xl drop-shadow-xs">
                     Formando líderes académicos con profunda conciencia ecológica desde el corazón del ecosistema de manglares del Caribe colombiano.
                 </p>
-
-                <!-- Píldora de Ubicación Geográfica -->
-                <div class="inline-flex items-center gap-3.5 p-3.5 pr-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 w-fit shadow-xl mt-2 animate-fade-up delay-2">
-                    <div class="size-10 rounded-xl bg-emerald-400/20 border border-emerald-400/30 grid place-items-center text-emerald-300 shrink-0">
-                        <i data-lucide="map-pin" class="size-5 stroke-[2.2]"></i>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-xs font-extrabold text-white">Sede Principal &bull; Ciénaga de la Virgen</span>
-                        <span class="text-[11px] text-emerald-200/80">Cartagena de Indias, Bolívar &bull; Colombia</span>
-                    </div>
-                </div>
 
             </div>
 
@@ -148,10 +132,6 @@
                         <span class="text-base font-black tracking-tight leading-none text-sidebar">SIGA IEACI</span>
                         <span class="block text-[10px] font-semibold text-text-secondary mt-0.5">Cartagena de Indias</span>
                     </div>
-                </div>
-                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pill-green text-sidebar text-[11px] font-bold">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                    <span th:text="${anioLectivoActivo ?: '2026'}">2026</span>
                 </div>
             </div>
 
@@ -248,7 +228,7 @@
                 <!-- Cuadro Informativo de Ayuda -->
                 <div class="mt-1 p-3 rounded-xl bg-sidebar/5 border border-sidebar/10 text-[11px] text-text-secondary flex items-start gap-2.5">
                     <i data-lucide="help-circle" class="size-4 text-sidebar shrink-0 mt-0.5"></i>
-                    <span>¿Nuevo estudiante o docente sin credenciales? Acércate a la Secretaría Académica de la Sede Principal.</span>
+                    <span>¿Nuevo estudiante o docente sin credenciales? Acércate a la Secretaría Académica de la institución.</span>
                 </div>
 
             </div>
