@@ -21,12 +21,14 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -50,6 +52,26 @@ public class AsistenciaExcelService {
     private final CursoRepository cursoRepository;
     private final CursoEstudianteRepository cursoEstudianteRepository;
     private final CurrentUserContextService currentUserContextService;
+    private final Clock clock;
+
+    @Autowired
+    public AsistenciaExcelService(SesionClaseRepository sesionClaseRepository,
+                                  AsistenciaTablaService asistenciaTablaService,
+                                  AsistenciaService asistenciaService,
+                                  AsistenciaRepository asistenciaRepository,
+                                  CursoRepository cursoRepository,
+                                  CursoEstudianteRepository cursoEstudianteRepository,
+                                  CurrentUserContextService currentUserContextService,
+                                  @Autowired(required = false) Clock clock) {
+        this.sesionClaseRepository = sesionClaseRepository;
+        this.asistenciaTablaService = asistenciaTablaService;
+        this.asistenciaService = asistenciaService;
+        this.asistenciaRepository = asistenciaRepository;
+        this.cursoRepository = cursoRepository;
+        this.cursoEstudianteRepository = cursoEstudianteRepository;
+        this.currentUserContextService = currentUserContextService;
+        this.clock = clock != null ? clock : Clock.system(ZONA_INSTITUCIONAL);
+    }
 
     public AsistenciaExcelService(SesionClaseRepository sesionClaseRepository,
                                   AsistenciaTablaService asistenciaTablaService,
@@ -58,13 +80,8 @@ public class AsistenciaExcelService {
                                   CursoRepository cursoRepository,
                                   CursoEstudianteRepository cursoEstudianteRepository,
                                   CurrentUserContextService currentUserContextService) {
-        this.sesionClaseRepository = sesionClaseRepository;
-        this.asistenciaTablaService = asistenciaTablaService;
-        this.asistenciaService = asistenciaService;
-        this.asistenciaRepository = asistenciaRepository;
-        this.cursoRepository = cursoRepository;
-        this.cursoEstudianteRepository = cursoEstudianteRepository;
-        this.currentUserContextService = currentUserContextService;
+        this(sesionClaseRepository, asistenciaTablaService, asistenciaService, asistenciaRepository,
+                cursoRepository, cursoEstudianteRepository, currentUserContextService, Clock.system(ZONA_INSTITUCIONAL));
     }
 
     public record ExportPayload(byte[] bytes, String filename) {
@@ -81,7 +98,7 @@ public class AsistenciaExcelService {
 
         String cursoNombre = formatearCurso(sesion.getCurso());
         String materiaNombre = resolverNombreMateria(sesion);
-        String fechaStr = sesion.getFecha() != null ? sesion.getFecha().toString() : LocalDate.now(ZONA_INSTITUCIONAL).toString();
+        String fechaStr = sesion.getFecha() != null ? sesion.getFecha().toString() : LocalDate.now(clock).toString();
         String horarioStr = (sesion.getHoraInicio() != null && sesion.getHoraFin() != null)
                 ? sesion.getHoraInicio() + " - " + sesion.getHoraFin()
                 : "Jornada";
@@ -153,7 +170,7 @@ public class AsistenciaExcelService {
             throw new AccessDeniedException("Solo Administración o Secretaría puede exportar consolidados de asistencia.");
         }
 
-        LocalDate fechaEfectiva = fecha != null ? fecha : LocalDate.now(ZONA_INSTITUCIONAL);
+        LocalDate fechaEfectiva = fecha != null ? fecha : LocalDate.now(clock);
         boolean sinFiltrosEstrechos = (estadoFiltro == null || estadoFiltro.isBlank())
                 && (materiaFiltro == null || materiaFiltro.isBlank())
                 && (queryFiltro == null || queryFiltro.isBlank());
@@ -175,7 +192,7 @@ public class AsistenciaExcelService {
         }
 
         boolean esAdmin = currentUserContextService.esAdminOAdministrativo();
-        LocalDate hoy = LocalDate.now(ZONA_INSTITUCIONAL);
+        LocalDate hoy = LocalDate.now(clock);
         if (!esAdmin && currentUserContextService.getAuthentication().isPresent()
                 && !sesion.getFecha().equals(hoy)) {
             throw new ExcelValidationException(
@@ -241,7 +258,7 @@ public class AsistenciaExcelService {
 
         Curso curso = cursoRepository.findById(cursoId)
                 .orElseThrow(() -> new IllegalArgumentException("Curso no encontrado."));
-        LocalDate fechaObjetivo = fecha != null ? fecha : LocalDate.now(ZONA_INSTITUCIONAL);
+        LocalDate fechaObjetivo = fecha != null ? fecha : LocalDate.now(clock);
 
         ExcelPlantillaSupport.ValidatedWorkbook vw = ExcelPlantillaSupport.openAndValidate(
                 file, ExcelPlantillaSupport.TIPO_ASISTENCIA);

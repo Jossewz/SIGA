@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -31,12 +32,15 @@ import java.util.*;
 @Controller
 public class AsistenciaController {
 
+    private static final ZoneId ZONA_INSTITUCIONAL = ZoneId.of("America/Bogota");
+
     private final AsistenciaService asistenciaService;
     private final AsistenciaRepository asistenciaRepository;
     private final CurrentUserContextService currentUserContextService;
     private final EstudianteService estudianteService;
     private final CursoService cursoService;
     private final AsistenciaExcelService asistenciaExcelService;
+    private final Clock clock;
 
     @Autowired
     public AsistenciaController(AsistenciaService asistenciaService,
@@ -44,13 +48,25 @@ public class AsistenciaController {
                                 @Autowired(required = false) CurrentUserContextService currentUserContextService,
                                 @Autowired(required = false) EstudianteService estudianteService,
                                 @Autowired(required = false) CursoService cursoService,
-                                @Autowired(required = false) AsistenciaExcelService asistenciaExcelService) {
+                                @Autowired(required = false) AsistenciaExcelService asistenciaExcelService,
+                                @Autowired(required = false) Clock clock) {
         this.asistenciaService = asistenciaService;
         this.asistenciaRepository = asistenciaRepository;
         this.currentUserContextService = currentUserContextService;
         this.estudianteService = estudianteService;
         this.cursoService = cursoService;
         this.asistenciaExcelService = asistenciaExcelService;
+        this.clock = clock != null ? clock : Clock.system(ZONA_INSTITUCIONAL);
+    }
+
+    public AsistenciaController(AsistenciaService asistenciaService,
+                                AsistenciaRepository asistenciaRepository,
+                                CurrentUserContextService currentUserContextService,
+                                EstudianteService estudianteService,
+                                CursoService cursoService,
+                                AsistenciaExcelService asistenciaExcelService) {
+        this(asistenciaService, asistenciaRepository, currentUserContextService,
+                estudianteService, cursoService, asistenciaExcelService, Clock.system(ZONA_INSTITUCIONAL));
     }
 
     public AsistenciaController(AsistenciaService asistenciaService,
@@ -58,11 +74,12 @@ public class AsistenciaController {
                                 CurrentUserContextService currentUserContextService,
                                 EstudianteService estudianteService,
                                 CursoService cursoService) {
-        this(asistenciaService, asistenciaRepository, currentUserContextService, estudianteService, cursoService, null);
+        this(asistenciaService, asistenciaRepository, currentUserContextService,
+                estudianteService, cursoService, null, Clock.system(ZONA_INSTITUCIONAL));
     }
 
     public AsistenciaController(AsistenciaService asistenciaService) {
-        this(asistenciaService, null, null, null, null, null);
+        this(asistenciaService, null, null, null, null, null, Clock.system(ZONA_INSTITUCIONAL));
     }
 
     private void exigirDocenteOAdmin() {
@@ -95,8 +112,7 @@ public class AsistenciaController {
             return "redirect:/mi-jornada";
         }
 
-        ZoneId zona = ZoneId.of("America/Bogota");
-        LocalDate hoy = LocalDate.now(zona);
+        LocalDate hoy = LocalDate.now(clock);
         LocalDate fecha = hoy;
         if (fechaStr != null && !fechaStr.isBlank()) {
             try {
@@ -292,7 +308,7 @@ public class AsistenciaController {
             @RequestParam("cursoId") UUID cursoId,
             @RequestParam(value = "fecha", required = false) String fechaStr) {
         exigirDocenteOAdmin();
-        LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now();
+        LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now(clock);
         List<SesionClase> sesiones = asistenciaService.abrirDia(cursoId, fecha);
         return ResponseEntity.ok(sesiones);
     }
@@ -333,7 +349,7 @@ public class AsistenciaController {
                 cursoUuid = UUID.fromString(cursoIdStr.trim());
             } catch (IllegalArgumentException ignored) {}
         }
-        LocalDate fecha = LocalDate.now(ZoneId.of("America/Bogota"));
+        LocalDate fecha = LocalDate.now(clock);
         if (fechaStr != null && !fechaStr.isBlank()) {
             try {
                 fecha = LocalDate.parse(fechaStr.trim());
@@ -361,7 +377,7 @@ public class AsistenciaController {
                 cursoUuid = UUID.fromString(cursoIdStr.trim());
             } catch (IllegalArgumentException ignored) {}
         }
-        LocalDate fecha = LocalDate.now(ZoneId.of("America/Bogota"));
+        LocalDate fecha = LocalDate.now(clock);
         if (fechaStr != null && !fechaStr.isBlank()) {
             try {
                 fecha = LocalDate.parse(fechaStr.trim());
@@ -389,7 +405,7 @@ public class AsistenciaController {
             @RequestParam(value = "fecha", required = false) String fechaStr,
             @RequestParam(value = "materiaId", required = false) UUID materiaId) {
         exigirDocenteOAdmin();
-        LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now();
+        LocalDate fecha = (fechaStr != null && !fechaStr.isBlank()) ? LocalDate.parse(fechaStr) : LocalDate.now(clock);
         Map<UUID, String> mapa = asistenciaService.obtenerMapaEstadosAsistencia(cursoId, fecha, materiaId);
         return ResponseEntity.ok(mapa);
     }

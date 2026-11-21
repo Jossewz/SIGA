@@ -34,6 +34,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,6 +47,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -58,16 +64,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(ExcelImportExportTest.FixedWeekdayClockConfig.class)
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
+        "spring.flyway.enabled=false",
+        "spring.main.allow-bean-definition-overriding=true"
 })
 @Transactional
 class ExcelImportExportTest {
 
+    @TestConfiguration
+    static class FixedWeekdayClockConfig {
+        @Bean
+        @Primary
+        Clock clock() {
+            // Miércoles 10:00 AM en Bogotá para garantizar día hábil en CI incluso en fin de semana
+            return Clock.fixed(Instant.parse("2026-09-30T15:00:00Z"), ZoneId.of("America/Bogota"));
+        }
+    }
+
     @Autowired private MockMvc mockMvc;
+    @Autowired private Clock clock;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private DocenteRepository docenteRepository;
     @Autowired private EstudianteRepository estudianteRepository;
@@ -149,7 +168,7 @@ class ExcelImportExportTest {
         materia = materiaRepository.save(new Materia("Matemáticas", "Exactas"));
         cursoMateria = cursoMateriaRepository.save(new CursoMateria(curso, materia, docenteTitular, "2026"));
 
-        LocalDate hoy = LocalDate.now(ZoneId.of("America/Bogota"));
+        LocalDate hoy = LocalDate.now(clock);
         sesionHoy = new SesionClase(curso, cursoMateria, null, docenteTitular, hoy, LocalTime.of(7, 0), LocalTime.of(8, 0), "ASIGNATURA");
         sesionHoy.setEstado("DICTADA");
         sesionHoy = sesionClaseRepository.save(sesionHoy);
