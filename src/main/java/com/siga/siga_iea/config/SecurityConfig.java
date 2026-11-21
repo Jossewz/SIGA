@@ -1,11 +1,16 @@
 package com.siga.siga_iea.config;
 
 import com.siga.siga_iea.auth.security.CustomUserDetailsService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,30 +18,28 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
+    private final String rememberMeKey;
 
-    public SecurityConfig(CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(CustomUserDetailsService userDetailsService,
+                          @Value("${app.security.remember-me-key:siga-ieaci-dev-remember-me-key}") String rememberMeKey) {
         this.userDetailsService = userDetailsService;
+        this.rememberMeKey = rememberMeKey;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
     }
 
     @Bean
@@ -52,6 +55,7 @@ public class SecurityConfig {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/error")
                 )
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 // Cabeceras estrictas de seguridad web (Criterios OWASP / SEGI)
                 .headers(headers -> headers
                         .httpStrictTransportSecurity(hsts -> hsts
@@ -64,17 +68,23 @@ public class SecurityConfig {
                         .referrerPolicy(referrer -> referrer
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
                         )
-                        .permissionsPolicy(permissions -> permissions
+                        .permissionsPolicyHeader(permissions -> permissions
                                 .policy("camera=(), microphone=(), geolocation=()")
                         )
                 )
-                .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
                         // Bloqueo explícito de métodos TRACE y TRACK (mitigación XST)
                         .requestMatchers(HttpMethod.valueOf("TRACE"), "/**").denyAll()
                         .requestMatchers(HttpMethod.valueOf("TRACK"), "/**").denyAll()
-                        .requestMatchers("/login", "/logout", "/css/**", "/js/**", "/img/**", "/icons/**", "/fonts/**", "/favicon.ico", "/error").permitAll()
+                        .requestMatchers("/login", "/logout", "/forgot-password", "/reset-password", "/css/**", "/js/**", "/img/**", "/icons/**", "/fonts/**", "/favicon.ico", "/error", "/storage/public/**").permitAll()
                         .requestMatchers("/configuracion/roles/**").hasRole("ADMIN")
+                        .requestMatchers("/usuarios/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.GET, "/estudiantes").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.POST, "/personal", "/personal/**", "/estudiantes/**", "/asistencias/excel/importar").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.GET, "/asistencias/excel/exportar").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.POST, "/clases/crear", "/clases/guardar", "/clases/eliminar", "/clases/mapear-estudiantes", "/clases/promover-estudiantes", "/clases/horarios/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
+                        .requestMatchers(HttpMethod.POST, "/clases/evaluaciones/**", "/clases/calificaciones/**", "/clases/asistencias/**", "/mi-jornada/**", "/asistencias/abrir-dia", "/asistencias/sesiones/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO", "DOCENTE")
+                        .requestMatchers(HttpMethod.POST, "/certificados/responder", "/reportes/atender").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
                         .requestMatchers("/clases/mapear-estudiantes", "/clases/promover-estudiantes").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
                         .requestMatchers(
                                 "/matricula/**",
@@ -82,6 +92,7 @@ public class SecurityConfig {
                                 "/ambiental/**",
                                 "/configuracion/**",
                                 "/usuarios/**",
+                                "/perfil/**",
                                 "/estudiantes/**",
                                 "/clases/**",
                                 "/asistencias/**",
@@ -89,6 +100,7 @@ public class SecurityConfig {
                                 "/calificaciones/**",
                                 "/certificados/**",
                                 "/mi-jornada/**",
+                                "/api/notificaciones/**",
                                 "/chat/**",
                                 "/soporte/**",
                                 "/"
@@ -104,7 +116,7 @@ public class SecurityConfig {
                         .permitAll()
                 )
                 .rememberMe(remember -> remember
-                        .key("siga-ieaci-secret-key-2026")
+                        .key(rememberMeKey)
                         .rememberMeParameter("remember-me")
                         .tokenValiditySeconds(86400 * 7) // 7 días
                         .userDetailsService(userDetailsService)
@@ -118,6 +130,25 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    /**
+     * Fuerza la resolución del CsrfToken diferido antes de que la vista escriba
+     * el cuerpo HTML, asegurando que la cookie XSRF-TOKEN se envíe en las cabeceras
+     * incluso en páginas extensas (> 8 KB) como el login.
+     */
+    private static final class CsrfCookieFilter extends OncePerRequestFilter {
+        @Override
+        protected void doFilterInternal(
+                HttpServletRequest request,
+                HttpServletResponse response,
+                FilterChain filterChain) throws ServletException, IOException {
+            CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (csrfToken != null) {
+                csrfToken.getToken();
+            }
+            filterChain.doFilter(request, response);
+        }
     }
 }
 

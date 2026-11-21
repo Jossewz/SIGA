@@ -206,13 +206,18 @@
                                          x-transition:leave="transition ease-in duration-100"
                                          x-transition:leave-start="opacity-100 scale-100"
                                          x-transition:leave-end="opacity-0 scale-95"
-                                         class="absolute right-0 mt-1 w-48 rounded-surface bg-white border border-border shadow-pop py-1 z-50 text-left">
+                                         class="absolute right-0 mt-1 w-52 rounded-surface bg-white border border-border shadow-pop py-1 z-50 text-left">
                                         <a th:href="@{'/estudiantes/perfil/' + ${s.id}}" class="flex items-center gap-2 px-3.5 py-2 text-brand-800 hover:bg-surface-muted transition-colors font-bold text-xs">
-                                            <i data-lucide="eye" class="size-3.5 text-sidebar stroke-2"></i> Ver expediente
+                                            <i data-lucide="user-cog" class="size-3.5 text-sidebar stroke-2"></i> Gestionar usuario
                                         </a>
-                                        <a th:href="@{'/estudiantes/perfil/' + ${s.id}}" class="flex items-center gap-2 px-3.5 py-2 text-brand-800 hover:bg-surface-muted transition-colors font-bold text-xs">
-                                            <i data-lucide="key-round" class="size-3.5 text-sidebar stroke-2"></i> Gestionar usuario
-                                        </a>
+                                        <form th:action="@{'/estudiantes/' + ${s.id} + '/toggle-estado'}" method="post" class="w-full">
+                                            <input type="hidden" name="redirectTo" value="/estudiantes">
+                                            <button type="submit" class="w-full flex items-center gap-2 px-3.5 py-2 transition-colors font-bold text-xs text-left cursor-pointer"
+                                                    th:classappend="${s.estado == 'Activo'} ? 'text-amber-800 hover:bg-amber-50' : 'text-sidebar hover:bg-surface-muted'">
+                                                <i th:data-lucide="${s.estado == 'Activo' ? 'user-x' : 'user-check'}" class="size-3.5 stroke-2"></i>
+                                                <span th:text="${s.estado == 'Activo' ? 'Deshabilitar estudiante' : 'Habilitar estudiante'}">Deshabilitar estudiante</span>
+                                            </button>
+                                        </form>
                                         <form th:action="@{'/estudiantes/' + ${s.id} + '/eliminar'}" method="post" class="w-full" onsubmit="return confirm('¿Está seguro de ELIMINAR permanentemente a este estudiante y todas sus matrículas/documentos vinculados?');">
                                             <button type="submit" class="w-full flex items-center gap-2 px-3.5 py-2 text-alert-red hover:bg-red-50 transition-colors font-bold text-xs text-left cursor-pointer border-t border-border mt-1">
                                                 <i data-lucide="trash-2" class="size-3.5 stroke-2"></i> Eliminar estudiante
@@ -275,13 +280,23 @@
                     </div>
                 </div>
                 <!-- Card Footer: Actions -->
-                <div class="flex gap-2 mt-4 pt-4 border-t border-[#c4eec0]/30">
+                <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[#c4eec0]/30">
                     <a th:href="@{'/estudiantes/perfil/' + ${s.id}}" class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#f1fbe4] hover:bg-[#e3f7dc] text-sidebar font-bold text-[12px] rounded-lg transition-colors border border-[#c4eec0]/40">
-                        <i data-lucide="eye" class="size-4 stroke-2"></i> Ver expediente
+                        <i data-lucide="user-cog" class="size-4 stroke-2"></i> Gestionar usuario
                     </a>
-                    <a th:href="@{'/estudiantes/perfil/' + ${s.id}}" class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#f1f5f1] hover:bg-[#e4ede4] text-text-secondary font-bold text-[12px] rounded-lg transition-colors border border-[#c4eec0]/40">
-                        <i data-lucide="key-round" class="size-4 stroke-2"></i> Gestionar usuario
-                    </a>
+                    <form th:action="@{'/estudiantes/' + ${s.id} + '/toggle-estado'}" method="post">
+                        <input type="hidden" name="redirectTo" value="/estudiantes">
+                        <button type="submit" class="px-3 py-2.5 rounded-lg text-[12px] font-bold border transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                                th:classappend="${s.estado == 'Activo'} ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200' : 'bg-[#f1fbe4] hover:bg-[#e3f7dc] text-sidebar border-[#c4eec0]/60'">
+                            <i th:data-lucide="${s.estado == 'Activo' ? 'user-x' : 'user-check'}" class="size-4 stroke-2"></i>
+                            <span th:text="${s.estado == 'Activo' ? 'Deshabilitar' : 'Habilitar'}">Deshabilitar</span>
+                        </button>
+                    </form>
+                    <form th:action="@{'/estudiantes/' + ${s.id} + '/eliminar'}" method="post" onsubmit="return confirm('¿Está seguro de ELIMINAR permanentemente a este estudiante y todas sus matrículas/documentos vinculados?');">
+                        <button type="submit" class="px-3 py-2.5 rounded-lg text-[12px] font-bold bg-red-50 hover:bg-red-100 text-alert-red border border-red-200 transition-colors cursor-pointer inline-flex items-center gap-1.5" title="Eliminar estudiante">
+                            <i data-lucide="trash-2" class="size-4 stroke-2"></i>
+                        </button>
+                    </form>
                 </div>
             </div>
 

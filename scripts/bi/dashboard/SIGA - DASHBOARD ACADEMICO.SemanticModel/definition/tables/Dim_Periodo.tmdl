@@ -1,0 +1,114 @@
+/// Dimensión temporal de periodos según el SIEACI (P1: 33%/13 sem, P2: 33%/12 sem, P3: 34%/15 sem) y Jerarquía Temporal Lectiva.
+table Dim_Periodo
+	lineageTag: 6fe5aa45-05e4-42bd-823d-fb0dda2049e2
+
+	column PeriodoKey
+		dataType: int64
+		lineageTag: 1bb98039-0dc7-47ef-b80c-9bfdd940cf30
+		summarizeBy: none
+		sourceColumn: PeriodoKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column Nombre_Periodo
+		dataType: string
+		lineageTag: 7795505d-cc85-4fcc-9ebc-c23acfd89465
+		summarizeBy: none
+		sourceColumn: Nombre_Periodo
+		sortByColumn: PeriodoKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column Anio_Lectivo
+		dataType: int64
+		lineageTag: e057e373-0400-4446-a0b4-0ef876a5ba2a
+		summarizeBy: sum
+		sourceColumn: Anio_Lectivo
+
+		annotation SummarizationSetBy = Automatic
+
+	column Peso
+		dataType: double
+		lineageTag: b71713f0-c628-44d0-96d4-01124d484d9d
+		summarizeBy: sum
+		sourceColumn: Peso
+
+		annotation SummarizationSetBy = Automatic
+
+	column Semanas
+		dataType: int64
+		lineageTag: 39b79750-c2d9-43c2-9306-28900daa148c
+		summarizeBy: sum
+		sourceColumn: Semanas
+
+		annotation SummarizationSetBy = Automatic
+
+	column Fecha_Inicio
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: e046dcb3-e1e5-4b68-a61e-366703c1b494
+		summarizeBy: none
+		sourceColumn: Fecha_Inicio
+
+		variation Variation
+			isDefault
+			relationship: 52b8b44c-81fa-4182-94ce-d26822ff9c40
+			defaultHierarchy: LocalDateTable_1c6f8d8a-0391-4539-87d0-dd06f6a13add.'Jerarquía de fechas'
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation SummarizationSetBy = Automatic
+
+	column Fecha_Fin
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 1d63f7dd-2196-4efa-af7a-1e50e97301df
+		summarizeBy: none
+		sourceColumn: Fecha_Fin
+
+		variation Variation
+			isDefault
+			relationship: e09c64fc-f882-4915-9182-c5d10d020474
+			defaultHierarchy: LocalDateTable_997925ab-2378-4435-b453-0ba0709b1cdf.'Jerarquía de fechas'
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation SummarizationSetBy = Automatic
+
+	hierarchy 'Jerarquía Temporal Lectiva'
+		lineageTag: 8e3d1b2c-6a4f-4d5e-9b7c-2d3e4f5a6b7c
+
+		level Anio_Lectivo
+			lineageTag: 2b3c4d5e-6f7a-489a-abcd-ef0123456701
+			column: Anio_Lectivo
+
+		level Nombre_Periodo
+			lineageTag: 2b3c4d5e-6f7a-489a-abcd-ef0123456702
+			column: Nombre_Periodo
+
+		level Fecha_Inicio
+			lineageTag: 2b3c4d5e-6f7a-489a-abcd-ef0123456703
+			column: Fecha_Inicio
+
+		level Fecha_Fin
+			lineageTag: 2b3c4d5e-6f7a-489a-abcd-ef0123456704
+			column: Fecha_Fin
+
+	partition Dim_Periodo = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database("localhost:5433", "siga"),
+				    Vista = Origen{[Schema="public",Item="vw_bi_dim_periodo"]}[Data],
+				    Tipos = Table.TransformColumnTypes(Vista,{
+				        {"PeriodoKey", Int64.Type},
+				        {"Nombre_Periodo", type text},
+				        {"Anio_Lectivo", Int64.Type},
+				        {"Peso", type number},
+				        {"Semanas", Int64.Type},
+				        {"Fecha_Inicio", type date},
+				        {"Fecha_Fin", type date}
+				    })
+				in
+				    Tipos
+

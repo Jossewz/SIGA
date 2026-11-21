@@ -6,6 +6,8 @@ import com.siga.siga_iea.configuracion.entity.*;
 import com.siga.siga_iea.configuracion.service.EscalaDesempenoService;
 import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.configuracion.service.RolPermisoService;
+import com.siga.siga_iea.usuarios.service.UsuarioDirectoryService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -21,22 +23,41 @@ public class ConfiguracionController {
     private final EscalaDesempenoService escalaDesempenoService;
     private final RolPermisoService rolPermisoService;
     private final CursoService cursoService;
+    private final UsuarioDirectoryService usuarioDirectoryService;
+
+    @Autowired
+    public ConfiguracionController(PeriodoConfigService periodoConfigService,
+                                   EscalaDesempenoService escalaDesempenoService,
+                                   RolPermisoService rolPermisoService,
+                                   CursoService cursoService,
+                                   @Autowired(required = false) UsuarioDirectoryService usuarioDirectoryService) {
+        this.periodoConfigService = periodoConfigService;
+        this.escalaDesempenoService = escalaDesempenoService;
+        this.rolPermisoService = rolPermisoService;
+        this.cursoService = cursoService;
+        this.usuarioDirectoryService = usuarioDirectoryService;
+    }
 
     public ConfiguracionController(PeriodoConfigService periodoConfigService,
                                    EscalaDesempenoService escalaDesempenoService,
                                    RolPermisoService rolPermisoService,
                                    CursoService cursoService) {
-        this.periodoConfigService = periodoConfigService;
-        this.escalaDesempenoService = escalaDesempenoService;
-        this.rolPermisoService = rolPermisoService;
-        this.cursoService = cursoService;
+        this(periodoConfigService, escalaDesempenoService, rolPermisoService, cursoService, null);
     }
 
     @GetMapping("/configuracion")
     public String index(@RequestParam(value = "rol", defaultValue = "ADMIN") String rolParam,
+                        @RequestParam(value = "gradoPlan", defaultValue = "11°") String gradoPlanParam,
+                        @RequestParam(value = "tab", required = false) String tab,
+                        @RequestParam(value = "search", required = false) String search,
+                        @RequestParam(value = "estado", required = false) String estado,
+                        @RequestParam(value = "userRol", required = false) String userRol,
                         Model model) {
         model.addAttribute("title", "Configuración General – IEACI");
         model.addAttribute("activePage", "configuracion");
+        if (tab != null && !tab.isBlank() && !model.containsAttribute("activeTab")) {
+            model.addAttribute("activeTab", tab);
+        }
 
         // 1. Datos Institucionales
         ConfiguracionInstitucional cfg = periodoConfigService.obtenerConfiguracionInstitucional();
@@ -64,9 +85,24 @@ public class ConfiguracionController {
         List<EscalaDesempeno> escalas = escalaDesempenoService.listarEscalaCompleta();
         model.addAttribute("escalas", escalas);
 
-        // 4. Asignaturas del Colegio
+        // 4. Asignaturas del Colegio y Plan de Estudios Dinámico por Grado
         List<Materia> materias = cursoService.listarTodasMateriasOrdenadas();
         model.addAttribute("materias", materias);
+
+        List<String> gradosDisponibles = List.of("1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°");
+        String gradoNorm = com.siga.siga_iea.clases.entity.PlanEstudiosGrado.normalizarGrado(gradoPlanParam);
+        String gradoPlanSeleccionado = gradosDisponibles.contains(gradoNorm) ? gradoNorm : "11°";
+        Map<UUID, Integer> intensidadesGrado = cursoService.listarIntensidadesPorGrado(gradoPlanSeleccionado);
+        int totalHorasGrado = 0;
+        for (Materia m : materias) {
+            if ("Activo".equalsIgnoreCase(m.getEstado())) {
+                totalHorasGrado += intensidadesGrado.getOrDefault(m.getId(), 0);
+            }
+        }
+        model.addAttribute("gradosDisponibles", gradosDisponibles);
+        model.addAttribute("gradoPlanSeleccionado", gradoPlanSeleccionado);
+        model.addAttribute("intensidadesGrado", intensidadesGrado);
+        model.addAttribute("totalHorasGrado", totalHorasGrado);
 
         // 5. Roles y Permisos
         List<String> rolesDisponibles = List.of("ADMIN", "PERSONAL_ADMINISTRATIVO", "DOCENTE", "ESTUDIANTE");
@@ -75,6 +111,23 @@ public class ConfiguracionController {
         model.addAttribute("rolesDisponibles", rolesDisponibles);
         model.addAttribute("rolSeleccionado", rolSeleccionado);
         model.addAttribute("permisosRol", permisosRol);
+
+        // 6. Gestión de Usuarios integrada
+        if (usuarioDirectoryService != null) {
+            UsuarioDirectoryService.ResumenUsuarios resumen = usuarioDirectoryService.consultarResumen(search, estado, userRol);
+            model.addAttribute("usuariosList", resumen.usuarios());
+            model.addAttribute("totalUsuarios", resumen.totalUsuarios());
+            model.addAttribute("activosCount", resumen.activosCount());
+            model.addAttribute("bloqueadosCount", resumen.bloqueadosCount());
+        } else {
+            model.addAttribute("usuariosList", Collections.emptyList());
+            model.addAttribute("totalUsuarios", 0);
+            model.addAttribute("activosCount", 0L);
+            model.addAttribute("bloqueadosCount", 0L);
+        }
+        model.addAttribute("search", search);
+        model.addAttribute("selectedEstado", estado);
+        model.addAttribute("selectedRol", userRol);
 
         return "configuracion/index";
     }
@@ -182,6 +235,38 @@ public class ConfiguracionController {
         }
 
         redirectAttributes.addFlashAttribute("activeTab", "cfg-asignaturas");
+        return "redirect:/configuracion";
+    }
+
+    @PostMapping("/configuracion/materias/intensidades-grado")
+    public String guardarIntensidadesPorGrado(
+            @RequestParam("grado") String grado,
+            @RequestParam Map<String, String> allParams,
+            RedirectAttributes redirectAttributes) {
+        try {
+            Map<UUID, Integer> intensidades = new LinkedHashMap<>();
+            for (Map.Entry<String, String> entry : allParams.entrySet()) {
+                if (entry.getKey().startsWith("ih_")) {
+                    String idStr = entry.getKey().substring(3);
+                    UUID matId = UUID.fromString(idStr);
+                    int horas = (entry.getValue() != null && !entry.getValue().isBlank())
+                            ? Integer.parseInt(entry.getValue().trim())
+                            : 0;
+                    intensidades.put(matId, horas);
+                }
+            }
+            int sumaTotal = cursoService.guardarIntensidadesGrado(grado, intensidades);
+            String msg = "Plan de estudios de grado " + grado + " actualizado (" + sumaTotal + " horas semanales).";
+            if (sumaTotal < 20) {
+                msg += " Recuerde que la carga mínima sugerida es de 20 horas semanales.";
+            }
+            redirectAttributes.addFlashAttribute("mensajeExito", msg);
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "No se pudo guardar el plan de estudios: " + ex.getMessage());
+        }
+        redirectAttributes.addFlashAttribute("activeTab", "cfg-asignaturas");
+        redirectAttributes.addAttribute("gradoPlan", grado);
+        redirectAttributes.addAttribute("tab", "cfg-asignaturas");
         return "redirect:/configuracion";
     }
 

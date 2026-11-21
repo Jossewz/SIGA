@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,6 +15,14 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, UUID> {
     @Query("SELECT e FROM Evaluacion e WHERE e.cursoMateria.id = :cursoMateriaId AND e.periodo = :periodo ORDER BY e.createdAt ASC, e.nombre ASC")
     List<Evaluacion> findByCursoMateriaIdAndPeriodo(@Param("cursoMateriaId") UUID cursoMateriaId, @Param("periodo") Integer periodo);
 
+    @Query("SELECT e FROM Evaluacion e WHERE e.cursoMateria.id = :cursoMateriaId AND e.periodo = :periodo AND e.fecha = :fecha ORDER BY e.createdAt ASC, e.nombre ASC")
+    List<Evaluacion> findByCursoMateriaIdAndPeriodoAndFecha(@Param("cursoMateriaId") UUID cursoMateriaId,
+                                                            @Param("periodo") Integer periodo,
+                                                            @Param("fecha") LocalDate fecha);
+
     @Query("SELECT e FROM Evaluacion e WHERE e.cursoMateria.id = :cursoMateriaId ORDER BY e.createdAt ASC, e.nombre ASC")
     List<Evaluacion> findByCursoMateriaId(@Param("cursoMateriaId") UUID cursoMateriaId);
+
+    @Query("SELECT e FROM Evaluacion e WHERE e.cursoMateria.id IN :cursoMateriaIds ORDER BY e.createdAt ASC, e.nombre ASC")
+    List<Evaluacion> findByCursoMateriaIdIn(@Param("cursoMateriaIds") List<UUID> cursoMateriaIds);
 }

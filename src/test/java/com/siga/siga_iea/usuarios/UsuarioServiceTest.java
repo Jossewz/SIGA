@@ -1,5 +1,6 @@
 package com.siga.siga_iea.usuarios;
 
+import com.siga.siga_iea.auditoria.service.AuditoriaService;
 import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.repository.UsuarioRepository;
 import com.siga.siga_iea.usuarios.service.UsuarioService;
@@ -26,6 +27,9 @@ class UsuarioServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AuditoriaService auditoriaService;
 
     @InjectMocks
     private UsuarioService usuarioService;
@@ -101,5 +105,58 @@ class UsuarioServiceTest {
 
         assertEquals("INACTIVO", usuario.getEstado());
         verify(usuarioRepository).save(usuario);
+        verify(auditoriaService).registrarCambio("USUARIO", id, "estado", "ACTIVO", "INACTIVO");
+    }
+
+    @Test
+    @DisplayName("cambiarPassword() debe encriptar y registrar auditoría")
+    void cambiarPassword_encriptaYRegistraAuditoria() {
+        UUID id = UUID.randomUUID();
+        Usuario usuario = new Usuario();
+        usuario.setId(id);
+        usuario.setPassword("$2a$10$oldHashedPassword");
+
+        when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.encode("nuevaClave2026*")).thenReturn("$2a$10$newHashedPassword");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        usuarioService.cambiarPassword(id, "nuevaClave2026*");
+
+        assertEquals("$2a$10$newHashedPassword", usuario.getPassword());
+        verify(passwordEncoder).encode("nuevaClave2026*");
+        verify(usuarioRepository).save(usuario);
+        verify(auditoriaService).registrarCambio("USUARIO", id, "password", null, "CAMBIO_PASSWORD");
+    }
+
+    @Test
+    @DisplayName("cambiarRol() debe cambiar el rol y auditar el cambio")
+    void cambiarRol_actualizaRolYRegistraAuditoria() {
+        UUID id = UUID.randomUUID();
+        Usuario usuario = new Usuario();
+        usuario.setId(id);
+        usuario.setRol("DOCENTE");
+
+        when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        usuarioService.cambiarRol(id, "ADMIN");
+
+        assertEquals("ADMIN", usuario.getRol());
+        verify(usuarioRepository).save(usuario);
+        verify(auditoriaService).registrarCambio("USUARIO", id, "rol", "DOCENTE", "ADMIN");
+    }
+
+    @Test
+    @DisplayName("verificarPassword() debe usar el PasswordEncoder matches")
+    void verificarPassword_validaCorrectamente() {
+        Usuario usuario = new Usuario();
+        usuario.setPassword("$2a$10$hashedPass");
+
+        when(passwordEncoder.matches("miClave", "$2a$10$hashedPass")).thenReturn(true);
+        when(passwordEncoder.matches("claveErronea", "$2a$10$hashedPass")).thenReturn(false);
+
+        assertTrue(usuarioService.verificarPassword(usuario, "miClave"));
+        assertFalse(usuarioService.verificarPassword(usuario, "claveErronea"));
+        assertFalse(usuarioService.verificarPassword(null, "miClave"));
     }
 }

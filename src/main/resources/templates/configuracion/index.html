@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
             <div>
                 <h1 class="text-text-primary text-[28px] font-black tracking-tight leading-none mb-1.5">Configuración General</h1>
-                <p class="text-text-secondary text-sm font-semibold">Parámetros institucionales, periodos, escala de desempeños, asignaturas y permisos de roles.</p>
+                <p class="text-text-secondary text-sm font-semibold">Parámetros institucionales, periodos, escala de desempeños, asignaturas, gestión de usuarios y permisos de roles.</p>
             </div>
             <div class="flex items-center gap-2">
                 <span class="px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-pill-green text-sidebar border border-[#cbe5c7] flex items-center gap-1.5 shadow-2xs">
@@ -54,6 +54,11 @@
                 <button type="button" sec:authorize="hasRole('ADMIN')" class="cfg-tab-btn w-full text-left px-4 py-3 rounded-lg text-[11px] font-black uppercase tracking-wider text-text-secondary hover:bg-brand-100/50 transition-all cursor-pointer" onclick="switchConfigTab(this, 'cfg-roles')">
                     <span class="flex items-center gap-2.5">
                         <i data-lucide="shield" class="size-4 stroke-2"></i> Roles y Permisos
+                    </span>
+                </button>
+                <button type="button" class="cfg-tab-btn w-full text-left px-4 py-3 rounded-lg text-[11px] font-black uppercase tracking-wider text-text-secondary hover:bg-brand-100/50 transition-all cursor-pointer" onclick="switchConfigTab(this, 'cfg-usuarios')">
+                    <span class="flex items-center gap-2.5">
+                        <i data-lucide="users" class="size-4 stroke-2"></i> Gestión de Usuarios
                     </span>
                 </button>
             </div>
@@ -327,6 +332,15 @@
                                     </td>
                                     <td class="py-3 px-4 pr-5 text-right">
                                         <div class="flex items-center justify-end gap-2">
+                                            <button type="button"
+                                                    th:data-id="${m.id}"
+                                                    th:data-nombre="${m.nombre}"
+                                                    th:data-area="${m.area ?: 'General'}"
+                                                    th:data-ih="${m.intensidadHoraria ?: 4}"
+                                                    onclick="editarMateriaCfg(this)"
+                                                    class="px-2.5 py-1 rounded-control text-xs font-bold border bg-white text-sidebar border-[#c4eec0] hover:bg-[#eafbe4] transition-colors cursor-pointer shadow-2xs">
+                                                Editar
+                                            </button>
                                             <form th:action="@{/configuracion/materias/toggle-estado}" method="post" class="inline">
                                                 <input type="hidden" name="id" th:value="${m.id}" />
                                                 <button type="submit" class="px-2.5 py-1 rounded-control text-xs font-bold border transition-colors cursor-pointer shadow-2xs"
@@ -340,6 +354,68 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Plan de Estudios Dinámico por Grado (Intensidad Horaria según el Grado) -->
+                    <div class="p-6 rounded-xl border border-[#c4eec0] bg-[#f9fbf8] shadow-2xs flex flex-col gap-4">
+                        <div class="flex items-center justify-between gap-3 flex-wrap border-b border-[#c4eec0]/50 pb-3">
+                            <div>
+                                <h4 class="text-sidebar text-sm font-black uppercase tracking-wide flex items-center gap-2">
+                                    <i data-lucide="layers" class="size-4 stroke-2"></i>
+                                    <span>Intensidad Horaria por Grado</span>
+                                </h4>
+                                <p class="text-text-secondary text-[12px] font-semibold">La carga semanal de cada asignatura cambia según el grado. Seleccione un grado para ajustar cuántas horas a la semana lleva cada materia.</p>
+                            </div>
+                            <span id="badge-total-horas-grado"
+                                  class="px-3.5 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs border"
+                                  th:classappend="${totalHorasGrado >= 20 and totalHorasGrado <= 30} ? 'bg-pill-green text-sidebar border-[#cbe5c7]' : (${totalHorasGrado > 30} ? 'bg-pill-red text-alert-red border-red-300' : 'bg-amber-50 text-amber-800 border-amber-300')">
+                                <i data-lucide="clock" class="size-3.5"></i>
+                                <span>Total Grado <strong th:text="${gradoPlanSeleccionado}">11°</strong>: <strong id="texto-total-horas-grado" th:text="${totalHorasGrado}">23</strong> / 30 h semanales</span>
+                            </span>
+                        </div>
+
+                        <!-- Selector de Grado (1° a 11°) -->
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-[10px] font-black uppercase text-text-secondary tracking-wider mr-1">Grado:</span>
+                            <a th:each="g : ${gradosDisponibles}"
+                               th:href="@{/configuracion(gradoPlan=${g}, tab='cfg-asignaturas')}"
+                               th:text="${g}"
+                               class="px-3 py-1.5 rounded-lg text-xs font-black border transition-all"
+                               th:classappend="${g == gradoPlanSeleccionado} ? 'bg-sidebar text-white border-sidebar shadow-2xs' : 'bg-white text-sidebar border-[#c4eec0] hover:bg-[#eafbe4]'">
+                                11°
+                            </a>
+                        </div>
+
+                        <form th:action="@{/configuracion/materias/intensidades-grado}" method="post" onsubmit="return validarPlanGradoCfg(event);" class="flex flex-col gap-4">
+                            <input type="hidden" name="grado" th:value="${gradoPlanSeleccionado}" />
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div th:each="m : ${materias}" th:if="${m.estado == 'Activo'}"
+                                     class="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-[#c5ecd4] shadow-2xs">
+                                    <div class="min-w-0">
+                                        <span class="text-xs font-black text-sidebar block truncate" th:text="${m.nombre}">Matemáticas</span>
+                                        <span class="text-[10px] font-semibold text-text-secondary block truncate" th:text="${m.area ?: 'General'}">Ciencias Exactas</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <input type="number" min="0" max="15" required
+                                               th:name="${'ih_' + m.id}"
+                                               th:value="${intensidadesGrado != null ? (intensidadesGrado[m.id] ?: (m.intensidadHoraria ?: 2)) : (m.intensidadHoraria ?: 2)}"
+                                               oninput="recalcularTotalHorasGrado()"
+                                               class="input-ih-grado w-16 h-9 px-2 rounded-lg bg-[#f9fbf8] border border-[#c5ecd4] text-xs font-black text-sidebar text-center focus:ring-2 focus:ring-sidebar/20" />
+                                        <span class="text-[10px] font-bold text-text-secondary">h/sem</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-[#c4eec0]/40">
+                                <span class="text-[11px] font-semibold text-text-secondary">
+                                    Use <strong>0 h</strong> si una asignatura no aplica en ese grado (por ejemplo, Filosofía en primaria). Máximo permitido por jornada: 30 h semanales.
+                                </span>
+                                <button type="submit" class="px-5 py-2.5 text-xs font-black text-white bg-sidebar hover:brightness-97 rounded-lg transition-all shadow-md flex items-center gap-2 cursor-pointer">
+                                    <i data-lucide="save" class="size-4"></i>
+                                    <span>Guardar Plan de <span th:text="${gradoPlanSeleccionado}">11°</span></span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -371,6 +447,11 @@
                             <div th:replace="~{configuracion/fragments/panel-permisos :: panelPermisos}"></div>
                         </div>
                     </div>
+                </div>
+
+                <!-- ==================== TAB 5: GESTIÓN DE USUARIOS ==================== -->
+                <div id="cfg-usuarios" class="config-tab-content hidden flex flex-col gap-6">
+                    <div th:replace="~{configuracion/fragments/panel-usuarios :: panelUsuarios}"></div>
                 </div>
 
             </div>
@@ -437,6 +518,50 @@
                 document.getElementById('mat-ih').value = '4';
                 document.getElementById('form-materia-title').innerText = 'Registrar Nueva Asignatura';
             }
+        }
+
+        function editarMateriaCfg(btn) {
+            const card = document.getElementById('card-form-materia');
+            if (!card) return;
+            card.classList.remove('hidden');
+            document.getElementById('mat-id').value = btn.dataset.id || '';
+            document.getElementById('mat-nombre').value = btn.dataset.nombre || '';
+            document.getElementById('mat-area').value = btn.dataset.area || '';
+            document.getElementById('mat-ih').value = btn.dataset.ih || '4';
+            document.getElementById('form-materia-title').innerText = 'Editar Asignatura';
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function recalcularTotalHorasGrado() {
+            const inputs = document.querySelectorAll('.input-ih-grado');
+            let suma = 0;
+            inputs.forEach(inp => {
+                const v = parseInt(inp.value || '0', 10);
+                if (!isNaN(v)) suma += v;
+            });
+            const txt = document.getElementById('texto-total-horas-grado');
+            const badge = document.getElementById('badge-total-horas-grado');
+            if (txt) txt.innerText = suma;
+            if (badge) {
+                if (suma > 30) {
+                    badge.className = "px-3.5 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs border bg-pill-red text-alert-red border-red-300";
+                } else if (suma >= 20) {
+                    badge.className = "px-3.5 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs border bg-pill-green text-sidebar border-[#cbe5c7]";
+                } else {
+                    badge.className = "px-3.5 py-1.5 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xs border bg-amber-50 text-amber-800 border-amber-300";
+                }
+            }
+            return suma;
+        }
+
+        function validarPlanGradoCfg(event) {
+            const suma = recalcularTotalHorasGrado();
+            if (suma > 30) {
+                alert('La suma semanal del grado (' + suma + ' h) supera el límite de 30 horas semanales de la jornada.');
+                event.preventDefault();
+                return false;
+            }
+            return true;
         }
 
         function seleccionarRol(rol) {

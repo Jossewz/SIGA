@@ -22,6 +22,9 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, UUID> {
 
     List<Asistencia> findByEstudianteId(UUID estudianteId);
 
+    @Query("SELECT a FROM Asistencia a WHERE a.sesion.fecha = :fecha")
+    List<Asistencia> findByFecha(@Param("fecha") LocalDate fecha);
+
     @Query("SELECT a FROM Asistencia a WHERE a.sesion.curso.id = :cursoId AND a.sesion.fecha = :fecha")
     List<Asistencia> findByCursoIdAndFecha(@Param("cursoId") UUID cursoId, @Param("fecha") LocalDate fecha);
 
@@ -29,4 +32,19 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, UUID> {
     List<Asistencia> findByCursoIdAndMateriaIdAndFecha(@Param("cursoId") UUID cursoId,
                                                       @Param("materiaId") UUID materiaId,
                                                       @Param("fecha") LocalDate fecha);
+
+    @Query("SELECT a.sesion.fecha, " +
+           "COUNT(a.id), " +
+           "SUM(CASE WHEN a.estado IN ('PRESENTE', 'TARDE') THEN 1L ELSE 0L END) " +
+           "FROM Asistencia a " +
+           "WHERE a.sesion.fecha >= :desde " +
+           "GROUP BY a.sesion.fecha " +
+           "ORDER BY a.sesion.fecha ASC")
+    List<Object[]> findResumenAsistenciaPorFecha(@Param("desde") LocalDate desde);
+
+    @Query("SELECT COUNT(a.id), " +
+           "SUM(CASE WHEN a.estado IN ('PRESENTE', 'TARDE') THEN 1L ELSE 0L END) " +
+           "FROM Asistencia a " +
+           "WHERE a.sesion.fecha = :fecha")
+    List<Object[]> findResumenAsistenciaPorDia(@Param("fecha") LocalDate fecha);
 }

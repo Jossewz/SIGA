@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.springframework.transaction.annotation.Transactional
 class CursoViewRenderTest {
 
     @Autowired
@@ -257,5 +258,87 @@ class CursoViewRenderTest {
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Auto-Mapear Matriculados")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Promover Año Lectivo")));
+    }
+
+    @Autowired
+    private com.siga.siga_iea.asistencias.service.AsistenciaService asistenciaService;
+
+    @Autowired
+    private com.siga.siga_iea.asistencias.repository.SesionClaseRepository sesionClaseRepository;
+
+    @Test
+    @WithMockUser(username = "admin@ieaci.edu.co", roles = "ADMIN")
+    @DisplayName("Asistencia en Cursos sincroniza estados reales (Pendiente/PRESENTE/TARDE/AUSENTE) y notas filtran por fecha/periodo")
+    void testSincronizacionAsistenciaYNotasPorFecha() throws Exception {
+        var curso = new com.siga.siga_iea.clases.entity.Curso();
+        curso.setGrado("10°");
+        curso.setGrupo("99");
+        curso.setJornada("Mañana");
+        curso.setAnoLectivo("2026");
+        curso = cursoRepository.save(curso);
+        var cursoId = curso.getId();
+        String cursoIdStr = cursoId.toString();
+
+        var mat = materiaRepository.findByNombre("Matemáticas")
+                .orElseGet(() -> materiaRepository.save(new com.siga.siga_iea.clases.entity.Materia("Matemáticas", "Ciencias Exactas")));
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        String diaHoy = com.siga.siga_iea.clases.application.CursoGestionAppService.obtenerNombreDiaEspanol(hoy.getDayOfWeek());
+        cursoService.guardarHorarioBloque(cursoId, diaHoy, mat.getId(), null, "08:30", "10:00", "Aula 101");
+
+        var est = new com.siga.siga_iea.usuarios.entity.Estudiante();
+        est.setNombres("Sincro");
+        est.setApellidos("Test");
+        est.setNumeroDocumento("DOC-SINC-" + System.currentTimeMillis());
+        est = estudianteRepository.save(est);
+
+        var ce = new com.siga.siga_iea.clases.entity.CursoEstudiante();
+        ce.setCurso(curso);
+        ce.setEstudiante(est);
+        ce.setAnoLectivo("2026");
+        cursoEstudianteRepository.save(ce);
+
+        // 1. Antes de tomar asistencia, la consulta es solo lectura: no crea sesión y muestra "Pendiente" (no "Presente")
+        mockMvc.perform(get("/clases/fragmento/tabla-notas")
+                        .param("cursoId", cursoIdStr)
+                        .param("materiaNombre", "Matemáticas")
+                        .param("periodo", "1")
+                        .param("fecha", hoy.toString()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Pendiente")));
+        org.junit.jupiter.api.Assertions.assertTrue(sesionClaseRepository.findByCursoIdAndFecha(cursoId, hoy).isEmpty());
+
+        // 2. Marcar TARDE desde Cursos crea/abre sesión y retorna estado TARDE
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/clases/asistencias/marcar").with(csrf())
+                        .param("cursoId", cursoIdStr)
+                        .param("estudianteId", est.getId().toString())
+                        .param("materiaId", mat.getId().toString())
+                        .param("fecha", hoy.toString())
+                        .param("estado", "TARDE"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("TARDE")));
+
+        var mapa = asistenciaService.obtenerMapaEstadosAsistencia(cursoId, hoy, mat.getId());
+        org.junit.jupiter.api.Assertions.assertEquals("TARDE", mapa.get(est.getId()));
+
+        // 3. Evaluaciones separadas por fecha vs vista PERIODO
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/clases/evaluaciones/crear").with(csrf())
+                        .param("cursoId", cursoIdStr)
+                        .param("materiaNombre", "Matemáticas")
+                        .param("periodo", "1")
+                        .param("fecha", hoy.toString()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Nota 1")));
+
+        // Vista en fecha pasada sin evaluaciones: vistaNotas=FECHA no muestra Nota 1 pero sí informa total del período
+        java.time.LocalDate hace7Dias = hoy.minusDays(7);
+        mockMvc.perform(get("/clases/fragmento/tabla-notas")
+                        .param("cursoId", cursoIdStr)
+                        .param("materiaNombre", "Matemáticas")
+                        .param("periodo", "1")
+                        .param("fecha", hace7Dias.toString())
+                        .param("vistaNotas", "FECHA"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(">Nota 1<"))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Todo el periodo (1)")));
     }
 }

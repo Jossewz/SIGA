@@ -11,24 +11,32 @@
     <div th:if="${vista == null or (vista.sesiones.isEmpty() and !vista.tieneClases)}"
          class="p-6 rounded-xl bg-surface-sunken/60 border border-border text-center flex flex-col items-center">
         <i data-lucide="calendar-x" class="size-8 text-text-secondary/60 mb-2 stroke-2"></i>
-        <p class="text-xs font-bold text-text-secondary">No tienes clases ni horarios asignados para hoy.</p>
+        <p class="text-xs font-bold text-text-secondary"
+           th:text="${vista != null and !vista.esHoy ? 'No hay sesiones registradas para esta fecha.' : 'No tienes clases ni horarios asignados para hoy.'}">No tienes clases ni horarios asignados para hoy.</p>
     </div>
 
     <!-- Tiene clases pero aún no ha iniciado jornada -->
     <div th:if="${vista != null and vista.sesiones.isEmpty() and vista.tieneClases}"
          class="p-6 rounded-xl bg-emerald-50/60 border border-emerald-200/80 text-center flex flex-col items-center">
         <i data-lucide="sparkles" class="size-8 text-forest-green mb-2 stroke-2"></i>
-        <h4 class="text-xs font-black text-emerald-950 uppercase tracking-wider">Jornada lista para iniciar</h4>
-        <p class="text-xs font-medium text-emerald-800 mt-1 max-w-xs">
+        <h4 class="text-xs font-black text-emerald-950 uppercase tracking-wider"
+            th:text="${vista.esHoy ? 'Jornada lista para iniciar' : 'Sin toma de asistencia registrada'}">Jornada lista para iniciar</h4>
+        <p class="text-xs font-medium text-emerald-800 mt-1 max-w-xs"
+           th:if="${vista.esHoy}">
             Pulsa el botón <strong>"Iniciar jornada"</strong> arriba para habilitar tus listas de asistencia del día.
+        </p>
+        <p class="text-xs font-medium text-emerald-800 mt-1 max-w-xs"
+           th:unless="${vista.esHoy}">
+            No se iniciaron sesiones ni se guardó asistencia en esta fecha.
         </p>
     </div>
 
     <!-- Lista de Sesiones Abiertas -->
     <div th:if="${vista != null and !vista.sesiones.isEmpty()}" class="flex flex-col gap-2.5">
         <div th:each="s : ${vista.sesiones}"
-             class="group p-4 rounded-xl border border-border bg-white hover:border-emerald-300 hover:shadow-xs transition flex flex-col gap-2"
-             th:classappend="${s.estado == 'CANCELADA'} ? 'opacity-65 bg-slate-50' : ''">
+             th:with="resumen=${vista.resumenSesiones != null ? vista.resumenSesiones.get(s.id) : null}, esActiva=${activeSesionId != null and activeSesionId.equals(s.id)}"
+             class="group p-4 rounded-xl border bg-white hover:border-emerald-300 hover:shadow-xs transition flex flex-col gap-2.5"
+             th:classappend="${esActiva} ? 'border-emerald-500 ring-2 ring-emerald-100' : (${s.estado == 'CANCELADA'} ? 'border-border opacity-65 bg-slate-50' : 'border-border')">
 
             <div class="flex items-start justify-between gap-2">
                 <div class="flex flex-col">
@@ -42,8 +50,8 @@
                     </span>
                 </div>
 
-                <!-- Estado de la Sesión -->
-                <div>
+                <!-- Estado de la Sesión (real según hora y cierre automático) -->
+                <div class="flex flex-col items-end gap-1">
                     <span th:if="${s.estado == 'CANCELADA'}"
                           class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
                         Cancelada
@@ -52,9 +60,17 @@
                           class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                         Reemplazo
                     </span>
-                    <span th:if="${s.estado == 'DICTADA'}"
+                    <span th:if="${s.estado == 'DICTADA' and resumen != null and resumen.estadoTemporal == 'FINALIZADA'}"
+                          class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                        Finalizada
+                    </span>
+                    <span th:if="${s.estado == 'DICTADA' and resumen != null and resumen.estadoTemporal == 'PROGRAMADA'}"
+                          class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                        Programada
+                    </span>
+                    <span th:if="${s.estado == 'DICTADA' and (resumen == null or resumen.estadoTemporal == 'EN_CURSO')}"
                           class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Activa
+                        En curso
                     </span>
                 </div>
             </div>
@@ -71,16 +87,37 @@
                 </div>
             </div>
 
+            <!-- Resumen de Cobertura de Asistencia Guardada -->
+            <div th:if="${resumen != null}" class="flex flex-wrap items-center justify-between gap-1.5 pt-1 text-[11px]">
+                <span th:if="${resumen.registrados > 0}"
+                      class="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md"
+                      th:text="${'Guardada: ' + resumen.registrados + '/' + resumen.totalEstudiantes}">
+                    Guardada: 1/1
+                </span>
+                <span th:if="${resumen.registrados == 0}"
+                      class="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                    Sin registrar
+                </span>
+                <div th:if="${resumen.registrados > 0}" class="flex items-center gap-1 font-bold text-[10px]">
+                    <span th:if="${resumen.presentes > 0}" class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800" th:text="${'P:' + resumen.presentes}">P:0</span>
+                    <span th:if="${resumen.tardes > 0}" class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" th:text="${'T:' + resumen.tardes}">T:0</span>
+                    <span th:if="${resumen.excusados > 0}" class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800" th:text="${'E:' + resumen.excusados}">E:0</span>
+                    <span th:if="${resumen.ausentes > 0}" class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800" th:text="${'FI:' + resumen.ausentes}">FI:0</span>
+                </div>
+            </div>
+
             <!-- Botón de Acción -->
             <div class="pt-2 border-t border-border/60 flex justify-end">
                 <button type="button"
                         th:hx-get="@{/mi-jornada/sesiones/{id}(id=${s.id})}"
                         hx-target="#panel-toma-asistencia"
                         hx-swap="innerHTML"
+                        th:attr="data-sesion-id=${s.id}, data-fecha=${s.fecha}"
+                        onclick="window.seleccionarSesionMiJornada && window.seleccionarSesionMiJornada(this.dataset.sesionId, this.dataset.fecha)"
                         class="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition cursor-pointer"
-                        th:classappend="${s.estado == 'CANCELADA'} ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-surface-sunken text-forest-green hover:bg-forest-green hover:text-white'">
+                        th:classappend="${esActiva} ? 'bg-forest-green text-white shadow-2xs' : (${s.estado == 'CANCELADA'} ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-surface-sunken text-forest-green hover:bg-forest-green hover:text-white')">
                     <i data-lucide="check-square" class="size-3.5 stroke-2"></i>
-                    <span th:text="${s.estado == 'CANCELADA' ? 'Ver sesión cancelada' : 'Tomar Asistencia'}">Tomar Asistencia</span>
+                    <span th:text="${s.estado == 'CANCELADA' ? 'Ver sesión cancelada' : (!vista.esHoy ? 'Consultar Asistencia' : (resumen != null and resumen.registrados > 0 ? 'Ver / Editar Asistencia' : 'Tomar Asistencia'))}">Tomar Asistencia</span>
                 </button>
             </div>
         </div>
@@ -92,20 +129,23 @@
 <!-- FRAGMENTO 2: TABLA DE TOMA DE ASISTENCIA (ALPINES.JS + HTMX)    -->
 <!-- ============================================================== -->
 <div th:fragment="tabla" id="tabla-sesion"
-     th:attr="data-estados=${estadosJson}"
+     th:attr="data-estados=${estadosJson}, data-solo-lectura=${soloLectura != null && soloLectura}, data-sesion-id=${sesion.id}"
      x-data="{
          dirty: false,
+         soloLectura: $el.getAttribute('data-solo-lectura') === 'true',
          est: JSON.parse($el.getAttribute('data-estados') || '{}'),
          beforeUnloadHandler: null,
          marcarTodos() {
+             if (this.soloLectura) return;
              document.querySelectorAll('input[name=estudianteId]').forEach(el => {
                  this.est[el.value] = 'PRESENTE';
              });
              this.dirty = true;
          },
          init() {
+             window.miJornadaActiveSesionId = $el.getAttribute('data-sesion-id') || null;
              this.beforeUnloadHandler = (e) => {
-                 if (this.dirty) {
+                 if (this.dirty && !this.soloLectura) {
                      e.preventDefault();
                      e.returnValue = 'Tienes cambios de asistencia sin guardar. ¿Deseas salir?';
                      return e.returnValue;
@@ -141,6 +181,11 @@
                       th:text="${#temporals.format(sesion.horaInicio, 'HH:mm') + ' - ' + #temporals.format(sesion.horaFin, 'HH:mm')}">
                     07:00 - 08:30
                 </span>
+                <span class="text-xs text-text-secondary">•</span>
+                <span class="text-xs font-semibold text-text-secondary"
+                      th:text="${#temporals.format(sesion.fecha, 'dd/MM/yyyy')}">
+                    16/11/2026
+                </span>
             </div>
             <h3 class="text-xl font-black text-text-primary mt-0.5"
                 th:text="${sesion.cursoMateria != null ? sesion.cursoMateria.materia.nombre : (sesion.tipo == 'JORNADA' ? 'Jornada Completa' : 'Clase')}">
@@ -148,7 +193,7 @@
             </h3>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             <!-- Indicador Dirty State -->
             <span x-show="dirty" x-cloak
                   class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-300">
@@ -156,10 +201,32 @@
                 Cambios sin guardar
             </span>
 
+            <!-- Exportar plantilla oficial Excel -->
+            <a th:href="@{/mi-jornada/sesiones/{id}/excel/exportar(id=${sesion.id})}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-sidebar font-bold text-xs border border-border hover:bg-surface-sunken transition shadow-2xs"
+               title="Descargar plantilla oficial Excel (.xlsx)">
+                <i data-lucide="download" class="size-3.5 stroke-2"></i>
+                <span>Exportar Excel</span>
+            </a>
+
+            <!-- Importar plantilla oficial Excel -->
+            <label th:if="${!soloLectura}"
+                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-sidebar font-bold text-xs border border-emerald-300 hover:bg-emerald-50 transition cursor-pointer shadow-2xs"
+                   title="Importar asistencia desde plantilla oficial (.xlsx)">
+                <i data-lucide="upload" class="size-3.5 stroke-2"></i>
+                <span>Importar Excel</span>
+                <input type="file"
+                       accept=".xlsx"
+                       class="hidden"
+                       th:attr="data-sesion-id=${sesion.id}"
+                       onchange="window.importarAsistenciaExcel && window.importarAsistenciaExcel(this, this.getAttribute('data-sesion-id'))">
+            </label>
+
             <!-- Botón Marcar Todos Presentes -->
             <button type="button"
                     @click="marcarTodos()"
-                    th:disabled="${sesion.estado == 'CANCELADA'}"
+                    :disabled="soloLectura"
+                    th:disabled="${soloLectura}"
                     class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-xs border border-emerald-200 hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed">
                 <i data-lucide="check-check" class="size-4 stroke-2"></i>
                 Marcar todos presentes
@@ -172,6 +239,13 @@
          class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2.5">
         <i data-lucide="alert-octagon" class="size-5 stroke-2 text-rose-600 shrink-0"></i>
         <span>Sesión cancelada — no se puede registrar asistencia en esta sesión.</span>
+    </div>
+
+    <!-- Alerta Solo Lectura Histórica -->
+    <div th:if="${soloLecturaPorFecha}"
+         class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-2.5">
+        <i data-lucide="lock" class="size-4.5 stroke-2 text-amber-700 shrink-0"></i>
+        <span>Modo consulta histórica: los docentes solo pueden editar asistencias de la fecha de hoy.</span>
     </div>
 
     <!-- Formulario HTMX para Guardar Asistencia -->
@@ -195,6 +269,8 @@
                 </thead>
                 <tbody class="divide-y divide-border/60 text-xs">
                     <tr th:each="f, stat : ${filas}"
+                        th:attr="data-est-id=${f.id}"
+                        x-data="{ eid: $el.getAttribute('data-est-id') }"
                         class="hover:bg-slate-50/80 transition">
                         <td class="py-3 px-4 font-semibold text-text-secondary" th:text="${stat.count}">1</td>
                         <td class="py-3 px-4">
@@ -204,58 +280,62 @@
                         <td class="py-3 px-4 text-center">
                             <!-- Inputs Ocultos por Estudiante -->
                             <input type="hidden" name="estudianteId" th:value="${f.id}">
-                            <input type="hidden" name="estado" :value="est['[[${f.id}]]'] || ''">
+                            <input type="hidden" name="estado" :value="est[eid] || ''">
 
                             <!-- Botonera Rápida: P, T, Excusado, FI -->
                             <div class="inline-flex rounded-lg p-1 bg-surface-sunken border border-border gap-1"
-                                 th:classappend="${sesion.estado == 'CANCELADA'} ? 'pointer-events-none opacity-50' : ''">
+                                 :class="soloLectura ? 'pointer-events-none opacity-50' : ''">
                                 <!-- PRESENTE -->
                                 <button type="button"
                                         title="Presente"
-                                        @click="est['[[${f.id}]]'] = 'PRESENTE'; dirty = true"
-                                        :class="est['[[${f.id}]]'] === 'PRESENTE' ? 'bg-emerald-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
-                                        class="px-2.5 py-1 rounded text-xs font-bold transition">
+                                        :disabled="soloLectura"
+                                        @click="if (!soloLectura) { est[eid] = 'PRESENTE'; dirty = true }"
+                                        :class="est[eid] === 'PRESENTE' ? 'bg-emerald-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                                        class="px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer">
                                     P
                                 </button>
                                 <!-- TARDE -->
                                 <button type="button"
                                         title="Tarde (Retardo)"
-                                        @click="est['[[${f.id}]]'] = 'TARDE'; dirty = true"
-                                        :class="est['[[${f.id}]]'] === 'TARDE' ? 'bg-amber-500 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
-                                        class="px-2.5 py-1 rounded text-xs font-bold transition">
+                                        :disabled="soloLectura"
+                                        @click="if (!soloLectura) { est[eid] = 'TARDE'; dirty = true }"
+                                        :class="est[eid] === 'TARDE' ? 'bg-amber-500 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                                        class="px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer">
                                     T
                                 </button>
                                 <!-- EXCUSADO -->
                                 <button type="button"
                                         title="Ausencia Excusada"
-                                        @click="est['[[${f.id}]]'] = 'EXCUSADO'; dirty = true"
-                                        :class="est['[[${f.id}]]'] === 'EXCUSADO' ? 'bg-blue-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
-                                        class="px-2 py-1 rounded text-xs font-bold transition">
-                                    Excusado
+                                        :disabled="soloLectura"
+                                        @click="if (!soloLectura) { est[eid] = 'EXCUSADO'; dirty = true }"
+                                        :class="est[eid] === 'EXCUSADO' ? 'bg-blue-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                                        class="px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer">
+                                    E
                                 </button>
                                 <!-- AUSENTE (FALTA INJUSTIFICADA) -->
                                 <button type="button"
                                         title="Falta Injustificada"
-                                        @click="est['[[${f.id}]]'] = 'AUSENTE'; dirty = true"
-                                        :class="est['[[${f.id}]]'] === 'AUSENTE' ? 'bg-rose-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
-                                        class="px-2.5 py-1 rounded text-xs font-bold transition">
+                                        :disabled="soloLectura"
+                                        @click="if (!soloLectura) { est[eid] = 'AUSENTE'; dirty = true }"
+                                        :class="est[eid] === 'AUSENTE' ? 'bg-rose-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-black hover:bg-black/5'"
+                                        class="px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer">
                                     FI
                                 </button>
                             </div>
                         </td>
                         <td class="py-3 px-4 text-center">
                             <!-- Badge de Estado Reactivo con Alpine -->
-                            <span x-show="!est['[[${f.id}]]']"
+                            <span x-show="!est[eid]"
                                   class="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
                                 Pendiente
                             </span>
-                            <span x-show="est['[[${f.id}]]']"
-                                  x-text="est['[[${f.id}]]']"
+                            <span x-show="est[eid]"
+                                  x-text="est[eid]"
                                   :class="{
-                                      'bg-emerald-50 text-emerald-700 border-emerald-200': est['[[${f.id}]]'] === 'PRESENTE',
-                                      'bg-amber-50 text-amber-700 border-amber-200': est['[[${f.id}]]'] === 'TARDE',
-                                      'bg-blue-50 text-blue-700 border-blue-200': est['[[${f.id}]]'] === 'EXCUSADO',
-                                      'bg-rose-50 text-rose-700 border-rose-200': est['[[${f.id}]]'] === 'AUSENTE'
+                                      'bg-emerald-50 text-emerald-700 border-emerald-200': est[eid] === 'PRESENTE',
+                                      'bg-amber-50 text-amber-700 border-amber-200': est[eid] === 'TARDE',
+                                      'bg-blue-50 text-blue-700 border-blue-200': est[eid] === 'EXCUSADO',
+                                      'bg-rose-50 text-rose-700 border-rose-200': est[eid] === 'AUSENTE'
                                   }"
                                   class="inline-block px-2.5 py-1 rounded-md text-[11px] font-black uppercase border">
                             </span>
@@ -273,7 +353,7 @@
 
             <div class="flex items-center gap-3">
                 <button type="submit"
-                        th:disabled="${sesion.estado == 'CANCELADA'}"
+                        th:disabled="${soloLectura}"
                         class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-forest-green text-white font-bold text-sm shadow-xs hover:bg-forest-green/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                     <span id="spinner-guardar" class="htmx-indicator">
                         <i data-lucide="loader-2" class="size-4 animate-spin"></i>

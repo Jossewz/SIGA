@@ -125,15 +125,15 @@ class HorarioFlexibleTest {
     }
 
     @Test
-    @DisplayName("2. Franja fuera de límites de jornada se rechaza (Mañana 07:00-12:00, Tarde 13:00-18:00)")
+    @DisplayName("2. Franja fuera de límites de jornada se rechaza (Mañana 07:00-12:30, Tarde 13:00-18:30)")
     void testFranjaFueraDeLimitesJornadaSeRechaza() {
         // Mañana empieza antes de 07:00
         HorarioDto mananaAntes = new HorarioDto(cursoManana.getId(), "Lunes", LocalTime.of(6, 45), LocalTime.of(8, 15),
                 matematicas.getId(), docenteCarlos.getId(), null, "Aula 101");
         assertThrows(IllegalArgumentException.class, () -> horarioValidator.validar(mananaAntes, null));
 
-        // Mañana termina después de 12:00
-        HorarioDto mananaDespues = new HorarioDto(cursoManana.getId(), "Lunes", LocalTime.of(11, 0), LocalTime.of(12, 15),
+        // Mañana termina después de 12:30
+        HorarioDto mananaDespues = new HorarioDto(cursoManana.getId(), "Lunes", LocalTime.of(11, 0), LocalTime.of(12, 45),
                 matematicas.getId(), docenteCarlos.getId(), null, "Aula 101");
         assertThrows(IllegalArgumentException.class, () -> horarioValidator.validar(mananaDespues, null));
 
@@ -142,31 +142,31 @@ class HorarioFlexibleTest {
                 fisica.getId(), docenteAna.getId(), null, "Aula 201");
         assertThrows(IllegalArgumentException.class, () -> horarioValidator.validar(tardeAntes, null));
 
-        // Tarde termina después de 18:00
-        HorarioDto tardeDespues = new HorarioDto(cursoTarde.getId(), "Lunes", LocalTime.of(17, 0), LocalTime.of(18, 30),
+        // Tarde termina después de 18:30
+        HorarioDto tardeDespues = new HorarioDto(cursoTarde.getId(), "Lunes", LocalTime.of(17, 30), LocalTime.of(18, 45),
                 fisica.getId(), docenteAna.getId(), null, "Aula 201");
         assertThrows(IllegalArgumentException.class, () -> horarioValidator.validar(tardeDespues, null));
     }
 
     @Test
-    @DisplayName("3. Franja exactamente en el borde de jornada se acepta (07:00-08:00 y 11:00-12:00)")
+    @DisplayName("3. Franja exactamente en el borde de jornada se acepta (07:00-08:00 y 11:00-12:30)")
     void testFranjaExactaEnBordesDeJornadaSeAcepta() {
         // Mañana: borde inferior 07:00 - 08:00
         HorarioDto inicioManana = new HorarioDto(cursoManana.getId(), "Lunes", LocalTime.of(7, 0), LocalTime.of(8, 0),
                 matematicas.getId(), docenteCarlos.getId(), null, "Aula 101");
         assertDoesNotThrow(() -> horarioValidator.validar(inicioManana, null));
 
-        // Mañana: borde superior 11:00 - 12:00
-        HorarioDto finManana = new HorarioDto(cursoManana.getId(), "Martes", LocalTime.of(11, 0), LocalTime.of(12, 0),
+        // Mañana: borde superior 11:00 - 12:30
+        HorarioDto finManana = new HorarioDto(cursoManana.getId(), "Martes", LocalTime.of(11, 0), LocalTime.of(12, 30),
                 matematicas.getId(), docenteCarlos.getId(), null, "Aula 101");
         assertDoesNotThrow(() -> horarioValidator.validar(finManana, null));
 
-        // Tarde: borde inferior 13:00 - 14:00 y superior 17:00 - 18:00
+        // Tarde: borde inferior 13:00 - 14:00 y superior 17:30 - 18:30
         HorarioDto inicioTarde = new HorarioDto(cursoTarde.getId(), "Lunes", LocalTime.of(13, 0), LocalTime.of(14, 0),
                 fisica.getId(), docenteAna.getId(), null, "Aula 201");
         assertDoesNotThrow(() -> horarioValidator.validar(inicioTarde, null));
 
-        HorarioDto finTarde = new HorarioDto(cursoTarde.getId(), "Martes", LocalTime.of(17, 0), LocalTime.of(18, 0),
+        HorarioDto finTarde = new HorarioDto(cursoTarde.getId(), "Martes", LocalTime.of(17, 30), LocalTime.of(18, 30),
                 fisica.getId(), docenteAna.getId(), null, "Aula 201");
         assertDoesNotThrow(() -> horarioValidator.validar(finTarde, null));
     }
@@ -174,8 +174,8 @@ class HorarioFlexibleTest {
     @Test
     @DisplayName("3b. Tolerancia explícita permite extensión de jornada configurada")
     void testToleranciaExplicitaPermiteExtension() {
-        // Sin tolerancia, clase terminando a las 12:10 se rechaza
-        HorarioDto conExtension = new HorarioDto(cursoManana.getId(), "Lunes", LocalTime.of(10, 30), LocalTime.of(12, 10),
+        // Sin tolerancia, clase terminando a las 12:40 se rechaza
+        HorarioDto conExtension = new HorarioDto(cursoManana.getId(), "Lunes", LocalTime.of(11, 0), LocalTime.of(12, 40),
                 matematicas.getId(), docenteCarlos.getId(), null, "Aula 101");
         assertThrows(IllegalArgumentException.class, () -> horarioValidator.validar(conExtension, null));
 

@@ -103,6 +103,7 @@
                                 <button type="button" 
                                         th:data-id="${c.id}"
                                         th:data-codigo="${c.codigoCurso}"
+                                        th:data-jornada="${c.jornada}"
                                         th:data-tiene="${c.tieneHorario}"
                                         onclick="handleHorarioBtn(this, event)"
                                         class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide leading-none transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -158,7 +159,7 @@
         window.salonesGlobales = /*[[${salonesList}]]*/ [];
         window.bloquesGlobales = /*[[${bloquesList}]]*/ [];
     </script>
-    <script th:src="@{/js/clases.js(v='3.0')}"></script>
+    <script th:src="@{/js/clases.js(v='4.6')}"></script>
 </th:block>
 
 </body>

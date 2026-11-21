@@ -4,6 +4,8 @@ import com.siga.siga_iea.clases.entity.Curso;
 import com.siga.siga_iea.clases.entity.CursoEstudiante;
 import com.siga.siga_iea.clases.repository.CursoEstudianteRepository;
 import com.siga.siga_iea.clases.repository.CursoRepository;
+import com.siga.siga_iea.configuracion.entity.AnioLectivo;
+import com.siga.siga_iea.configuracion.repository.AnioLectivoRepository;
 import com.siga.siga_iea.matricula.entity.Matricula;
 import com.siga.siga_iea.matricula.repository.MatriculaRepository;
 import com.siga.siga_iea.matricula.service.MatriculaService;
@@ -38,6 +40,9 @@ class MatriculaCursoSincronizacionTest {
 
     @Autowired
     private EstudianteRepository estudianteRepository;
+
+    @Autowired
+    private AnioLectivoRepository anioLectivoRepository;
 
     @Test
     @Transactional
@@ -194,5 +199,32 @@ class MatriculaCursoSincronizacionTest {
         IllegalStateException ex2 = assertThrows(IllegalStateException.class, () ->
                 matriculaService.aprobarMatricula(mSinDocId, cursoId));
         assertTrue(ex2.getMessage().contains("documento del autorizante es obligatorio"));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("MatriculaService.guardar debe autodetectar y asignar AnioLectivo activo cuando solo se define anoLectivo")
+    void testGuardarResuelveAnioLectivoAutomaticamente() {
+        AnioLectivo anioActual = anioLectivoRepository.findByEsActualTrue()
+                .orElseGet(() -> anioLectivoRepository.save(new AnioLectivo(2026, "ACTIVO", null, null, true)));
+
+        Estudiante est = new Estudiante();
+        est.setNombres("Samuel");
+        est.setApellidos("Arbeláez");
+        est.setNumeroDocumento("1099887766");
+        est = estudianteRepository.save(est);
+
+        Matricula mat = new Matricula();
+        mat.setEstudiante(est);
+        mat.setGrado("11°");
+        mat.setSalon("01");
+        mat.setAnoLectivo("2026");
+        mat.setEstado("PENDIENTE_DE_REVISION");
+        mat.setFechaMatricula(LocalDate.now());
+
+        Matricula guardada = matriculaService.guardar(mat);
+
+        assertNotNull(guardada.getAnioLectivo(), "guardar() debe asignar anioLectivo automáticamente");
+        assertEquals(anioActual.getId(), guardada.getAnioLectivo().getId());
     }
 }

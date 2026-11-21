@@ -51,9 +51,9 @@
                               class="w-full p-3 bg-white border border-[#c4eec0] rounded-lg text-xs font-semibold text-text-primary focus:ring-1 focus:ring-sidebar focus:outline-none resize-none"></textarea>
                 </div>
 
-                <!-- Cargador de Archivos Adjuntos -->
+                <!-- Cargador de Archivos Adjuntos / Generación Automática -->
                 <div>
-                    <label class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1.5 block">Adjuntar Certificado Digital (PDF)</label>
+                    <label class="text-text-primary text-[10px] font-black tracking-wider uppercase mb-1.5 block">Adjuntar Documento PDF Manual (Opcional)</label>
                     <label for="resp-file-input" class="flex items-center justify-between p-3.5 bg-white border border-[#c4eec0] rounded-lg cursor-pointer hover:bg-[#f1fbe4]/60 transition-colors">
                         <input type="file" id="resp-file-input" name="archivoPDF" class="hidden" accept="application/pdf" onchange="actualizarNombreFileAdjunto(this)">
                         <div class="flex items-center gap-3 min-w-0">
@@ -61,12 +61,17 @@
                                 <i data-lucide="file-text" class="size-4"></i>
                             </span>
                             <div class="truncate">
-                                <span class="text-xs font-bold text-sidebar block truncate" id="resp-file-label">Seleccionar archivo PDF...</span>
-                                <span class="text-[10px] text-text-muted">Máximo 5MB (Opcional)</span>
+                                <span class="text-xs font-bold text-sidebar block truncate" id="resp-file-label">Seleccionar archivo PDF manual...</span>
+                                <span class="text-[10px] text-text-muted">Opcional. Si no adjunta archivo, SIGA generará el PDF oficial automáticamente.</span>
                             </div>
                         </div>
                         <span class="text-[11px] font-black text-sidebar bg-[#f1fbe4] px-2.5 py-1 rounded-md border border-[#c4eec0]">Examinar</span>
                     </label>
+
+                    <div class="mt-2.5 p-3 rounded-lg bg-[#f7fcf6] border border-[#c4eec0] flex items-center gap-2.5 text-[11px] text-text-secondary">
+                        <i data-lucide="sparkles" class="size-4 text-sidebar shrink-0 stroke-2"></i>
+                        <span><strong>Generación Automática:</strong> Si no se adjunta un PDF externo, el sistema expedirá automáticamente el documento oficial con membrete institucional, firmas de Rectoría y código de verificación único OpenPDF.</span>
+                    </div>
                 </div>
 
                 <!-- Modal Footer Buttons -->

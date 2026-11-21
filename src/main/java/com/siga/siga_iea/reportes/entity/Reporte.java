@@ -3,6 +3,7 @@ package com.siga.siga_iea.reportes.entity;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import com.siga.siga_iea.usuarios.entity.Estudiante;
 import com.siga.siga_iea.usuarios.entity.PersonalAdministrativo;
+import com.siga.siga_iea.usuarios.entity.Usuario;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -20,12 +21,26 @@ public class Reporte {
     private String codigo;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "estudiante_id", nullable = false)
+    @JoinColumn(name = "estudiante_id", nullable = true)
     private Estudiante estudiante;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "docente_id", nullable = false)
+    @JoinColumn(name = "docente_id", nullable = true)
     private Docente docente;
+
+    @Column(name = "reportante_tipo", length = 30, nullable = false)
+    private String reportanteTipo = "DOCENTE";
+
+    @Column(name = "objetivo_tipo", length = 30, nullable = false)
+    private String objetivoTipo = "ESTUDIANTE";
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reportante_usuario_id")
+    private Usuario reportanteUsuario;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reportante_estudiante_id")
+    private Estudiante reportanteEstudiante;
 
     @Column(columnDefinition = "VARCHAR", nullable = false)
     private String categoria;
@@ -118,4 +133,16 @@ public class Reporte {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getReportanteTipo() { return reportanteTipo != null ? reportanteTipo : "DOCENTE"; }
+    public void setReportanteTipo(String reportanteTipo) { this.reportanteTipo = reportanteTipo; }
+
+    public String getObjetivoTipo() { return objetivoTipo != null ? objetivoTipo : "ESTUDIANTE"; }
+    public void setObjetivoTipo(String objetivoTipo) { this.objetivoTipo = objetivoTipo; }
+
+    public Usuario getReportanteUsuario() { return reportanteUsuario; }
+    public void setReportanteUsuario(Usuario reportanteUsuario) { this.reportanteUsuario = reportanteUsuario; }
+
+    public Estudiante getReportanteEstudiante() { return reportanteEstudiante; }
+    public void setReportanteEstudiante(Estudiante reportanteEstudiante) { this.reportanteEstudiante = reportanteEstudiante; }
 }

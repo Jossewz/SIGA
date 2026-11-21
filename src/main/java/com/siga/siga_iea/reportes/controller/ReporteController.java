@@ -10,6 +10,7 @@ import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.service.EstudianteService;
 import com.siga.siga_iea.usuarios.service.PersonalService;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -100,7 +101,9 @@ public class ReporteController {
 
         // Fetch students for report dropdown
         List<Estudiante> estudiantesDB = estudianteService.listarTodos();
+        UUID miEstudianteId = estLogueadoOpt.map(Estudiante::getId).orElse(null);
         List<Map<String, Object>> estudiantesList = new ArrayList<>();
+        List<Map<String, Object>> companerosList = new ArrayList<>();
 
         for (Estudiante e : estudiantesDB) {
             Map<String, Object> map = new HashMap<>();
@@ -108,25 +111,48 @@ public class ReporteController {
             map.put("nombre", e.getNombreCompleto());
             map.put("grado", resolverGradoEstudiante(e));
             estudiantesList.add(map);
+            if (miEstudianteId == null || !miEstudianteId.equals(e.getId())) {
+                companerosList.add(map);
+            }
         }
 
         // Fetch reports
         List<Reporte> reportesDB;
         if (esEstudiante && estLogueadoOpt.isPresent()) {
             reportesDB = reportesService.listarPorEstudiante(estLogueadoOpt.get().getId());
+        } else if (esDocente && !esAdmin && !esPersonal) {
+            Optional<Docente> docOpt = getDocenteLogueado();
+            reportesDB = docOpt.isPresent()
+                    ? reportesService.listarPorDocente(docOpt.get().getId())
+                    : Collections.emptyList();
         } else {
             reportesDB = reportesService.listarTodos();
         }
 
         List<Map<String, Object>> reportesMock = new ArrayList<>();
+        List<Map<String, Object>> reportesEnviadosEst = new ArrayList<>();
+        List<Map<String, Object>> reportesRecibidosEst = new ArrayList<>();
 
         for (Reporte r : reportesDB) {
             Map<String, Object> map = new HashMap<>();
             map.put("dbId", r.getId().toString());
             map.put("id", r.getCodigo());
-            map.put("estudiante", r.getEstudiante() != null ? r.getEstudiante().getNombreCompleto() : "N/A");
-            map.put("grado", resolverGradoEstudiante(r.getEstudiante()));
-            map.put("docente", r.getDocente() != null ? r.getDocente().getNombreCompleto() : "N/A");
+            boolean objEsDocente = "DOCENTE".equalsIgnoreCase(r.getObjetivoTipo());
+            boolean repEsEstudiante = "ESTUDIANTE".equalsIgnoreCase(r.getReportanteTipo());
+
+            String objetivoNombre = objEsDocente
+                    ? (r.getDocente() != null ? "Prof. " + r.getDocente().getNombreCompleto() : "Docente")
+                    : (r.getEstudiante() != null ? r.getEstudiante().getNombreCompleto() : "N/A");
+            String objetivoDetalle = objEsDocente ? "Docente" : resolverGradoEstudiante(r.getEstudiante());
+            String emisorNombre = repEsEstudiante
+                    ? (r.getReportanteEstudiante() != null ? r.getReportanteEstudiante().getNombreCompleto() + " (Estudiante)" : "Estudiante")
+                    : (r.getDocente() != null ? r.getDocente().getNombreCompleto() : "N/A");
+
+            map.put("estudiante", objetivoNombre);
+            map.put("grado", objetivoDetalle);
+            map.put("docente", emisorNombre);
+            map.put("objetivoTipo", r.getObjetivoTipo());
+            map.put("reportanteTipo", r.getReportanteTipo());
             map.put("categoria", r.getCategoria());
             map.put("razon", r.getRazon());
             map.put("descripcionRazon", r.getDescripcionRazon() != null ? r.getDescripcionRazon() : "");
@@ -136,18 +162,29 @@ public class ReporteController {
             map.put("fechaCitacion", r.getFechaCitacion() != null ? r.getFechaCitacion().toString().replace("T", " ") : null);
             map.put("requiereAcudiente", Boolean.TRUE.equals(r.getRequiereAcudiente()));
             map.put("observacionesAdmin", r.getObservacionesAdmin() != null ? r.getObservacionesAdmin() : "Sin observaciones adicionales de Dirección.");
+
+            if (repEsEstudiante && miEstudianteId != null && r.getReportanteEstudiante() != null
+                    && miEstudianteId.equals(r.getReportanteEstudiante().getId())) {
+                reportesEnviadosEst.add(map);
+            } else {
+                reportesRecibidosEst.add(map);
+            }
             reportesMock.add(map);
         }
 
         model.addAttribute("estudiantesList", estudiantesList);
+        model.addAttribute("companerosList", companerosList);
         model.addAttribute("docentesList", personalService.listarDocentes());
         model.addAttribute("reportesMock", reportesMock);
+        model.addAttribute("reportesRecibidosEst", reportesRecibidosEst);
+        model.addAttribute("reportesEnviadosEst", reportesEnviadosEst);
         return "reportes/index";
     }
 
     @PostMapping("/reportes/crear")
     public String crearReporte(
-            @RequestParam("estudianteId") UUID estudianteId,
+            @RequestParam(value = "objetivoTipo", defaultValue = "ESTUDIANTE") String objetivoTipo,
+            @RequestParam(value = "estudianteId", required = false) UUID estudianteId,
             @RequestParam(value = "docenteId", required = false) UUID docenteId,
             @RequestParam(value = "categoria", required = false) String categoria,
             @RequestParam("razon") String razon,
@@ -156,6 +193,31 @@ public class ReporteController {
             RedirectAttributes redirectAttributes) {
 
         try {
+            boolean soloEstudiante = currentUserContextService.getRolAutenticado().esEstudiante()
+                    && !currentUserContextService.esAdminOAdministrativo()
+                    && !currentUserContextService.esDocente();
+
+            if (soloEstudiante) {
+                Estudiante reportante = getEstudianteLogueado()
+                        .orElseThrow(() -> new AccessDeniedException("No se encontró el perfil estudiantil autenticado."));
+                Usuario userLogueado = getUsuarioLogueado().orElse(null);
+                reportesService.crearReporteEstudiantil(
+                        reportante.getId(),
+                        userLogueado,
+                        objetivoTipo,
+                        estudianteId,
+                        docenteId,
+                        razon,
+                        detalles
+                );
+                redirectAttributes.addFlashAttribute("mensajeExito", "Reporte de convivencia enviado a Coordinación correctamente.");
+                return "redirect:/reportes";
+            }
+
+            if (estudianteId == null) {
+                throw new IllegalArgumentException("Debe seleccionar el estudiante a reportar.");
+            }
+
             UUID targetDocenteId = docenteId;
             if (targetDocenteId == null) {
                 Optional<Docente> docOpt = getDocenteLogueado();
@@ -166,14 +228,7 @@ public class ReporteController {
                     if (!docentes.isEmpty()) {
                         targetDocenteId = docentes.get(0).getId();
                     } else {
-                        Docente d = new Docente();
-                        d.setNombres("Jorge Eliécer");
-                        d.setApellidos("Rojas");
-                        d.setTipoDocumento("CC");
-                        d.setNumeroDocumento("1088123456");
-                        d.setEstado("Activo");
-                        d = personalService.guardarDocente(d);
-                        targetDocenteId = d.getId();
+                        throw new IllegalStateException("Debe existir al menos un docente registrado en el sistema para emitir un reporte.");
                     }
                 }
             }
@@ -210,6 +265,10 @@ public class ReporteController {
             @RequestParam(value = "observacionesAdmin", required = false) String observacionesAdmin,
             @RequestParam(value = "adminId", required = false) UUID adminId,
             RedirectAttributes redirectAttributes) {
+
+        if (!currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("Solo Administración o Coordinación puede resolver reportes y programar citaciones.");
+        }
 
         try {
             LocalDateTime parsedDate = fechaCitacion;

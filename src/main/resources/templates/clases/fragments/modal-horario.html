@@ -26,33 +26,39 @@
                 </div>
 
                 <!-- Lado Derecho: Conmutador de Vistas + Botón Nueva Clase + Cerrar -->
-                <div class="flex items-center gap-2.5 flex-wrap self-end md:self-auto">
+                <div class="flex items-center gap-2 shrink-0 self-end md:self-auto">
                     <!-- Conmutador de vista estilo SEGI -->
-                    <div class="inline-flex items-center rounded-xl border border-[#c4eec0] bg-[#f7fcf6] p-1 shadow-2xs">
+                    <div class="inline-flex items-center rounded-xl border border-[#c4eec0] bg-[#f7fcf6] p-1 shadow-2xs shrink-0">
                         <button type="button" id="btn-vista-semana" onclick="cambiarVistaHorario('semana')"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-sidebar text-white shadow-2xs cursor-pointer whitespace-nowrap"
                                 title="Vista Semanal tipo Google Calendar">
                             <i data-lucide="columns-3" class="size-3.5 stroke-[2.5]"></i>
                             <span>Semana</span>
                         </button>
                         <button type="button" id="btn-vista-agenda" onclick="cambiarVistaHorario('agenda')"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar cursor-pointer whitespace-nowrap"
                                 title="Vista Agenda / Lista Cronológica">
                             <i data-lucide="list-ordered" class="size-3.5 stroke-[2.5]"></i>
                             <span>Agenda</span>
+                        </button>
+                        <button type="button" id="btn-vista-modelo-io" onclick="cambiarVistaHorario('modelo-io')"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar cursor-pointer whitespace-nowrap"
+                                title="Ver recomendación y optimizar el horario del curso">
+                            <i data-lucide="bar-chart-3" class="size-3.5 stroke-[2.5]"></i>
+                            <span>Recomendación</span>
                         </button>
                     </div>
 
                     <!-- Botón + Nueva Clase -->
                     <button type="button" onclick="abrirModalCrearClase()" 
-                            class="inline-flex items-center gap-1.5 rounded-xl bg-sidebar px-4 py-2 text-xs font-black text-white shadow-md hover:brightness-97 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer">
+                            class="inline-flex items-center gap-1.5 rounded-xl bg-sidebar px-3.5 py-2 text-xs font-black text-white shadow-md hover:brightness-97 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0">
                         <i data-lucide="plus" class="size-4 stroke-[2.5]"></i>
                         <span>Programar Clase</span>
                     </button>
 
                     <!-- Botón Cerrar -->
                     <button type="button" onclick="closeHorarioModal()" 
-                            class="size-9 rounded-xl border border-[#c4eec0]/60 hover:bg-red-50 text-text-secondary hover:text-alert-red flex items-center justify-center transition-colors cursor-pointer"
+                            class="size-9 rounded-xl border border-[#c4eec0]/60 hover:bg-red-50 text-text-secondary hover:text-alert-red flex items-center justify-center transition-colors cursor-pointer shrink-0"
                             title="Cerrar ventana">
                         <i data-lucide="x" class="size-5 stroke-2"></i>
                     </button>
@@ -166,6 +172,13 @@
                     <!-- Inyectado por JS -->
                 </div>
 
+                <!-- ============================================================== -->
+                <!-- VISTA 3: MODELO MATEMÁTICO IO & VALIDACIÓN DE PERTINENCIA -->
+                <!-- ============================================================== -->
+                <div id="horario-modelo-io-container" class="hidden space-y-5">
+                    <!-- Inyectado dinámicamente desde /clases/horarios/modelo-io -->
+                </div>
+
             </div>
 
             <!-- BARRA INFERIOR / RESUMEN Y ACCIONES -->
@@ -194,120 +207,141 @@
                 </div>
             </div>
 
-            <!-- ============================================================== -->
-            <!-- DIALOGO INTERNO: PROGRAMAR / EDITAR CLASE (HORAS TOTALMENTE FLEXIBLES) -->
-            <!-- ============================================================== -->
-            <div id="modal-form-clase" class="hidden absolute inset-0 bg-[#0d4117]/60 backdrop-blur-sm z-20 flex items-center justify-center p-4">
-                <div class="bg-white rounded-2xl border border-[#c4eec0] shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-200" id="dialog-form-clase">
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- DIALOGO INTERNO: PROGRAMAR / EDITAR CLASE (HORAS TOTALMENTE FLEXIBLES) -->
+        <!-- ============================================================== -->
+        <div id="modal-form-clase"
+             onclick="if (event.target === this) cerrarModalFormClase()"
+             class="hidden w-full h-full flex items-center justify-center">
+            <div class="bg-white rounded-2xl border border-[#c4eec0] shadow-2xl max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" id="dialog-form-clase">
                     
                     <!-- Header Form -->
-                    <div class="flex items-center justify-between pb-4 mb-4 border-b border-[#c4eec0]/60">
-                        <div class="flex items-center gap-2.5">
-                            <span class="size-9 rounded-xl bg-[#eafbe4] text-sidebar grid place-items-center border border-[#c4eec0]">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-[#c4eec0]/60 bg-gradient-to-r from-white via-[#f7fcf6] to-white shrink-0">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="size-10 rounded-xl bg-[#eafbe4] text-sidebar grid place-items-center border border-[#c4eec0] shrink-0">
                                 <i data-lucide="clock-4" class="size-5 stroke-[2.2]"></i>
                             </span>
-                            <div>
-                                <h4 class="text-sidebar text-base font-black" id="form-clase-titulo">Programar Clase</h4>
-                                <p class="text-text-secondary text-[11px] font-semibold">Especifique el horario libre y los detalles de la asignatura.</p>
+                            <div class="min-w-0">
+                                <h4 class="text-sidebar text-base font-black truncate" id="form-clase-titulo">Programar Clase</h4>
+                                <p class="text-text-secondary text-[11px] font-semibold truncate">Especifique el horario libre y los detalles de la asignatura.</p>
                             </div>
                         </div>
-                        <button type="button" onclick="cerrarModalFormClase()" class="p-1 rounded-lg hover:bg-slate-100 text-text-secondary cursor-pointer">
+                        <button type="button" onclick="cerrarModalFormClase()" class="p-1.5 rounded-lg hover:bg-red-50 text-text-secondary hover:text-alert-red transition-colors cursor-pointer shrink-0">
                             <i data-lucide="x" class="size-4 stroke-2"></i>
                         </button>
                     </div>
 
                     <!-- Campos del Formulario -->
-                    <form id="form-clase-item" onsubmit="guardarClaseItem(event)" class="space-y-4">
+                    <form id="form-clase-item" onsubmit="guardarClaseItem(event)" class="flex flex-col flex-1 min-h-0 overflow-hidden">
                         <input type="hidden" id="fc-horario-id" value="" />
                         <input type="hidden" th:if="${_csrf}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" id="fc-csrf-input" />
 
-                        <!-- Día de la Semana -->
-                        <div>
-                            <label for="fc-dia" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Día de la Semana</label>
-                            <select id="fc-dia" required class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-bold text-sidebar focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
-                                <option value="Lunes">Lunes</option>
-                                <option value="Martes">Martes</option>
-                                <option value="Miércoles">Miércoles</option>
-                                <option value="Jueves">Jueves</option>
-                                <option value="Viernes">Viernes</option>
-                                <option value="Sábado">Sábado</option>
-                            </select>
-                        </div>
+                        <div class="p-6 overflow-y-auto flex-1">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
 
-                        <!-- Franja Horaria Flexible (Permite escribir las horas libremente) -->
-                        <div class="bg-[#f7fcf6] p-3.5 rounded-xl border border-[#c4eec0]/80">
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="text-[11px] font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5">
-                                    <i data-lucide="timer" class="size-3.5 stroke-[2.5]"></i>
-                                    <span>Horario de la Clase (Escriba libremente)</span>
-                                </label>
-                            </div>
-                            
-                            <!-- Inputs de Hora Inicio y Fin libres -->
-                            <div class="grid grid-cols-2 gap-3 mb-2.5">
-                                <div>
-                                    <span class="block text-[10px] font-extrabold text-text-secondary uppercase mb-1">Hora Inicio</span>
-                                    <input type="time" id="fc-hora-inicio" required value="07:00"
-                                           class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-black text-sidebar text-center focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
+                                <!-- Columna Izquierda: Día + Horario Flexible -->
+                                <div class="space-y-4 min-w-0">
+                                    <!-- Día de la Semana -->
+                                    <div>
+                                        <label for="fc-dia" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Día de la Semana</label>
+                                        <select id="fc-dia" required class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-bold text-sidebar focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
+                                            <option value="Lunes">Lunes</option>
+                                            <option value="Martes">Martes</option>
+                                            <option value="Miércoles">Miércoles</option>
+                                            <option value="Jueves">Jueves</option>
+                                            <option value="Viernes">Viernes</option>
+                                            <option value="Sábado">Sábado</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Franja Horaria Flexible -->
+                                    <div class="bg-[#f7fcf6] p-4 rounded-xl border border-[#c4eec0]/80">
+                                        <div class="flex items-center justify-between gap-2 mb-2.5">
+                                            <label class="text-[11px] font-black uppercase tracking-wider text-sidebar flex items-center gap-1.5">
+                                                <i data-lucide="timer" class="size-3.5 stroke-[2.5]"></i>
+                                                <span>Horario de la Clase</span>
+                                            </label>
+                                            <span id="fc-jornada-badge" class="px-2 py-0.5 rounded-full bg-white border border-[#c4eec0] text-[10px] font-extrabold text-sidebar">
+                                                Jornada Mañana
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Inputs de Hora Inicio y Fin libres -->
+                                        <div class="grid grid-cols-2 gap-3 mb-3">
+                                            <div>
+                                                <span class="block text-[10px] font-extrabold text-text-secondary uppercase mb-1">Hora Inicio</span>
+                                                <input type="time" id="fc-hora-inicio" required value="07:00"
+                                                       class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-black text-sidebar text-center focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
+                                            </div>
+                                            <div>
+                                                <span class="block text-[10px] font-extrabold text-text-secondary uppercase mb-1">Hora Fin</span>
+                                                <input type="time" id="fc-hora-fin" required value="08:00"
+                                                       class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-black text-sidebar text-center focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
+                                            </div>
+                                        </div>
+
+                                        <!-- Botones de Acceso Rápido / Presets según Jornada -->
+                                        <div>
+                                            <span class="block text-[9px] font-black text-text-secondary uppercase tracking-wider mb-1.5">Bloques oficiales (respetando el descanso):</span>
+                                            <div id="fc-presets-container" class="flex flex-wrap gap-1.5">
+                                                <button type="button" onclick="aplicarPresetHoras('07:00', '08:00')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">07:00 - 08:00</button>
+                                                <button type="button" onclick="aplicarPresetHoras('08:00', '09:30')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">08:00 - 09:30</button>
+                                                <button type="button" onclick="aplicarPresetHoras('10:00', '11:00')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">10:00 - 11:00</button>
+                                                <button type="button" onclick="aplicarPresetHoras('11:00', '12:30')" class="px-2.5 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">11:00 - 12:30</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span class="block text-[10px] font-extrabold text-text-secondary uppercase mb-1">Hora Fin</span>
-                                    <input type="time" id="fc-hora-fin" required value="08:30"
-                                           class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-black text-sidebar text-center focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
+
+                                <!-- Columna Derecha: Materia, Docente y Salón -->
+                                <div class="space-y-4 min-w-0">
+                                    <!-- Materia -->
+                                    <div>
+                                        <label for="fc-materia" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Materia / Asignatura</label>
+                                        <select id="fc-materia" required class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-bold text-text-primary focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
+                                            <option value="">-- Seleccionar Materia --</option>
+                                            <option th:each="mat : ${materiasList}" th:value="${mat.id}" th:text="${mat.nombre}"></option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Docente -->
+                                    <div>
+                                        <label for="fc-docente" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Docente Asignado</label>
+                                        <select id="fc-docente" class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-semibold text-sidebar focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
+                                            <option value="">-- Sin docente asignado --</option>
+                                            <option th:each="doc : ${docentesList}" th:value="${doc.id}" th:text="${doc.nombreCompleto}"></option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Salón / Aula -->
+                                    <div>
+                                        <label for="fc-salon" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Salón o Aula</label>
+                                        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_150px] gap-2">
+                                            <select id="fc-salon" onchange="sincronizarSalonInput(this.value)" class="w-full min-w-0 h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-bold text-sidebar focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
+                                                <option th:each="s : ${salonesList}" th:value="${s.nombre}" th:text="${s.nombre + ' (' + s.codigo + ')'}"></option>
+                                                <th:block th:if="${salonesList == null or #lists.isEmpty(salonesList)}">
+                                                    <option value="Aula 101">Aula 101</option>
+                                                    <option value="Aula 102">Aula 102</option>
+                                                    <option value="Aula 201">Aula 201</option>
+                                                    <option value="Aula 202">Aula 202</option>
+                                                    <option value="Laboratorio 1">Laboratorio 1</option>
+                                                    <option value="Sala de Informática">Sala de Informática</option>
+                                                    <option value="Polideportivo">Polideportivo</option>
+                                                </th:block>
+                                            </select>
+                                            <input type="text" id="fc-salon-custom" placeholder="O escribir aula..."
+                                                   class="w-full min-w-0 h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-semibold text-text-primary focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Botones de Acceso Rápido / Presets Escolares -->
-                            <div>
-                                <span class="block text-[9px] font-black text-text-secondary uppercase tracking-wider mb-1.5">Presets sugeridos (Click para aplicar):</span>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <button type="button" onclick="aplicarPresetHoras('07:00', '08:30')" class="px-2 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">07:00 - 08:30</button>
-                                    <button type="button" onclick="aplicarPresetHoras('08:30', '10:00')" class="px-2 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">08:30 - 10:00</button>
-                                    <button type="button" onclick="aplicarPresetHoras('10:30', '12:00')" class="px-2 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">10:30 - 12:00</button>
-                                    <button type="button" onclick="aplicarPresetHoras('12:00', '13:30')" class="px-2 py-1 bg-white hover:bg-[#eafbe4] border border-[#c4eec0] rounded-lg text-[10px] font-extrabold text-sidebar transition-colors cursor-pointer">12:00 - 13:30</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Materia -->
-                        <div>
-                            <label for="fc-materia" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Materia / Asignatura</label>
-                            <select id="fc-materia" required class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-bold text-text-primary focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
-                                <option value="">-- Seleccionar Materia --</option>
-                                <option th:each="mat : ${materiasList}" th:value="${mat.id}" th:text="${mat.nombre}"></option>
-                            </select>
-                        </div>
-
-                        <!-- Docente -->
-                        <div>
-                            <label for="fc-docente" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Docente Asignado</label>
-                            <select id="fc-docente" class="w-full h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-semibold text-sidebar focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
-                                <option value="">-- Sin docente asignado --</option>
-                                <option th:each="doc : ${docentesList}" th:value="${doc.id}" th:text="${doc.nombreCompleto}"></option>
-                            </select>
-                        </div>
-
-                        <!-- Salón / Aula -->
-                        <div>
-                            <label for="fc-salon" class="block text-[11px] font-black uppercase tracking-wider text-text-secondary mb-1.5">Salón o Aula</label>
-                            <div class="flex gap-2">
-                                <select id="fc-salon" onchange="sincronizarSalonInput(this.value)" class="flex-1 h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-bold text-sidebar focus:ring-2 focus:ring-sidebar/20 focus:outline-none cursor-pointer">
-                                    <option value="Aula 101">Aula 101</option>
-                                    <option value="Aula 102">Aula 102</option>
-                                    <option value="Aula 201">Aula 201</option>
-                                    <option value="Aula 202">Aula 202</option>
-                                    <option value="Laboratorio 1">Laboratorio 1</option>
-                                    <option value="Sala de Informática">Sala de Informática</option>
-                                    <option value="Polideportivo">Polideportivo</option>
-                                    <option th:each="s : ${salonesList}" th:value="${s.nombre}" th:text="${s.nombre + ' (' + s.codigo + ')'}"></option>
-                                </select>
-                                <input type="text" id="fc-salon-custom" placeholder="O escribir aula..."
-                                       class="w-36 h-10 px-3 bg-white border border-[#c4eec0] rounded-xl text-xs font-semibold text-text-primary focus:ring-2 focus:ring-sidebar/20 focus:outline-none">
                             </div>
                         </div>
 
                         <!-- Botones de Acción -->
-                        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-[#c4eec0]/60">
+                        <div class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-[#c4eec0]/60 bg-[#f7fcf6] shrink-0">
                             <button type="button" onclick="cerrarModalFormClase()"
                                     class="px-4 py-2.5 text-xs font-black text-text-secondary hover:bg-slate-100 rounded-xl transition-colors cursor-pointer">
                                 Cancelar
@@ -319,9 +353,7 @@
                             </button>
                         </div>
                     </form>
-                </div>
             </div>
-
         </div>
     </div>
 </th:block>

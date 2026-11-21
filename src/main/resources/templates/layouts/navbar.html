@@ -8,11 +8,117 @@
             <i data-lucide="menu" class="size-5 stroke-2"></i>
         </button>
 
-        <!-- Contenedor Derecho: Notificaciones, Configuración y Perfil de Usuario -->
-        <div class="flex items-center gap-4 ml-auto max-md:w-full max-md:justify-end">
-            <button class="relative w-7 h-7 grid place-items-center rounded-full bg-transparent text-text-primary cursor-pointer after:content-[''] after:absolute after:top-1 after:right-[5px] after:w-[7px] after:h-[7px] after:border-[2px] after:border-page-bg after:rounded-full after:bg-notification-red" type="button" aria-label="Notificaciones">
-                <i data-lucide="bell" class="size-[18px] stroke-2"></i>
+        <!-- Contenedor Derecho: Atajo Mangle, Notificaciones, Configuración y Perfil de Usuario -->
+        <div class="flex items-center gap-3 sm:gap-4 ml-auto max-md:w-full max-md:justify-end">
+            <!-- Atajo Global Mangle (estilo buscador SEGI) -->
+            <button type="button"
+                    @click="$dispatch('toggle-mangle')"
+                    class="hidden h-9 sm:flex items-center justify-between gap-3 rounded-control border border-border bg-white/85 hover:bg-white hover:border-sidebar/40 px-3 text-xs font-bold text-text-secondary hover:text-sidebar transition cursor-pointer shrink-0 shadow-2xs"
+                    aria-label="Abrir o cerrar asistente virtual Mangle"
+                    aria-keyshortcuts="Alt+M"
+                    title="Abrir o cerrar Mangle (Alt + M)">
+                <span class="flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-emerald-500"></span>
+                    <span class="lg:hidden">Mangle</span>
+                    <span class="hidden lg:inline">Preguntar a Mangle...</span>
+                </span>
+                <kbd class="hidden lg:inline-block rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-[10px] font-bold text-text-secondary">Alt M</kbd>
             </button>
+            <button type="button"
+                    @click="$dispatch('toggle-mangle')"
+                    class="sm:hidden relative w-8 h-8 grid place-items-center rounded-lg bg-white border border-border text-sidebar hover:bg-surface-muted transition cursor-pointer shrink-0"
+                    aria-label="Abrir asistente virtual Mangle">
+                <i data-lucide="bot" class="size-4 stroke-2"></i>
+            </button>
+
+            <!-- Campana de Notificaciones en Vivo (estilo SEGI: polling 30s solo si visible) -->
+            <div class="relative shrink-0"
+                 x-data="sigaCampanaNotificaciones()"
+                 x-init="init()"
+                 @keydown.escape.window="abierto = false">
+                <button type="button"
+                        @click="abierto = !abierto; if (abierto) cargar()"
+                        :aria-expanded="abierto.toString()"
+                        aria-label="Notificaciones"
+                        class="relative w-8 h-8 grid place-items-center rounded-full bg-transparent text-text-primary hover:bg-white/60 transition-colors cursor-pointer">
+                    <i data-lucide="bell" class="size-[18px] stroke-2"></i>
+                    <span x-show="sinLeer > 0"
+                          x-cloak
+                          x-text="sinLeer > 9 ? '9+' : sinLeer"
+                          class="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-notification-red px-1 text-[9px] font-black leading-none text-white ring-2 ring-page-bg animate-pulse"></span>
+                </button>
+
+                <div x-show="abierto"
+                     x-cloak
+                     @click.outside="abierto = false"
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 -translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     style="width: min(21rem, calc(100vw - 1.5rem)); max-height: 24rem;"
+                     class="absolute right-0 z-50 mt-2 flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-surface-sunken">
+                        <div>
+                            <p class="text-xs font-black text-text-primary">Notificaciones</p>
+                            <p class="text-[10px] font-semibold text-text-secondary"
+                               x-text="sinLeer === 0 ? 'Estás al día' : sinLeer + ' sin leer'"></p>
+                        </div>
+                        <button type="button"
+                                x-show="sinLeer > 0"
+                                @click="marcarTodas()"
+                                class="text-[11px] font-extrabold text-sidebar hover:underline cursor-pointer">
+                            Marcar todas como leídas
+                        </button>
+                    </div>
+
+                    <div class="flex border-b border-border/60 bg-white px-4 pt-2 gap-4 text-[11px] font-bold">
+                        <button type="button"
+                                @click="pestana = 'todas'"
+                                :class="pestana === 'todas' ? 'text-sidebar font-black border-b-2 border-sidebar -mb-px pb-2' : 'text-text-secondary hover:text-text-primary pb-2'"
+                                class="cursor-pointer flex items-center gap-1.5 transition-colors">
+                            <span>Todas</span>
+                            <span class="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] text-text-secondary" x-text="lista.length"></span>
+                        </button>
+                        <button type="button"
+                                @click="pestana = 'sin_leer'"
+                                :class="pestana === 'sin_leer' ? 'text-sidebar font-black border-b-2 border-sidebar -mb-px pb-2' : 'text-text-secondary hover:text-text-primary pb-2'"
+                                class="cursor-pointer flex items-center gap-1.5 transition-colors">
+                            <span>Sin Leer</span>
+                            <span x-show="sinLeer > 0"
+                                  class="rounded-full bg-notification-red text-white px-1.5 py-0.5 text-[10px] font-black leading-none"
+                                  x-text="sinLeer"></span>
+                        </button>
+                    </div>
+
+                    <div class="min-h-0 flex-1 overflow-y-auto divide-y divide-border/40">
+                        <template x-if="filtradas().length === 0">
+                            <div class="px-5 py-8 text-center">
+                                <p class="text-xs font-bold text-text-primary" x-text="pestana === 'sin_leer' ? 'No tienes notificaciones sin leer' : 'Sin notificaciones recientes'"></p>
+                                <p class="text-[11px] font-medium text-text-secondary mt-1">Aquí aparecerán avisos de certificados, reportes e inasistencias.</p>
+                            </div>
+                        </template>
+
+                        <template x-for="n in filtradas()" :key="n.id">
+                            <button type="button"
+                                    @click="abrir(n)"
+                                    :class="n.leida ? 'bg-white hover:bg-surface-sunken/50' : 'bg-[#f7fcf6] hover:bg-[#eafbe4]/70'"
+                                    class="w-full text-left px-4 py-3 flex items-start gap-3 transition-colors cursor-pointer">
+                                <span :class="claseTono(n.color)"
+                                      class="size-8 rounded-xl grid place-items-center shrink-0 mt-0.5 text-xs font-black">
+                                    <span x-text="iconoTexto(n.tipo)">!</span>
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <p class="text-[11px] font-extrabold text-text-primary leading-snug" x-text="n.titulo"></p>
+                                        <span x-show="!n.leida" class="size-2 rounded-full bg-sidebar shrink-0 mt-1"></span>
+                                    </div>
+                                    <p class="text-[11px] font-medium text-text-secondary line-clamp-2 mt-0.5 leading-snug" x-text="n.mensaje"></p>
+                                    <p class="text-[10px] font-semibold text-text-muted mt-1" x-text="formatearFecha(n.createdAt)"></p>
+                                </div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
 
             <a th:href="@{/configuracion}"
                th:if="${esAdmin or (modulosPermitidos != null and modulosPermitidos.contains('CONFIGURACION'))}"
@@ -33,8 +139,9 @@
                         <strong class="text-[11px] leading-[1.1] font-extrabold group-hover:text-sidebar transition-colors" th:text="${currentUser != null ? currentUser.email : 'Usuario'}">Usuario</strong>
                         <small class="text-text-secondary text-[9px] leading-[1.1] font-semibold" th:text="${currentRoleName ?: 'Acceso'}">Rol</small>
                     </span>
-                    <div class="w-9 h-9 border-[2px] border-sidebar/40 rounded-full bg-sidebar text-white flex items-center justify-center text-xs font-black uppercase shadow-xs group-hover:scale-105 transition-transform">
-                        <span th:text="${currentUser != null && currentUser.email != null ? #strings.substring(currentUser.email,0,1) : 'U'}">U</span>
+                    <div class="w-9 h-9 border-[2px] border-sidebar/40 rounded-full bg-sidebar text-white flex items-center justify-center text-xs font-black uppercase shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
+                        <img th:if="${currentUserPhotoUrl != null}" th:src="${currentUserPhotoUrl}" alt="Foto de perfil" class="w-full h-full object-cover">
+                        <span th:unless="${currentUserPhotoUrl != null}" th:text="${currentUser != null && currentUser.email != null ? #strings.substring(currentUser.email,0,1) : 'U'}">U</span>
                     </div>
                     <i data-lucide="chevron-down" class="size-3.5 text-text-secondary group-hover:text-sidebar transition-transform duration-200" id="profile-chevron"></i>
                 </button>
@@ -46,14 +153,34 @@
                     <!-- Encabezado con Información de Usuario -->
                     <div class="p-3.5 bg-surface-sunken border-b border-border">
                         <div class="flex items-center gap-2.5">
-                            <div class="w-8 h-8 border-2 border-sidebar/40 rounded-full bg-sidebar text-white flex items-center justify-center text-xs font-black uppercase shrink-0">
-                                <span th:text="${currentUser != null && currentUser.email != null ? #strings.substring(currentUser.email,0,1) : 'U'}">U</span>
+                            <div class="w-8 h-8 border-2 border-sidebar/40 rounded-full bg-sidebar text-white flex items-center justify-center text-xs font-black uppercase shrink-0 overflow-hidden">
+                                <img th:if="${currentUserPhotoUrl != null}" th:src="${currentUserPhotoUrl}" alt="Foto de perfil" class="w-full h-full object-cover">
+                                <span th:unless="${currentUserPhotoUrl != null}" th:text="${currentUser != null && currentUser.email != null ? #strings.substring(currentUser.email,0,1) : 'U'}">U</span>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p class="text-[11px] font-black text-text-primary truncate" th:text="${currentUser != null ? currentUser.email : 'Usuario'}">usuario@ieaci.edu.co</p>
                                 <span class="text-[10px] font-bold text-sidebar" th:text="${currentRoleName ?: 'Acceso'}">Administrador</span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Enlaces de Perfil y Administración -->
+                    <div class="p-1.5 border-b border-border/50">
+                        <a th:href="@{/perfil}" 
+                           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-text-primary hover:bg-[#eafbe4]/70 transition-colors cursor-pointer text-left">
+                            <div class="size-6 rounded-lg bg-[#eafbe4] text-sidebar grid place-items-center shrink-0">
+                                <i data-lucide="user-check" class="size-3.5 stroke-2"></i>
+                            </div>
+                            <span>Mi Perfil y Seguridad</span>
+                        </a>
+                        <a th:if="${esAdmin or (modulosPermitidos != null and modulosPermitidos.contains('CONFIGURACION'))}"
+                           th:href="@{/configuracion(tab='cfg-usuarios')}"
+                           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-text-primary hover:bg-[#eafbe4]/70 transition-colors cursor-pointer text-left">
+                            <div class="size-6 rounded-lg bg-[#eafbe4] text-sidebar grid place-items-center shrink-0">
+                                <i data-lucide="shield" class="size-3.5 stroke-2"></i>
+                            </div>
+                            <span>Gestión de Usuarios</span>
+                        </a>
                     </div>
 
                     <!-- Acción Cerrar Sesión -->
@@ -125,5 +252,96 @@
                 closeProfileDropdown();
             }
         });
+
+        function sigaCampanaNotificaciones() {
+            return {
+                abierto: false,
+                pestana: 'todas',
+                lista: [],
+                sinLeer: 0,
+                timer: null,
+                init() {
+                    this.cargar();
+                    this.timer = setInterval(() => {
+                        if (!document.hidden) {
+                            this.cargar();
+                        }
+                    }, 30000);
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) this.cargar();
+                    });
+                },
+                csrfHeaders() {
+                    const token = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+                    const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+                    const headers = {};
+                    if (token && header) headers[header] = token;
+                    return headers;
+                },
+                async cargar() {
+                    try {
+                        const res = await fetch('/api/notificaciones', { headers: { 'Accept': 'application/json' } });
+                        if (!res.ok) return;
+                        const data = await res.json();
+                        this.lista = Array.isArray(data.notificaciones) ? data.notificaciones : [];
+                        this.sinLeer = Number(data.sinLeer || 0);
+                    } catch (e) {}
+                },
+                filtradas() {
+                    if (this.pestana === 'sin_leer') {
+                        return this.lista.filter(n => !n.leida);
+                    }
+                    return this.lista;
+                },
+                async abrir(n) {
+                    if (!n) return;
+                    try {
+                        const res = await fetch('/api/notificaciones/' + encodeURIComponent(n.id) + '/leer', {
+                            method: 'POST',
+                            headers: this.csrfHeaders()
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (!n.leida && this.sinLeer > 0) this.sinLeer--;
+                            n.leida = true;
+                            window.location.href = data.destinoUrl || n.destinoUrl || '/';
+                            return;
+                        }
+                    } catch (e) {}
+                    window.location.href = n.destinoUrl || '/';
+                },
+                async marcarTodas() {
+                    try {
+                        const res = await fetch('/api/notificaciones/leer-todas', {
+                            method: 'POST',
+                            headers: this.csrfHeaders()
+                        });
+                        if (res.ok) {
+                            this.lista.forEach(n => n.leida = true);
+                            this.sinLeer = 0;
+                        }
+                    } catch (e) {}
+                },
+                claseTono(color) {
+                    switch (color) {
+                        case 'rose': return 'bg-red-50 text-alert-red border border-red-200';
+                        case 'amber': return 'bg-amber-50 text-amber-700 border border-amber-200';
+                        case 'sky': return 'bg-sky-50 text-sky-700 border border-sky-200';
+                        default: return 'bg-pill-green text-sidebar border border-[#cbe5c7]';
+                    }
+                },
+                iconoTexto(tipo) {
+                    if (!tipo) return 'i';
+                    if (tipo.startsWith('CERTIFICADO')) return 'C';
+                    if (tipo.startsWith('ASISTENCIA')) return 'A';
+                    if (tipo.startsWith('REPORTE')) return 'R';
+                    return '!';
+                },
+                formatearFecha(iso) {
+                    if (!iso) return '';
+                    return iso.replace('T', ' ').substring(0, 16);
+                }
+            };
+        }
     </script>
 </div>

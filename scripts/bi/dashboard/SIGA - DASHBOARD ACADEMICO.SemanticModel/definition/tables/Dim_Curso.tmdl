@@ -1,0 +1,73 @@
+/// Dimensión de cursos escolares (Transición a 11.°) con nivel educativo, grado, grupo, jornada y Jerarquía Académica.
+table Dim_Curso
+	lineageTag: 5c94f1f8-28ca-4ec4-bccf-5613e88627bd
+
+	column CursoKey
+		dataType: string
+		lineageTag: cb0d6685-c67b-4b2b-9ef4-6fac61954f36
+		sourceColumn: CursoKey
+
+	column Nombre_Curso
+		dataType: string
+		lineageTag: 4aa8744a-5d37-4eae-b2bd-9b779fc0fb52
+		sourceColumn: Nombre_Curso
+		sortByColumn: Orden_Curso
+
+	column Grado
+		dataType: int64
+		lineageTag: 12bbe0c7-e75d-4966-bb86-891e7f0e7f87
+		sourceColumn: Grado
+
+	column Grupo
+		dataType: string
+		lineageTag: bb0b0491-9317-4aba-a416-0e56c65821f3
+		sourceColumn: Grupo
+
+	column Nivel_Educativo
+		dataType: string
+		lineageTag: 569e1459-8816-45ea-8168-5a5760a75307
+		sourceColumn: Nivel_Educativo
+
+	column Jornada
+		dataType: string
+		lineageTag: 9085ce18-a6f7-48b1-aaea-e93d60a3a423
+		sourceColumn: Jornada
+
+	column Orden_Curso
+		dataType: int64
+		lineageTag: 8335ad43-cb53-4ac3-bebd-03dd1512166c
+		sourceColumn: Orden_Curso
+
+	hierarchy 'Jerarquía Académica'
+		lineageTag: 9f4e2a1b-7c3d-4e5f-8a6b-1c2d3e4f5a6b
+
+		level Nivel_Educativo
+			lineageTag: 1a2b3c4d-5e6f-4789-9abc-def012345601
+			column: Nivel_Educativo
+
+		level Grado
+			lineageTag: 1a2b3c4d-5e6f-4789-9abc-def012345602
+			column: Grado
+
+		level Nombre_Curso
+			lineageTag: 1a2b3c4d-5e6f-4789-9abc-def012345603
+			column: Nombre_Curso
+
+	partition Dim_Curso = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database("localhost:5433", "siga"),
+				    Vista = Origen{[Schema="public",Item="vw_bi_dim_curso"]}[Data],
+				    Tipos = Table.TransformColumnTypes(Vista,{
+				        {"CursoKey", type text},
+				        {"Nombre_Curso", type text},
+				        {"Grado", Int64.Type},
+				        {"Grupo", type text},
+				        {"Nivel_Educativo", type text},
+				        {"Jornada", type text},
+				        {"Orden_Curso", Int64.Type}
+				    })
+				in
+				    Tipos
+

@@ -101,6 +101,25 @@ public class EstudianteService {
     }
 
     @Transactional
+    public String toggleEstado(UUID estudianteId) {
+        Estudiante e = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado"));
+
+        String nuevoEstado = "Activo".equalsIgnoreCase(e.getEstado()) ? "Retirado" : "Activo";
+        e.setEstado(nuevoEstado);
+        estudianteRepository.save(e);
+
+        if (e.getNumeroDocumento() != null && !e.getNumeroDocumento().isBlank()) {
+            String estadoUsuario = "Activo".equalsIgnoreCase(nuevoEstado) ? "Activo" : "Inactivo";
+            usuarioRepository.findByNumeroDocumento(e.getNumeroDocumento().trim()).ifPresent(u -> {
+                u.setEstado(estadoUsuario);
+                usuarioRepository.save(u);
+            });
+        }
+        return nuevoEstado;
+    }
+
+    @Transactional
     public void eliminarEstudiante(UUID estudianteId) {
         Estudiante e = estudianteRepository.findById(estudianteId)
                 .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado con id: " + estudianteId));
@@ -115,9 +134,25 @@ public class EstudianteService {
         List<CursoEstudiante> cursos = cursoEstudianteRepository.findByEstudianteId(estudianteId);
         cursoEstudianteRepository.deleteAll(cursos);
 
-        // 3. Eliminar reportes disciplinarios/académicos del estudiante
-        List<Reporte> reportes = reporteRepository.findByEstudianteIdOrderByCreatedAtDesc(estudianteId);
-        reporteRepository.deleteAll(reportes);
+        // 3. Eliminar reportes donde es reportado y desvincular donde fue reportante
+        List<Reporte> reportesRelacionados = reporteRepository
+                .findByEstudianteIdOrReportanteEstudianteIdOrderByCreatedAtDesc(estudianteId, estudianteId);
+        List<Reporte> reportesABorrar = new java.util.ArrayList<>();
+        List<Reporte> reportesADesvincular = new java.util.ArrayList<>();
+        for (Reporte r : reportesRelacionados) {
+            if (r.getEstudiante() != null && estudianteId.equals(r.getEstudiante().getId())) {
+                reportesABorrar.add(r);
+            } else if (r.getReportanteEstudiante() != null && estudianteId.equals(r.getReportanteEstudiante().getId())) {
+                r.setReportanteEstudiante(null);
+                reportesADesvincular.add(r);
+            }
+        }
+        if (!reportesADesvincular.isEmpty()) {
+            reporteRepository.saveAll(reportesADesvincular);
+        }
+        if (!reportesABorrar.isEmpty()) {
+            reporteRepository.deleteAll(reportesABorrar);
+        }
 
         // 4. Eliminar solicitudes de certificados del estudiante
         List<SolicitudCertificado> certs = certificadoRepository.findByEstudianteIdOrderByCreatedAtDesc(estudianteId);
@@ -220,9 +255,17 @@ public class EstudianteService {
     }
 
     public Optional<Acudiente> obtenerAcudientePrincipal(UUID estudianteId) {
-        return estudianteAcudienteRepository.findByEstudianteIdAndEsPrincipalTrue(estudianteId)
-                .map(EstudianteAcudiente::getAcudiente)
-                .or(() -> estudianteRepository.findById(estudianteId).map(Estudiante::getAcudiente));
+        if (estudianteId == null) {
+            return Optional.empty();
+        }
+        Optional<Acudiente> principal = estudianteAcudienteRepository
+                .findFirstByEstudianteIdAndEsPrincipalTrueOrderByCreatedAtDesc(estudianteId)
+                .map(EstudianteAcudiente::getAcudiente);
+        if (principal.isPresent()) {
+            return principal;
+        }
+        return estudianteRepository.findById(estudianteId)
+                .map(Estudiante::getAcudiente);
     }
 
     @Transactional

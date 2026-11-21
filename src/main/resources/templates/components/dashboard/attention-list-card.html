@@ -38,7 +38,7 @@
             </table>
         </div>
 
-        <a th:href="@{/estudiantes}" class="w-full mt-4 py-2 text-center rounded-lg bg-surface-sunken text-sidebar border border-border text-xs font-black transition-colors hover:bg-brand-100 block">
+        <a th:if="${esAdmin or esAdministrativo}" th:href="@{/estudiantes}" class="w-full mt-4 py-2 text-center rounded-lg bg-surface-sunken text-sidebar border border-border text-xs font-black transition-colors hover:bg-brand-100 block">
             Ver Todos los Alumnos
         </a>
     </article>

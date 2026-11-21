@@ -1,0 +1,87 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 0
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 380.73979348605974,
+            "y": 366.78608553004824
+          },
+          "nodeIndex": "Dim_Estudiante",
+          "nodeLineageTag": "b075a28b-85c1-4014-8d1f-08d9d67ab17a",
+          "size": {
+            "height": 145,
+            "width": 234
+          },
+          "zIndex": 1
+        },
+        {
+          "location": {
+            "x": 814.82753442374053,
+            "y": 519.67298634093731
+          },
+          "nodeIndex": "Dim_Nivel_Desempeno",
+          "nodeLineageTag": "4f2fe0f2-36d9-4a2c-8864-a6cef7e41ee5",
+          "size": {
+            "height": 145,
+            "width": 234
+          },
+          "zIndex": 3
+        },
+        {
+          "location": {
+            "x": 712.37341523646649,
+            "y": 268.36940727319325
+          },
+          "nodeIndex": "Fact_Seguimiento_Periodo",
+          "nodeLineageTag": "b88abe4d-24fc-4ce9-bbf3-806ef6205942",
+          "size": {
+            "height": 145,
+            "width": 234
+          },
+          "zIndex": 2
+        },
+        {
+          "location": {
+            "x": 693.12576935031768,
+            "y": 21.72483480535152
+          },
+          "nodeIndex": "Dim_Curso",
+          "nodeLineageTag": "5c94f1f8-28ca-4ec4-bccf-5613e88627bd",
+          "size": {
+            "height": 145,
+            "width": 234
+          },
+          "zIndex": 5
+        },
+        {
+          "location": {
+            "x": 1028.1990250516869,
+            "y": 169.70650322882048
+          },
+          "nodeIndex": "Dim_Periodo",
+          "nodeLineageTag": "6fe5aa45-05e4-42bd-823d-fb0dda2049e2",
+          "size": {
+            "height": 145,
+            "width": 234
+          },
+          "zIndex": 4
+        }
+      ],
+      "name": "Todas las tablas",
+      "zoomValue": 89.192590520569809,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "Todas las tablas",
+  "defaultDiagram": "Todas las tablas"
+}

@@ -1,25 +1,98 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org" th:replace="~{layouts/base :: html(~{::content})}">
 <head>
-    <title>Módulo Ambiental – IEACI</title>
+    <title>Módulo Ambiental PRAE – IEACI</title>
 </head>
 <body>
 
 <th:block th:fragment="content">
     <div class="flex flex-col gap-6 flex-1">
-        <!-- Header -->
-        <div>
-            <h1 class="text-text-primary text-[28px] font-black tracking-tight leading-none mb-1.5">Módulo Ambiental PRAE</h1>
-            <p class="text-text-secondary text-sm font-semibold">Proyectos ambientales escolares, seguimiento de reciclaje y conciencia ecológica.</p>
+        <!-- Header Institucional PRAE -->
+        <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
+            <div>
+                <h1 class="text-text-primary text-[28px] font-black tracking-tight leading-none mb-1.5">Portal Ambiental Institucional (PRAE)</h1>
+                <p class="text-text-secondary text-sm font-semibold">Lineamientos del Proyecto Ambiental Escolar de la Institución Educativa Ambientalista de Cartagena de Indias.</p>
+            </div>
+            <span class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-pill-green border border-[#cbe5c7] text-sidebar text-xs font-black shrink-0">
+                <i data-lucide="sprout" class="size-4 stroke-2"></i>
+                <span th:text="${'Vigencia PRAE ' + (anioLectivoActivo ?: '2026')}">Vigencia PRAE</span>
+            </span>
         </div>
 
-        <!-- Main Card Container -->
-        <div class="bg-white rounded-xl border border-border shadow-soft flex-1 p-8 flex flex-col items-center justify-center text-center">
-            <div class="size-16 rounded-2xl bg-surface-sunken text-sidebar grid place-items-center mb-4 border border-border">
-                <i data-lucide="sprout" class="size-8 stroke-2"></i>
+        <!-- Banner Informativo -->
+        <div class="rounded-2xl bg-sidebar text-white p-6 sm:p-8 shadow-md flex flex-col gap-3">
+            <span class="inline-flex w-fit items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-[11px] font-extrabold uppercase tracking-wider">
+                Educación Ambiental · Decreto 1743 de 1994
+            </span>
+            <h2 class="text-xl sm:text-2xl font-black tracking-tight">Compromiso Ambientalista con la Ciénaga de la Virgen y el Entorno Escolar</h2>
+            <p class="text-xs sm:text-sm text-white/85 max-w-3xl leading-relaxed font-medium">
+                El PRAE integra la formación académica con prácticas reales de sostenibilidad dentro de la institución. Este portal reúne los ejes pedagógicos oficiales y los canales de coordinación para las brigadas ecológicas estudiantiles.
+            </p>
+        </div>
+
+        <!-- 4 Ejes Pedagógicos PRAE (Informativo Institucional, sin métricas simuladas) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl border border-border p-5 shadow-2xs flex gap-4 items-start">
+                <div class="size-10 rounded-xl bg-[#e3f7dc] text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="recycle" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-text-primary">1. Gestión Integral de Residuos Sólidos</h3>
+                    <p class="text-xs text-text-secondary mt-1 leading-relaxed">
+                        Separación en la fuente mediante puntos ecológicos por bloque (aprovechables, orgánicos y no aprovechables) y jornadas de reciclaje pedagógico por curso.
+                    </p>
+                </div>
             </div>
-            <h2 class="text-text-primary text-lg font-black">Proyecto Ambiental Escolar (PRAE)</h2>
-            <p class="text-text-secondary text-xs font-semibold max-w-md mt-1.5">Registro de actividades de sostenibilidad y huerta escolar institucional.</p>
+
+            <div class="bg-white rounded-xl border border-border p-5 shadow-2xs flex gap-4 items-start">
+                <div class="size-10 rounded-xl bg-[#e3f7dc] text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="leaf" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-text-primary">2. Huerta Agroecológica Escolar</h3>
+                    <p class="text-xs text-text-secondary mt-1 leading-relaxed">
+                        Laboratorio vivo para Ciencias Naturales enfocado en compostaje escolar, plantas aromáticas y soberanía alimentaria estudiantil.
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-border p-5 shadow-2xs flex gap-4 items-start">
+                <div class="size-10 rounded-xl bg-[#e3f7dc] text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="droplets" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-text-primary">3. Uso Eficiente del Agua y Energía</h3>
+                    <p class="text-xs text-text-secondary mt-1 leading-relaxed">
+                        Campañas permanentes lideradas por vigías ambientales en aulas para cierre oportuno de grifos, ventiladores y luminarias entre jornadas.
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-border p-5 shadow-2xs flex gap-4 items-start">
+                <div class="size-10 rounded-xl bg-[#e3f7dc] text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="users" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-text-primary">4. Guardianes Ambientales y Ecosistema Local</h3>
+                    <p class="text-xs text-text-secondary mt-1 leading-relaxed">
+                        Articulación comunitaria para la protección de la Ciénaga de la Virgen, manglares y cultura ciudadana ambiental desde preescolar hasta grado 11°.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canal de Contacto PRAE -->
+        <div class="bg-surface-sunken rounded-xl border border-border p-5 flex flex-wrap items-center justify-between gap-4">
+            <div class="space-y-0.5">
+                <h3 class="text-xs font-black uppercase tracking-wider text-sidebar">Coordinación Comité Ambiental PRAE</h3>
+                <p class="text-xs font-semibold text-text-secondary">
+                    Para inscribir brigadas o proponer iniciativas ambientales por curso, comunícate con Coordinación Académica o a través de
+                    <strong class="text-text-primary" th:text="${configInstitucional != null and configInstitucional.correoInst != null ? configInstitucional.correoInst : 'contacto@ieaci.edu.co'}">contacto@ieaci.edu.co</strong>.
+                </p>
+            </div>
+            <span class="text-[11px] font-bold text-text-muted px-3 py-1.5 rounded-lg bg-white border border-border">
+                Gestión interactiva de evidencias planificada para Fase 2
+            </span>
         </div>
     </div>
 </th:block>

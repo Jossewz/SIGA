@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "SIGA - DASHBOARD ACADEMICO"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "67c5438b-20d1-41b5-bc7f-595ea6e3fd61"
+  }
+}

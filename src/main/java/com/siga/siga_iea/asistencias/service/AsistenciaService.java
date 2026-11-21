@@ -53,6 +53,7 @@ public class AsistenciaService {
     private final HorarioValidator horarioValidator;
     private final CurrentUserContextService currentUserContextService;
     private final Clock clock;
+    private final com.siga.siga_iea.notificaciones.service.NotificacionService notificacionService;
 
     @Autowired
     @Lazy
@@ -69,7 +70,9 @@ public class AsistenciaService {
                              DocenteRepository docenteRepository,
                              HorarioValidator horarioValidator,
                              CurrentUserContextService currentUserContextService,
-                             Clock clock) {
+                             Clock clock,
+                             @Autowired(required = false)
+                             com.siga.siga_iea.notificaciones.service.NotificacionService notificacionService) {
         this.sesionClaseRepository = sesionClaseRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.cursoRepository = cursoRepository;
@@ -81,6 +84,23 @@ public class AsistenciaService {
         this.horarioValidator = horarioValidator;
         this.currentUserContextService = currentUserContextService;
         this.clock = clock != null ? clock : Clock.system(ZoneId.of("America/Bogota"));
+        this.notificacionService = notificacionService;
+    }
+
+    public AsistenciaService(SesionClaseRepository sesionClaseRepository,
+                             AsistenciaRepository asistenciaRepository,
+                             CursoRepository cursoRepository,
+                             HorarioRepository horarioRepository,
+                             CursoMateriaRepository cursoMateriaRepository,
+                             CursoEstudianteRepository cursoEstudianteRepository,
+                             EstudianteRepository estudianteRepository,
+                             DocenteRepository docenteRepository,
+                             HorarioValidator horarioValidator,
+                             CurrentUserContextService currentUserContextService,
+                             Clock clock) {
+        this(sesionClaseRepository, asistenciaRepository, cursoRepository, horarioRepository,
+             cursoMateriaRepository, cursoEstudianteRepository, estudianteRepository,
+             docenteRepository, horarioValidator, currentUserContextService, clock, null);
     }
 
     public AsistenciaService(SesionClaseRepository sesionClaseRepository,
@@ -96,7 +116,7 @@ public class AsistenciaService {
         this(sesionClaseRepository, asistenciaRepository, cursoRepository, horarioRepository,
              cursoMateriaRepository, cursoEstudianteRepository, estudianteRepository,
              docenteRepository, horarioValidator, currentUserContextService,
-             Clock.system(ZoneId.of("America/Bogota")));
+             Clock.system(ZoneId.of("America/Bogota")), null);
     }
 
     /**
@@ -325,6 +345,7 @@ public class AsistenciaService {
 
             Optional<Asistencia> opt = asistenciaRepository.findBySesionIdAndEstudianteId(sesionId, item.estudianteId());
             Asistencia asistencia;
+            String estadoAnterior = opt.map(Asistencia::getEstado).orElse(null);
             String estadoNormalizado = normalizarEstado(item.estado());
 
             if (opt.isPresent()) {
@@ -339,10 +360,49 @@ public class AsistenciaService {
                 asistencia = new Asistencia(sesion, estudiante, estadoNormalizado, item.observaciones());
             }
 
-            guardadas.add(asistenciaRepository.saveAndFlush(asistencia));
+            Asistencia guardada = asistenciaRepository.saveAndFlush(asistencia);
+            guardadas.add(guardada);
+
+            if (notificacionService != null && !estadoNormalizado.equalsIgnoreCase(estadoAnterior)
+                    && ("AUSENTE".equals(estadoNormalizado) || "TARDE".equals(estadoNormalizado))) {
+                notificarNovedadAsistencia(sesion, guardada.getEstudiante(), estadoNormalizado);
+            }
         }
 
         return guardadas;
+    }
+
+    private void notificarNovedadAsistencia(SesionClase sesion, Estudiante estudiante, String estado) {
+        if (estudiante == null || sesion == null) return;
+        boolean esFalta = "AUSENTE".equals(estado);
+        String materia = (sesion.getCursoMateria() != null && sesion.getCursoMateria().getMateria() != null)
+                ? sesion.getCursoMateria().getMateria().getNombre()
+                : (sesion.getHorario() != null && sesion.getHorario().getMateria() != null
+                        ? sesion.getHorario().getMateria().getNombre()
+                        : "Jornada Académica");
+        String cursoNombre = sesion.getCurso() != null
+                ? sesion.getCurso().getGrado() + " - " + (sesion.getCurso().getGrupo() != null ? sesion.getCurso().getGrupo() : "01")
+                : "";
+        Map<String, String> detalles = new LinkedHashMap<>();
+        detalles.put("Estudiante", estudiante.getNombreCompleto());
+        detalles.put("Curso", cursoNombre);
+        detalles.put("Asignatura / Sesión", materia);
+        detalles.put("Fecha", sesion.getFecha() != null ? sesion.getFecha().toString() : "");
+        detalles.put("Estado registrado", esFalta ? "Inasistencia (FI)" : "Llegada Tarde (T)");
+
+        notificacionService.notificarEstudianteYAcudiente(
+                estudiante,
+                esFalta ? "ASISTENCIA_INASISTENCIA" : "ASISTENCIA_TARDANZA",
+                esFalta ? "Registro de inasistencia en " + materia : "Registro de llegada tarde en " + materia,
+                esFalta
+                        ? "Se registró una inasistencia injustificada para " + estudiante.getNombreCompleto() + " el " + sesion.getFecha() + "."
+                        : "Se registró una llegada tarde para " + estudiante.getNombreCompleto() + " el " + sesion.getFecha() + ".",
+                sesion.getId() != null ? sesion.getId().toString() : null,
+                esFalta ? "user-x" : "clock",
+                esFalta ? "rose" : "amber",
+                true,
+                detalles
+        );
     }
 
     /**
@@ -473,20 +533,88 @@ public class AsistenciaService {
     }
 
     /**
-     * Soporte para el cuadro de calificaciones y UI de gestión de curso.
-     * Retorna un mapa estudianteId -> estado de asistencia para la materia y fecha dada.
+     * Indica si el operador autenticado puede modificar asistencia en la fecha indicada.
+     * Administradores y personal administrativo pueden editar cualquier fecha hábil no futura;
+     * los docentes únicamente el día actual según el reloj institucional.
      */
-    @Transactional
-    public Map<UUID, String> obtenerMapaEstadosAsistencia(UUID cursoId, LocalDate fecha, UUID materiaId) {
-        List<SesionClase> sesiones = abrirDia(cursoId, fecha);
-        SesionClase sesionObjetivo = null;
+    public boolean puedeEditarFecha(LocalDate fecha, Docente docenteOperador, RolEnum rolOperador) {
+        if (fecha == null) {
+            return false;
+        }
+        LocalDate hoy = LocalDate.now(clock);
+        if (fecha.isAfter(hoy)) {
+            return false;
+        }
+        if (rolOperador != null && rolOperador.esAdminOAdministrativo()) {
+            return true;
+        }
+        return docenteOperador != null && fecha.equals(hoy);
+    }
 
+    /**
+     * Indica si el operador autenticado puede modificar asistencia de una sesión concreta.
+     */
+    public boolean puedeEditarSesion(SesionClase sesion, Docente docenteOperador, RolEnum rolOperador) {
+        if (sesion == null || "CANCELADA".equalsIgnoreCase(sesion.getEstado())) {
+            return false;
+        }
+        if (rolOperador != null && rolOperador.esAdminOAdministrativo()) {
+            return true;
+        }
+        LocalDate hoy = LocalDate.now(clock);
+        if (!hoy.equals(sesion.getFecha())) {
+            return false;
+        }
+        return docenteOperador != null && sesion.getDocente() != null
+                && sesion.getDocente().getId().equals(docenteOperador.getId());
+    }
+
+    /**
+     * Resuelve en modo solo lectura la sesión de clase de un curso/fecha/materia sin crear sesiones nuevas.
+     */
+    private SesionClase buscarSesionExistente(UUID cursoId, LocalDate fecha, UUID materiaId) {
+        List<SesionClase> sesiones = sesionClaseRepository.findByCursoIdAndFechaOrderByHoraInicioAsc(cursoId, fecha);
         for (SesionClase s : sesiones) {
-            if (materiaId == null || (s.getCursoMateria() != null && s.getCursoMateria().getMateria().getId().equals(materiaId))) {
-                sesionObjetivo = s;
-                break;
+            if ("JORNADA".equalsIgnoreCase(s.getTipo()) && materiaId == null) {
+                return s;
+            }
+            UUID sesionMateriaId = (s.getCursoMateria() != null && s.getCursoMateria().getMateria() != null)
+                    ? s.getCursoMateria().getMateria().getId()
+                    : (s.getHorario() != null && s.getHorario().getMateria() != null ? s.getHorario().getMateria().getId() : null);
+            if (materiaId == null || (sesionMateriaId != null && sesionMateriaId.equals(materiaId))) {
+                return s;
             }
         }
+        return (materiaId == null && !sesiones.isEmpty()) ? sesiones.get(0) : null;
+    }
+
+    /**
+     * Abre o recupera las sesiones del día y retorna la sesión correspondiente a la materia dada.
+     */
+    private SesionClase resolverOCrearSesion(UUID cursoId, LocalDate fecha, UUID materiaId) {
+        List<SesionClase> sesiones = abrirDia(cursoId, fecha);
+        for (SesionClase s : sesiones) {
+            UUID sesionMateriaId = (s.getCursoMateria() != null && s.getCursoMateria().getMateria() != null)
+                    ? s.getCursoMateria().getMateria().getId()
+                    : (s.getHorario() != null && s.getHorario().getMateria() != null ? s.getHorario().getMateria().getId() : null);
+            if (materiaId == null || (sesionMateriaId != null && sesionMateriaId.equals(materiaId))) {
+                return s;
+            }
+        }
+        SesionClase fallback = (materiaId == null && !sesiones.isEmpty()) ? sesiones.get(0) : null;
+        if (fallback == null) {
+            throw new IllegalStateException("No hay sesión de clase disponible para registrar asistencia en esta materia y fecha.");
+        }
+        return fallback;
+    }
+
+    /**
+     * Soporte para el cuadro de calificaciones y UI de gestión de curso (solo lectura).
+     * Retorna un mapa estudianteId -> estado de asistencia para la materia y fecha dada sin crear sesiones vacías.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> obtenerMapaEstadosAsistencia(UUID cursoId, LocalDate fecha, UUID materiaId) {
+        SesionClase sesionObjetivo = buscarSesionExistente(cursoId, fecha, materiaId);
 
         Map<UUID, String> mapa = new HashMap<>();
         if (sesionObjetivo != null) {
@@ -501,28 +629,27 @@ public class AsistenciaService {
     }
 
     /**
+     * Registra un estado explícito (PRESENTE, TARDE, EXCUSADO, AUSENTE) desde el módulo de Cursos,
+     * abriendo la sesión del día si aún no existía y delegando obligatoriamente en registrar() ("una sola puerta").
+     */
+    @Transactional
+    public Asistencia registrarEstadoEnCurso(UUID cursoId, UUID estudianteId, LocalDate fecha, UUID materiaId, String estado) {
+        SesionClase sesion = resolverOCrearSesion(cursoId, fecha, materiaId);
+        List<Asistencia> res = registrar(
+                sesion.getId(),
+                List.of(new AsistenciaItemDto(estudianteId, normalizarEstado(estado), null))
+        );
+        return res.isEmpty() ? null : res.get(0);
+    }
+
+    /**
      * Alterna cíclicamente el estado de asistencia de un estudiante:
-     * PRESENTE -> AUSENTE -> EXCUSADO -> PRESENTE.
+     * Pendiente -> PRESENTE -> TARDE -> EXCUSADO -> AUSENTE -> PRESENTE.
      * Pasa obligatoriamente por registrar(...) asegurando la regla de "una sola puerta".
      */
     @Transactional
     public Asistencia toggleAsistencia(UUID cursoId, UUID estudianteId, LocalDate fecha, UUID materiaId) {
-        List<SesionClase> sesiones = abrirDia(cursoId, fecha);
-        SesionClase sesion = null;
-        for (SesionClase s : sesiones) {
-            if (materiaId == null || (s.getCursoMateria() != null && s.getCursoMateria().getMateria().getId().equals(materiaId))) {
-                sesion = s;
-                break;
-            }
-        }
-
-        if (sesion == null && !sesiones.isEmpty()) {
-            sesion = sesiones.get(0);
-        }
-
-        if (sesion == null) {
-            throw new IllegalStateException("No hay sesión de clase disponible para registrar asistencia");
-        }
+        SesionClase sesion = resolverOCrearSesion(cursoId, fecha, materiaId);
 
         Optional<Asistencia> opt = asistenciaRepository.findBySesionIdAndEstudianteId(sesion.getId(), estudianteId);
         String nuevoEstado;
@@ -531,14 +658,16 @@ public class AsistenciaService {
         if (opt.isPresent()) {
             String actual = opt.get().getEstado();
             if ("PRESENTE".equalsIgnoreCase(actual)) {
-                nuevoEstado = "AUSENTE";
-            } else if ("AUSENTE".equalsIgnoreCase(actual)) {
+                nuevoEstado = "TARDE";
+            } else if ("TARDE".equalsIgnoreCase(actual)) {
                 nuevoEstado = "EXCUSADO";
+            } else if ("EXCUSADO".equalsIgnoreCase(actual)) {
+                nuevoEstado = "AUSENTE";
             } else {
                 nuevoEstado = "PRESENTE";
             }
         } else {
-            nuevoEstado = "AUSENTE";
+            nuevoEstado = "PRESENTE";
         }
 
         // Pasa estrictamente por registrar() -> "una sola puerta"

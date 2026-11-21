@@ -90,7 +90,7 @@ public class RolPermisoService {
         }
         if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
             return switch (mod) {
-                case "MATRICULAS", "CURSOS_HORARIOS", "CALIFICACIONES", "ASISTENCIAS", "CERTIFICADOS", "MODULO_AMBIENTAL" -> true;
+                case "MATRICULAS", "CURSOS_HORARIOS", "CALIFICACIONES", "ASISTENCIAS", "CERTIFICADOS", "REPORTES", "MODULO_AMBIENTAL" -> true;
                 default -> false;
             };
         }
@@ -103,7 +103,11 @@ public class RolPermisoService {
             return !"CALIFICACIONES".equals(mod) && !"ASISTENCIAS".equals(mod) && !"CONFIGURACION".equals(mod);
         }
         if ("DOCENTE".equalsIgnoreCase(rol)) {
-            return "CALIFICACIONES".equals(mod) || "ASISTENCIAS".equals(mod) || "MODULO_AMBIENTAL".equals(mod);
+            return "CALIFICACIONES".equals(mod) || "ASISTENCIAS".equals(mod)
+                    || "REPORTES".equals(mod) || "MODULO_AMBIENTAL".equals(mod);
+        }
+        if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
+            return "CERTIFICADOS".equals(mod) || "REPORTES".equals(mod);
         }
         return false;
     }
@@ -147,6 +151,32 @@ public class RolPermisoService {
         }
 
         return opt.map(RolPermiso::getPuedeAcceder).orElse(false);
+    }
+
+    public boolean puedeEditar(String rawRol, String modulo) {
+        if (rawRol == null || modulo == null) return false;
+        String rol = CustomUserDetailsService.normalizeRole(rawRol);
+        if ("ADMIN".equalsIgnoreCase(rol)) return true;
+
+        Optional<RolPermiso> opt = rolPermisoRepository.findByRolAndModulo(rol, modulo);
+        if (opt.isEmpty()) {
+            asegurarModulosCompletosParaRol(rol, rolPermisoRepository.findByRolOrderByModuloAsc(rol));
+            opt = rolPermisoRepository.findByRolAndModulo(rol, modulo);
+        }
+        return opt.map(p -> Boolean.TRUE.equals(p.getPuedeAcceder()) && Boolean.TRUE.equals(p.getPuedeEditar())).orElse(false);
+    }
+
+    public boolean puedeEliminar(String rawRol, String modulo) {
+        if (rawRol == null || modulo == null) return false;
+        String rol = CustomUserDetailsService.normalizeRole(rawRol);
+        if ("ADMIN".equalsIgnoreCase(rol)) return true;
+
+        Optional<RolPermiso> opt = rolPermisoRepository.findByRolAndModulo(rol, modulo);
+        if (opt.isEmpty()) {
+            asegurarModulosCompletosParaRol(rol, rolPermisoRepository.findByRolOrderByModuloAsc(rol));
+            opt = rolPermisoRepository.findByRolAndModulo(rol, modulo);
+        }
+        return opt.map(p -> Boolean.TRUE.equals(p.getPuedeAcceder()) && Boolean.TRUE.equals(p.getPuedeEliminar())).orElse(false);
     }
 
     public Set<String> obtenerModulosPermitidos(String rawRol) {

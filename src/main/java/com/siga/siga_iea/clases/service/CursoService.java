@@ -36,7 +36,10 @@ public class CursoService {
     private final BloqueRepository bloqueRepository;
     private final HorarioValidator horarioValidator;
     private final com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository;
+    private final com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository;
+    private final PlanEstudiosGradoRepository planEstudiosGradoRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CursoService(CursoRepository cursoRepository,
                         MateriaRepository materiaRepository,
                         CursoMateriaRepository cursoMateriaRepository,
@@ -49,7 +52,11 @@ public class CursoService {
                         SalonRepository salonRepository,
                         BloqueRepository bloqueRepository,
                         HorarioValidator horarioValidator,
-                        com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository) {
+                        com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false)
+                        com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false)
+                        PlanEstudiosGradoRepository planEstudiosGradoRepository) {
         this.cursoRepository = cursoRepository;
         this.materiaRepository = materiaRepository;
         this.cursoMateriaRepository = cursoMateriaRepository;
@@ -63,6 +70,28 @@ public class CursoService {
         this.bloqueRepository = bloqueRepository;
         this.horarioValidator = horarioValidator;
         this.anioLectivoRepository = anioLectivoRepository;
+        this.asistenciaRepository = asistenciaRepository;
+        this.planEstudiosGradoRepository = planEstudiosGradoRepository;
+    }
+
+    public CursoService(CursoRepository cursoRepository,
+                        MateriaRepository materiaRepository,
+                        CursoMateriaRepository cursoMateriaRepository,
+                        CursoEstudianteRepository cursoEstudianteRepository,
+                        HorarioRepository horarioRepository,
+                        DocenteRepository docenteRepository,
+                        EstudianteRepository estudianteRepository,
+                        MatriculaRepository matriculaRepository,
+                        CalificacionesRepository calificacionesRepository,
+                        SalonRepository salonRepository,
+                        BloqueRepository bloqueRepository,
+                        HorarioValidator horarioValidator,
+                        com.siga.siga_iea.configuracion.repository.AnioLectivoRepository anioLectivoRepository,
+                        com.siga.siga_iea.asistencias.repository.AsistenciaRepository asistenciaRepository) {
+        this(cursoRepository, materiaRepository, cursoMateriaRepository, cursoEstudianteRepository,
+                horarioRepository, docenteRepository, estudianteRepository, matriculaRepository,
+                calificacionesRepository, salonRepository, bloqueRepository, horarioValidator,
+                anioLectivoRepository, asistenciaRepository, null);
     }
 
     public List<Curso> listarTodosLosCursos() {
@@ -111,7 +140,9 @@ public class CursoService {
         if (al != null) {
             c.setAnioLectivo(al);
         } else {
-            c.setAnoLectivo(anoLectivo != null ? anoLectivo : "2026");
+            c.setAnoLectivo(anoLectivo != null && !anoLectivo.isBlank()
+                    ? anoLectivo
+                    : String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
         }
 
         if (directorId != null) {
@@ -180,6 +211,113 @@ public class CursoService {
     @Transactional
     public Materia guardarMateria(Materia materia) {
         return materiaRepository.save(materia);
+    }
+
+    public Map<UUID, Integer> listarIntensidadesPorGrado(String grado) {
+        String gradoNorm = PlanEstudiosGrado.normalizarGrado(grado);
+        List<Materia> materias = listarTodasMateriasOrdenadas();
+        Map<UUID, Integer> mapa = new LinkedHashMap<>();
+        for (Materia m : materias) {
+            mapa.put(m.getId(), sugerirIntensidadPorDefectoGrado(gradoNorm, m));
+        }
+        if (planEstudiosGradoRepository != null) {
+            for (PlanEstudiosGrado p : planEstudiosGradoRepository.findByGradoOrderByMateriaNombreAsc(gradoNorm)) {
+                if (p.getMateria() != null) {
+                    mapa.put(p.getMateria().getId(), p.getIntensidadHoraria());
+                }
+            }
+        }
+        return mapa;
+    }
+
+    public int resolverIntensidadPorGrado(String grado, Materia materia) {
+        if (materia == null) return 2;
+        String gradoNorm = PlanEstudiosGrado.normalizarGrado(grado);
+        if (planEstudiosGradoRepository != null && materia.getId() != null) {
+            Optional<PlanEstudiosGrado> opt = planEstudiosGradoRepository.findByGradoAndMateriaId(gradoNorm, materia.getId());
+            if (opt.isPresent() && opt.get().getIntensidadHoraria() != null) {
+                return opt.get().getIntensidadHoraria();
+            }
+        }
+        return sugerirIntensidadPorDefectoGrado(gradoNorm, materia);
+    }
+
+    @Transactional
+    public int guardarIntensidadesGrado(String grado, Map<UUID, Integer> intensidades) {
+        if (planEstudiosGradoRepository == null) {
+            throw new IllegalStateException("Repositorio de plan de estudios por grado no disponible.");
+        }
+        String gradoNorm = PlanEstudiosGrado.normalizarGrado(grado);
+        int sumaTotal = 0;
+        for (Map.Entry<UUID, Integer> entry : intensidades.entrySet()) {
+            int val = entry.getValue() != null ? entry.getValue() : 0;
+            if (val < 0 || val > 15) {
+                throw new IllegalArgumentException("La intensidad de cada asignatura debe estar entre 0 y 15 horas semanales.");
+            }
+            sumaTotal += val;
+        }
+        if (sumaTotal > 30) {
+            throw new IllegalArgumentException("La suma semanal del grado " + gradoNorm + " (" + sumaTotal
+                    + " h) supera el tope máximo de la jornada escolar (30 horas semanales).");
+        }
+        for (Map.Entry<UUID, Integer> entry : intensidades.entrySet()) {
+            UUID matId = entry.getKey();
+            Integer horas = entry.getValue();
+            Materia mat = materiaRepository.findById(matId).orElse(null);
+            if (mat == null) continue;
+            PlanEstudiosGrado peg = planEstudiosGradoRepository.findByGradoAndMateriaId(gradoNorm, matId)
+                    .orElseGet(() -> new PlanEstudiosGrado(gradoNorm, mat, horas));
+            peg.setIntensidadHoraria(horas);
+            planEstudiosGradoRepository.save(peg);
+        }
+        return sumaTotal;
+    }
+
+    public static int sugerirIntensidadPorDefectoGrado(String grado, Materia materia) {
+        if (materia == null) return 2;
+        String nom = materia.getNombre() != null ? materia.getNombre().toLowerCase(Locale.ROOT) : "";
+        int numGrado = 11;
+        if (grado != null) {
+            String digits = grado.replaceAll("[^0-9]", "");
+            if (!digits.isEmpty()) {
+                try { numGrado = Integer.parseInt(digits); } catch (NumberFormatException ignored) {}
+            }
+        }
+        if (numGrado <= 5) {
+            if (nom.contains("matem")) return 5;
+            if (nom.contains("espa") || nom.contains("castell")) return 5;
+            if (nom.contains("natural")) return 3;
+            if (nom.contains("social")) return 2;
+            if (nom.contains("ingl")) return 1;
+            if (nom.contains("tecnolog") || nom.contains("inform")) return 2;
+            if (nom.contains("físic") || nom.contains("fisic")) return 2;
+            if (nom.contains("art")) return 1;
+            if (nom.contains("ética") || nom.contains("etica")) return 1;
+            if (nom.contains("filosof")) return 0;
+        } else if (numGrado <= 9) {
+            if (nom.contains("matem")) return 4;
+            if (nom.contains("espa") || nom.contains("castell")) return 4;
+            if (nom.contains("natural")) return 3;
+            if (nom.contains("social")) return 3;
+            if (nom.contains("ingl")) return 2;
+            if (nom.contains("tecnolog") || nom.contains("inform")) return 2;
+            if (nom.contains("físic") || nom.contains("fisic")) return 2;
+            if (nom.contains("art")) return 1;
+            if (nom.contains("ética") || nom.contains("etica")) return 1;
+            if (nom.contains("filosof")) return numGrado == 9 ? 1 : 0;
+        } else {
+            if (nom.contains("matem")) return 4;
+            if (nom.contains("espa") || nom.contains("castell")) return 3;
+            if (nom.contains("natural")) return 3;
+            if (nom.contains("ingl")) return 3;
+            if (nom.contains("social")) return 2;
+            if (nom.contains("tecnolog") || nom.contains("inform")) return 2;
+            if (nom.contains("físic") || nom.contains("fisic")) return 2;
+            if (nom.contains("filosof")) return 2;
+            if (nom.contains("art")) return 1;
+            if (nom.contains("ética") || nom.contains("etica")) return 1;
+        }
+        return materia.getIntensidadHoraria() != null ? materia.getIntensidadHoraria() : 2;
     }
 
     @Transactional
@@ -335,9 +473,21 @@ public class CursoService {
         return horarioRepository.save(h);
     }
 
+    private String resolverAnioCurso(Curso curso) {
+        if (curso != null && curso.getAnioLectivo() != null && curso.getAnioLectivo().getAnio() != null) {
+            return String.valueOf(curso.getAnioLectivo().getAnio());
+        }
+        if (curso != null && curso.getAnoLectivo() != null && !curso.getAnoLectivo().isBlank()) {
+            return curso.getAnoLectivo();
+        }
+        return anioLectivoRepository.findByEsActualTrue()
+                .map(a -> String.valueOf(a.getAnio()))
+                .orElseGet(() -> String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
+    }
+
     private void sincronizarCursoMateriaDocente(Curso curso, UUID materiaId, UUID docenteId) {
         if (curso != null && materiaId != null && docenteId != null) {
-            String ano = curso.getAnoLectivo() != null ? curso.getAnoLectivo() : "2026";
+            String ano = resolverAnioCurso(curso);
             var cmOpt = cursoMateriaRepository.findByCursoIdAndMateriaIdAndAnoLectivo(curso.getId(), materiaId, ano);
             if (cmOpt.isPresent()) {
                 CursoMateria cm = cmOpt.get();
@@ -395,7 +545,7 @@ public class CursoService {
 
         String grado = curso.getGrado();
         String gradoLiso = grado != null ? grado.replaceAll("[^0-9]", "") : "11";
-        String anoLectivo = curso.getAnoLectivo() != null ? curso.getAnoLectivo() : "2026";
+        String anoLectivo = resolverAnioCurso(curso);
         int cuposMaximos = curso.getCuposMaximos() != null ? curso.getCuposMaximos() : 35;
 
         List<CursoEstudiante> inscritosActuales = cursoEstudianteRepository.findByCursoId(cursoId);
@@ -500,29 +650,30 @@ public class CursoService {
                     promedio = calcularNotaPromedioEstudiante(e.getId(), cursoOrigen.getId());
                 }
 
-                boolean aprobado = (promedio >= 3.0) && !"Retirado".equalsIgnoreCase(e.getEstado());
+                double faltasPct = calcularPorcentajeInasistenciaEstudiante(e.getId(), cursoOrigen.getId());
+                boolean repruebaPorFaltas = faltasPct >= 25.0; // Criterio normativo SIEACI Art. Inasistencias
+                boolean aprobado = (promedio >= 3.0) && !repruebaPorFaltas && !"Retirado".equalsIgnoreCase(e.getEstado());
 
                 if (aprobado) {
                     e.setEstado("Graduado");
                     estudianteRepository.save(e);
-                    aEliminarDeOrigen.add(ce);
                     promovidos++;
                 } else {
                     repitentes++;
-                    nombresNoAprobados.add(e.getNombreCompleto() + " (Nota: " + String.format("%.2f", promedio) + ")");
+                    if (repruebaPorFaltas) {
+                        nombresNoAprobados.add(e.getNombreCompleto() + " (Inasistencia: " + String.format("%.1f", faltasPct) + "% >= 25%, Nota: " + String.format("%.2f", promedio) + ")");
+                    } else {
+                        nombresNoAprobados.add(e.getNombreCompleto() + " (Nota: " + String.format("%.2f", promedio) + ")");
+                    }
                 }
             }
 
-            if (!aEliminarDeOrigen.isEmpty()) {
-                cursoEstudianteRepository.deleteAll(aEliminarDeOrigen);
-            }
-
             if (repitentes > 0) {
-                return String.format("Proceso de Graduación Concluido: Se han graduado satisfactoriamente %d estudiante(s) con calificación igual o superior a 3.0. " +
-                        "Un total de %d estudiante(s) (%s) no alcanzaron la nota mínima aprobatoria (menos de 3.0) y NO se graduarán en esta cohorte, permaneciendo asignados al curso %s.",
-                        promovidos, repitentes, String.join(", ", nombresNoAprobados), cursoOrigen.getCodigoCurso());
+                return String.format("Proceso de Graduación Concluido: Se han graduado satisfactoriamente %d estudiante(s) con calificación igual o superior a 3.0 y asistencia adecuada. " +
+                        "Un total de %d estudiante(s) (%s) no cumplieron los requisitos académicos o de asistencia y NO se graduarán en esta cohorte.",
+                        promovidos, repitentes, String.join(", ", nombresNoAprobados));
             } else {
-                return String.format("Proceso de Graduación Concluido Con Éxito: El 100%% de los estudiantes (%d inscritos) del curso %s obtuvieron calificaciones aprobatorias (≥ 3.0) y han sido promovidos al estado de Graduados. El salón queda disponible para el siguiente ciclo académico.",
+                return String.format("Proceso de Graduación Concluido Con Éxito: El 100%% de los estudiantes (%d inscritos) del curso %s obtuvieron calificaciones aprobatorias (≥ 3.0) y han sido promovidos al estado de Graduados.",
                         promovidos, cursoOrigen.getCodigoCurso());
             }
         }
@@ -553,35 +704,47 @@ public class CursoService {
                 promedio = calcularNotaPromedioEstudiante(e.getId(), cursoOrigen.getId());
             }
 
-            boolean aprobado = (promedio >= 3.0) && !"Retirado".equalsIgnoreCase(e.getEstado());
+            double faltasPct = calcularPorcentajeInasistenciaEstudiante(e.getId(), cursoOrigen.getId());
+            boolean repruebaPorFaltas = faltasPct >= 25.0; // Criterio normativo SIEACI Art. Inasistencias
+            boolean aprobado = (promedio >= 3.0) && !repruebaPorFaltas && !"Retirado".equalsIgnoreCase(e.getEstado());
 
             if (aprobado) {
-                boolean yaEnDestino = cursoEstudianteRepository.existsByCursoIdAndEstudianteId(cursoDestino.getId(), e.getId());
-                if (!yaEnDestino) {
-                    CursoEstudiante nuevoCE = new CursoEstudiante(cursoDestino, e, cursoOrigen.getAnoLectivo());
-                    cursoEstudianteRepository.save(nuevoCE);
-                }
-                aEliminarDeOrigen.add(ce);
+                // Reasignar la inscripción al curso destino preservando la integridad del registro
+                ce.setCurso(cursoDestino);
+                cursoEstudianteRepository.save(ce);
                 promovidos++;
             } else {
                 repitentes++;
-                nombresNoAprobados.add(e.getNombreCompleto() + " (Nota: " + String.format("%.2f", promedio) + ")");
+                if (repruebaPorFaltas) {
+                    nombresNoAprobados.add(e.getNombreCompleto() + " (Inasistencia: " + String.format("%.1f", faltasPct) + "% >= 25%, Nota: " + String.format("%.2f", promedio) + ")");
+                } else {
+                    nombresNoAprobados.add(e.getNombreCompleto() + " (Nota: " + String.format("%.2f", promedio) + ")");
+                }
             }
         }
 
-        // Vaciar a los promovidos de este salón para que ingresen los de la cohorte inferior
-        if (!aEliminarDeOrigen.isEmpty()) {
-            cursoEstudianteRepository.deleteAll(aEliminarDeOrigen);
-        }
-
         if (repitentes > 0) {
-            return String.format("Proceso de Promoción Académica Ejecutado: %d estudiante(s) con desempeño aprobatorio (≥ 3.0) fueron promovidos al curso %s (%s). " +
-                    "Se informa que %d estudiante(s) (%s) obtuvieron nota final inferior a 3.0 y no cumplen el requisito para avanzar, por lo que permanecerán en el curso %s compartiendo aula con la nueva cohorte.",
+            return String.format("Proceso de Promoción Académica Ejecutado: %d estudiante(s) con desempeño aprobatorio (≥ 3.0) y asistencia requerida fueron promovidos al curso %s (%s). " +
+                    "Se informa que %d estudiante(s) (%s) no alcanzaron los requisitos de promoción y permanecerán en el curso %s.",
                     promovidos, cursoDestino.getCodigoCurso(), siguienteGrado, repitentes, String.join(", ", nombresNoAprobados), cursoOrigen.getCodigoCurso());
         } else {
-            return String.format("Proceso de Promoción Académica Concluido Con Éxito: El 100%% de los estudiantes (%d inscritos) alcanzaron o superaron la nota mínima de 3.0 y avanzan satisfactoriamente al curso %s (%s).",
+            return String.format("Proceso de Promoción Académica Concluido Con Éxito: El 100%% de los estudiantes (%d inscritos) cumplieron los requisitos académicos y de asistencia, avanzando satisfactoriamente al curso %s (%s).",
                     promovidos, cursoDestino.getCodigoCurso(), siguienteGrado);
         }
+    }
+
+    public double calcularPorcentajeInasistenciaEstudiante(UUID estudianteId, UUID cursoId) {
+        if (asistenciaRepository == null || estudianteId == null || cursoId == null) return 0.0;
+        List<com.siga.siga_iea.asistencias.entity.Asistencia> asistencias = asistenciaRepository.findByEstudianteId(estudianteId);
+        long totalEnCurso = asistencias.stream()
+                .filter(a -> a.getSesion() != null && a.getSesion().getCurso() != null && cursoId.equals(a.getSesion().getCurso().getId()))
+                .count();
+        if (totalEnCurso == 0) return 0.0;
+        long ausencias = asistencias.stream()
+                .filter(a -> a.getSesion() != null && a.getSesion().getCurso() != null && cursoId.equals(a.getSesion().getCurso().getId()))
+                .filter(a -> "AUSENTE".equalsIgnoreCase(a.getEstado()))
+                .count();
+        return (ausencias * 100.0) / totalEnCurso;
     }
 
     public String promoverEstudiantesAprobados(UUID cursoId) {

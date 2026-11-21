@@ -28,6 +28,9 @@ public class CursoTablaNotasDTO {
     private Map<UUID, Map<UUID, BigDecimal>> calificacionesMapa = new HashMap<>();
     private Map<UUID, String> asistenciasMapa = new HashMap<>();
     private Map<UUID, BigDecimal> notasFinales = new HashMap<>();
+    private boolean puedeEditarAsistencia = true;
+    private String vistaNotas = "FECHA";
+    private int totalEvaluacionesPeriodo = 0;
 
     public CursoTablaNotasDTO() {
     }
@@ -150,5 +153,29 @@ public class CursoTablaNotasDTO {
 
     public void setNotasFinales(Map<UUID, BigDecimal> notasFinales) {
         this.notasFinales = notasFinales;
+    }
+
+    public boolean isPuedeEditarAsistencia() {
+        return puedeEditarAsistencia;
+    }
+
+    public void setPuedeEditarAsistencia(boolean puedeEditarAsistencia) {
+        this.puedeEditarAsistencia = puedeEditarAsistencia;
+    }
+
+    public String getVistaNotas() {
+        return vistaNotas;
+    }
+
+    public void setVistaNotas(String vistaNotas) {
+        this.vistaNotas = vistaNotas;
+    }
+
+    public int getTotalEvaluacionesPeriodo() {
+        return totalEvaluacionesPeriodo;
+    }
+
+    public void setTotalEvaluacionesPeriodo(int totalEvaluacionesPeriodo) {
+        this.totalEvaluacionesPeriodo = totalEvaluacionesPeriodo;
     }
 }

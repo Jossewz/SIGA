@@ -27,13 +27,17 @@ public class CursoGestionAppService {
     private final CursoService cursoService;
     private final CalificacionesService calificacionesService;
     private final AsistenciaService asistenciaService;
+    private final com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService;
 
     public CursoGestionAppService(CursoService cursoService,
                                   CalificacionesService calificacionesService,
-                                  AsistenciaService asistenciaService) {
+                                  AsistenciaService asistenciaService,
+                                  @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                  com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService) {
         this.cursoService = cursoService;
         this.calificacionesService = calificacionesService;
         this.asistenciaService = asistenciaService;
+        this.periodoConfigService = periodoConfigService;
     }
 
     public static String obtenerNombreDiaEspanol(DayOfWeek dow) {
@@ -49,16 +53,23 @@ public class CursoGestionAppService {
         };
     }
 
+    private String resolverAnioActivo() {
+        return periodoConfigService != null
+                ? periodoConfigService.obtenerAnioLectivoCodigo()
+                : String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual());
+    }
+
     @Transactional
     public CursoGestionDetalleDTO prepararGestionDetalle(String codigo, Optional<Docente> docenteLogueadoOpt, boolean esAdmin) {
-        Optional<Curso> cursoOpt = cursoService.buscarPorCodigo(codigo, "2026");
+        String anioActivo = resolverAnioActivo();
+        Optional<Curso> cursoOpt = cursoService.buscarPorCodigo(codigo, anioActivo);
         Curso c;
         if (cursoOpt.isPresent()) {
             c = cursoOpt.get();
         } else {
             String degree = (codigo != null && codigo.contains("-")) ? codigo.split("-")[0] + "°" : (codigo != null ? codigo : "11°");
             String group = (codigo != null && codigo.contains("-")) ? codigo.split("-")[1] : "01";
-            c = cursoService.crearCurso(degree, group, "Mañana", 35, null, "2026");
+            c = cursoService.crearCurso(degree, group, "Mañana", 35, null, anioActivo);
         }
 
         CursoGestionDetalleDTO detalleDTO = new CursoGestionDetalleDTO();
@@ -79,7 +90,6 @@ public class CursoGestionAppService {
                 map.put("numIdx", idx++);
                 map.put("nombre", ce.getEstudiante().getNombreCompleto());
                 map.put("documento", ce.getEstudiante().getNumeroDocumento());
-                map.put("asistencia", "Presente");
                 estudiantesData.add(map);
             }
         }
@@ -113,13 +123,32 @@ public class CursoGestionAppService {
                                                 LocalDate fecha,
                                                 Optional<Docente> docenteLogueadoOpt,
                                                 boolean esAdmin) {
+        return prepararTablaNotas(cursoId, materiaNombre, materiaId, periodo, fecha, docenteLogueadoOpt, esAdmin, "FECHA");
+    }
+
+    @Transactional
+    public CursoTablaNotasDTO prepararTablaNotas(UUID cursoId,
+                                                String materiaNombre,
+                                                UUID materiaId,
+                                                Integer periodo,
+                                                LocalDate fecha,
+                                                Optional<Docente> docenteLogueadoOpt,
+                                                boolean esAdmin,
+                                                String vistaNotas) {
         if (fecha == null) fecha = LocalDate.now();
         if (periodo == null) periodo = 1;
+        String modoVista = "PERIODO".equalsIgnoreCase(vistaNotas) ? "PERIODO" : "FECHA";
 
         CursoTablaNotasDTO dto = new CursoTablaNotasDTO();
         dto.setCursoId(cursoId);
         dto.setPeriodo(periodo);
         dto.setFecha(fecha);
+        dto.setVistaNotas(modoVista);
+        dto.setPuedeEditarAsistencia(asistenciaService.puedeEditarFecha(
+                fecha,
+                docenteLogueadoOpt.orElse(null),
+                esAdmin ? com.siga.siga_iea.auth.enums.RolEnum.ADMIN : com.siga.siga_iea.auth.enums.RolEnum.DOCENTE
+        ));
 
         String diaSemana = obtenerNombreDiaEspanol(fecha.getDayOfWeek());
         dto.setDiaSemana(diaSemana);
@@ -132,7 +161,7 @@ public class CursoGestionAppService {
         List<CursoEstudiante> estudiantesCE = cursoService.listarEstudiantesDeCurso(cursoId);
         dto.setEstudiantesCE(estudiantesCE);
 
-        if (horariosDelDia.isEmpty() || (materiaNombre != null && materiaNombre.isBlank() && materiaId == null)) {
+        if (horariosDelDia.isEmpty()) {
             dto.setTieneHorarioHoy(false);
             dto.setMateriaNombre("");
             dto.setMateriaId(null);
@@ -145,30 +174,29 @@ public class CursoGestionAppService {
 
         final UUID targetMateriaId = materiaId;
         final String targetMateriaNombre = materiaNombre;
-        Optional<Horario> horarioMatch = Optional.empty();
-        if (targetMateriaId != null) {
-            horarioMatch = horariosDelDia.stream()
-                    .filter(h -> h.getMateria() != null && h.getMateria().getId().equals(targetMateriaId))
-                    .findFirst();
-        } else if (targetMateriaNombre != null && !targetMateriaNombre.isBlank()) {
-            horarioMatch = horariosDelDia.stream()
-                    .filter(h -> h.getMateria() != null && h.getMateria().getNombre().equalsIgnoreCase(targetMateriaNombre))
-                    .findFirst();
-        }
-
-        Horario hSeleccionado = null;
+        List<Horario> poolHorarios = horariosDelDia;
         if (!esAdmin && docenteLogueadoOpt.isPresent()) {
             Docente miDocente = docenteLogueadoOpt.get();
-            hSeleccionado = horariosDelDia.stream()
+            poolHorarios = horariosDelDia.stream()
                     .filter(h -> h.getDocente() != null && (
                             h.getDocente().getId().equals(miDocente.getId()) ||
                             (h.getDocente().getNumeroDocumento() != null && h.getDocente().getNumeroDocumento().equalsIgnoreCase(miDocente.getNumeroDocumento()))
                     ))
-                    .findFirst()
-                    .orElse(null);
-        } else {
-            hSeleccionado = horarioMatch.orElse(!horariosDelDia.isEmpty() ? horariosDelDia.get(0) : null);
+                    .toList();
         }
+
+        Optional<Horario> horarioMatch = Optional.empty();
+        if (targetMateriaId != null) {
+            horarioMatch = poolHorarios.stream()
+                    .filter(h -> h.getMateria() != null && h.getMateria().getId().equals(targetMateriaId))
+                    .findFirst();
+        } else if (targetMateriaNombre != null && !targetMateriaNombre.isBlank()) {
+            horarioMatch = poolHorarios.stream()
+                    .filter(h -> h.getMateria() != null && h.getMateria().getNombre().equalsIgnoreCase(targetMateriaNombre))
+                    .findFirst();
+        }
+
+        Horario hSeleccionado = horarioMatch.orElse(!poolHorarios.isEmpty() ? poolHorarios.get(0) : null);
 
         if (hSeleccionado == null) {
             dto.setTieneHorarioHoy(false);
@@ -198,16 +226,21 @@ public class CursoGestionAppService {
         String docStr = (hSeleccionado.getDocente() != null) ? " • Docente: " + hSeleccionado.getDocente().getNombreCompleto() : "";
         dto.setHorarioBannerTexto("Horario: " + horaStr + docStr);
 
+        String anioActivo = resolverAnioActivo();
         CursoMateria cm = (selectedMateriaId != null)
-                ? calificacionesService.obtenerOCrearCursoMateria(cursoId, selectedMateriaId, "2026")
-                : calificacionesService.obtenerOCrearCursoMateriaPorNombre(cursoId, selectedMateriaNombre, "2026");
+                ? calificacionesService.obtenerOCrearCursoMateria(cursoId, selectedMateriaId, anioActivo)
+                : calificacionesService.obtenerOCrearCursoMateriaPorNombre(cursoId, selectedMateriaNombre, anioActivo);
 
-        List<Evaluacion> evaluaciones = calificacionesService.obtenerEvaluacionesPorCursoYMateria(cm.getId(), periodo);
-        BigDecimal sumaPesos = evaluaciones.stream()
+        List<Evaluacion> evaluacionesPeriodo = calificacionesService.obtenerEvaluacionesPorCursoYMateria(cm.getId(), periodo);
+        BigDecimal sumaPesos = evaluacionesPeriodo.stream()
                 .map(e -> e.getPeso() != null ? e.getPeso() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Map<UUID, Map<UUID, BigDecimal>> calificacionesMapa = calificacionesService.obtenerCalificacionesMapa(cm.getId(), periodo);
+        List<Evaluacion> evaluacionesMostradas = "PERIODO".equals(modoVista)
+                ? evaluacionesPeriodo
+                : calificacionesService.obtenerEvaluacionesPorCursoYMateriaYFecha(cm.getId(), periodo, fecha);
+
+        Map<UUID, Map<UUID, BigDecimal>> calificacionesMapa = calificacionesService.obtenerCalificacionesMapa(evaluacionesMostradas);
         Map<UUID, String> asistenciasMapa = asistenciaService.obtenerMapaEstadosAsistencia(cursoId, fecha, cm.getMateria().getId());
 
         Map<UUID, BigDecimal> notasFinales = new HashMap<>();
@@ -222,7 +255,8 @@ public class CursoGestionAppService {
         dto.setCursoMateriaId(cm.getId());
         dto.setMateriaId(cm.getMateria().getId());
         dto.setMateriaNombre(cm.getMateria().getNombre());
-        dto.setEvaluaciones(evaluaciones);
+        dto.setEvaluaciones(evaluacionesMostradas);
+        dto.setTotalEvaluacionesPeriodo(evaluacionesPeriodo.size());
         dto.setSumaPesos(sumaPesos);
         dto.setCalificacionesMapa(calificacionesMapa);
         dto.setAsistenciasMapa(asistenciasMapa);

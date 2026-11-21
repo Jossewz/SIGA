@@ -1,32 +1,73 @@
 package com.siga.siga_iea.personal.controller;
 
+import com.siga.siga_iea.auth.service.CurrentUserContextService;
+import com.siga.siga_iea.clases.entity.Materia;
+import com.siga.siga_iea.clases.repository.MateriaRepository;
 import com.siga.siga_iea.storage.StorageFolder;
 import com.siga.siga_iea.storage.StorageService;
 import com.siga.siga_iea.storage.dto.UploadResult;
 import com.siga.siga_iea.usuarios.entity.Docente;
 import com.siga.siga_iea.usuarios.entity.PersonalAdministrativo;
 import com.siga.siga_iea.usuarios.entity.Usuario;
+import com.siga.siga_iea.usuarios.service.PerfilFotoService;
 import com.siga.siga_iea.usuarios.service.PersonalService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Controller
 public class PersonalController {
 
     private final PersonalService personalService;
     private final StorageService storageService;
+    private final MateriaRepository materiaRepository;
+    private final CurrentUserContextService currentUserContextService;
+    private final PerfilFotoService perfilFotoService;
 
-    public PersonalController(PersonalService personalService, StorageService storageService) {
+    @Autowired
+    public PersonalController(PersonalService personalService,
+                              StorageService storageService,
+                              MateriaRepository materiaRepository,
+                              @Autowired(required = false) CurrentUserContextService currentUserContextService,
+                              @Autowired(required = false) PerfilFotoService perfilFotoService) {
         this.personalService = personalService;
         this.storageService = storageService;
+        this.materiaRepository = materiaRepository;
+        this.currentUserContextService = currentUserContextService;
+        this.perfilFotoService = perfilFotoService;
+    }
+
+    public PersonalController(PersonalService personalService,
+                              StorageService storageService,
+                              MateriaRepository materiaRepository,
+                              CurrentUserContextService currentUserContextService) {
+        this(personalService, storageService, materiaRepository, currentUserContextService, null);
+    }
+
+    public PersonalController(PersonalService personalService,
+                              StorageService storageService,
+                              MateriaRepository materiaRepository) {
+        this(personalService, storageService, materiaRepository, null, null);
+    }
+
+    private void exigirAdminOAdministrativo() {
+        if (currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && !currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("Solo Administración o Secretaría puede gestionar personal institucional.");
+        }
     }
 
     @GetMapping("/personal")
+    @Transactional(readOnly = true)
     public String index(
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "cargo", required = false) String cargo,
@@ -42,6 +83,7 @@ public class PersonalController {
         model.addAttribute("area", area);
         model.addAttribute("estado", estado);
         model.addAttribute("tipo", tipo);
+        model.addAttribute("materiasList", materiaRepository.findByEstadoOrderByNombreAsc("Activo"));
 
         List<Map<String, Object>> personalList = new ArrayList<>();
 
@@ -49,7 +91,14 @@ public class PersonalController {
         if (tipo == null || tipo.isBlank() || "todos".equalsIgnoreCase(tipo) || "DOCENTE".equalsIgnoreCase(tipo)) {
             List<Docente> docentes = personalService.buscarDocentes(search, estado);
             for (Docente d : docentes) {
-                if (cargo != null && !cargo.isBlank() && !"Docente".equalsIgnoreCase(cargo)) continue;
+                List<String> asignaturasNombres = resolverNombresAsignaturas(d);
+                String resumenAsignaturas = asignaturasNombres.isEmpty() ? "Docente" : String.join(", ", asignaturasNombres);
+
+                if (cargo != null && !cargo.isBlank()
+                        && !"Docente".equalsIgnoreCase(cargo)
+                        && !resumenAsignaturas.toLowerCase().contains(cargo.toLowerCase())) {
+                    continue;
+                }
                 if (area != null && !area.isBlank() && !"Académica".equalsIgnoreCase(area)) continue;
 
                 Map<String, Object> map = new HashMap<>();
@@ -59,18 +108,19 @@ public class PersonalController {
                 map.put("nombres", d.getNombres() != null ? d.getNombres() : "Docente");
                 map.put("apellidos", d.getApellidos() != null ? d.getApellidos() : "");
                 map.put("nombreCompleto", d.getNombreCompleto());
-                map.put("cargo", "Docente");
+                map.put("asignaturasList", asignaturasNombres);
+                map.put("cargo", resumenAsignaturas);
                 map.put("area", "Académica");
                 map.put("estado", d.getEstado() != null ? d.getEstado() : "Activo");
                 map.put("tipoDocumento", d.getTipoDocumento() != null ? d.getTipoDocumento() : "CC");
                 map.put("numeroDocumento", d.getNumeroDocumento());
-                map.put("telefono", d.getTelefono() != null ? d.getTelefono() : "3001234567");
+                map.put("telefono", d.getTelefono() != null ? d.getTelefono() : "Sin teléfono");
                 map.put("foto", d.getFotoKey() != null ? "/storage/public/view?key=" + d.getFotoKey() : null);
 
                 Optional<Usuario> usrOpt = personalService.obtenerUsuarioAcceso(d.getNumeroDocumento());
                 map.put("tieneCuenta", usrOpt.isPresent());
-                map.put("email", usrOpt.map(Usuario::getEmail).orElse("jrojas@ieaci.edu.co"));
-                map.put("correo", usrOpt.map(Usuario::getEmail).orElse("jrojas@ieaci.edu.co"));
+                map.put("email", usrOpt.map(Usuario::getEmail).orElse(null));
+                map.put("correo", usrOpt.map(Usuario::getEmail).orElse(null));
                 map.put("usuarioEstado", usrOpt.map(Usuario::getEstado).orElse(null));
 
                 personalList.add(map);
@@ -88,22 +138,23 @@ public class PersonalController {
                 map.put("nombres", p.getNombres() != null ? p.getNombres() : "Personal");
                 map.put("apellidos", p.getApellidos() != null ? p.getApellidos() : "");
                 map.put("nombreCompleto", p.getNombreCompleto());
-            map.put("cargo", p.getCargo() != null ? p.getCargo() : "Administrativo");
-            map.put("area", p.getArea() != null ? p.getArea() : "Administrativa");
-            map.put("estado", p.getEstado() != null ? p.getEstado() : "Activo");
-            map.put("tipoDocumento", p.getTipoDocumento() != null ? p.getTipoDocumento() : "CC");
-            map.put("numeroDocumento", p.getNumeroDocumento());
-            map.put("telefono", p.getTelefono() != null ? p.getTelefono() : "3001234567");
-            map.put("foto", p.getFotoKey() != null ? "/storage/public/view?key=" + p.getFotoKey() : null);
+                map.put("asignaturasList", List.of());
+                map.put("cargo", p.getCargo() != null ? p.getCargo() : "Administrativo");
+                map.put("area", p.getArea() != null ? p.getArea() : "Administrativa");
+                map.put("estado", p.getEstado() != null ? p.getEstado() : "Activo");
+                map.put("tipoDocumento", p.getTipoDocumento() != null ? p.getTipoDocumento() : "CC");
+                map.put("numeroDocumento", p.getNumeroDocumento());
+                map.put("telefono", p.getTelefono() != null ? p.getTelefono() : "Sin teléfono");
+                map.put("foto", p.getFotoKey() != null ? "/storage/public/view?key=" + p.getFotoKey() : null);
 
-            Optional<Usuario> usrOpt = personalService.obtenerUsuarioAcceso(p.getNumeroDocumento());
-            map.put("tieneCuenta", usrOpt.isPresent());
-            map.put("email", usrOpt.map(Usuario::getEmail).orElse("admin@ieaci.edu.co"));
-            map.put("correo", usrOpt.map(Usuario::getEmail).orElse("admin@ieaci.edu.co"));
-            map.put("usuarioEstado", usrOpt.map(Usuario::getEstado).orElse(null));
+                Optional<Usuario> usrOpt = personalService.obtenerUsuarioAcceso(p.getNumeroDocumento());
+                map.put("tieneCuenta", usrOpt.isPresent());
+                map.put("email", usrOpt.map(Usuario::getEmail).orElse(null));
+                map.put("correo", usrOpt.map(Usuario::getEmail).orElse(null));
+                map.put("usuarioEstado", usrOpt.map(Usuario::getEstado).orElse(null));
 
-            personalList.add(map);
-        }
+                personalList.add(map);
+            }
         }
 
         model.addAttribute("personalList", personalList);
@@ -125,6 +176,7 @@ public class PersonalController {
             @RequestParam(value = "estudios", required = false) String estudios,
             @RequestParam(value = "profesion", required = false) String profesion,
             @RequestParam(value = "especialidad", required = false) String especialidad,
+            @RequestParam(value = "materiaIds", required = false) List<UUID> materiaIds,
             @RequestParam(value = "sexo", required = false) String sexo,
             @RequestParam(value = "fotoFile", required = false) MultipartFile fotoFile,
             @RequestParam(value = "createUser", required = false, defaultValue = "false") boolean createUser,
@@ -140,6 +192,7 @@ public class PersonalController {
             @RequestParam(value = "numDoc", required = false) String numDoc,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             String nombresFull = (nombres != null && !nombres.isBlank()) ? nombres.trim() :
                     ((primerNombre != null ? primerNombre : "") + (segundoNombre != null && !segundoNombre.isBlank() ? " " + segundoNombre : "")).trim();
@@ -152,6 +205,11 @@ public class PersonalController {
 
             if (nombresFull.isBlank() || apellidosFull.isBlank() || docNum.isBlank()) {
                 throw new IllegalArgumentException("Nombres, apellidos y número de documento son obligatorios.");
+            }
+
+            if (personalService.buscarDocentePorDocumento(docNum).isPresent()
+                    || personalService.buscarPersonalPorDocumento(docNum).isPresent()) {
+                throw new IllegalArgumentException("Ya existe un miembro del personal registrado con el documento " + docNum + ".");
             }
 
             String uploadedFotoKey = null;
@@ -171,10 +229,12 @@ public class PersonalController {
                 d.setTipoDocumento(docType);
                 d.setNumeroDocumento(docNum);
                 d.setGenero(sexo);
-                d.setTelefono(telefono);
+                d.setTelefono(telefono != null ? telefono.trim() : null);
                 d.setDireccion(direccion);
-                d.setTitulo((estudios != null && !estudios.isBlank()) ? estudios : profesion);
-                d.setEspecialidad(especialidad);
+                String tituloVal = (estudios != null && !estudios.isBlank()) ? estudios.trim()
+                        : (profesion != null && !profesion.isBlank() ? profesion.trim() : null);
+                d.setTitulo(tituloVal);
+                asignarMateriasADocente(d, materiaIds, especialidad, true);
                 d.setFotoKey(uploadedFotoKey);
                 d.setEstado("Activo");
                 personalService.guardarDocente(d);
@@ -184,10 +244,10 @@ public class PersonalController {
                 p.setApellidos(apellidosFull);
                 p.setTipoDocumento(docType);
                 p.setNumeroDocumento(docNum);
-                p.setCargo((cargo != null && !cargo.isBlank()) ? cargo : ("DIRECTIVO".equalsIgnoreCase(tipo) ? "Directivo" : "Administrativo"));
-                p.setArea((area != null && !area.isBlank()) ? area : ("DIRECTIVO".equalsIgnoreCase(tipo) ? "Directiva" : "Administrativa"));
+                p.setCargo((cargo != null && !cargo.isBlank()) ? cargo.trim() : ("DIRECTIVO".equalsIgnoreCase(tipo) ? "Directivo" : "Administrativo"));
+                p.setArea((area != null && !area.isBlank()) ? area.trim() : ("DIRECTIVO".equalsIgnoreCase(tipo) ? "Directiva" : "Administrativa"));
                 p.setGenero(sexo);
-                p.setTelefono(telefono);
+                p.setTelefono(telefono != null ? telefono.trim() : null);
                 p.setDireccion(direccion);
                 p.setFotoKey(uploadedFotoKey);
                 p.setEstado("Activo");
@@ -201,7 +261,10 @@ public class PersonalController {
                 personalService.crearOCambiarCuentaAcceso(docNum, nombresFull, apellidosFull, targetEmail, pass, targetRole);
             }
 
-            redirectAttributes.addFlashAttribute("mensajeExito", "Personal registrado exitosamente.");
+            redirectAttributes.addFlashAttribute("mensajeExito",
+                    esDocente
+                            ? "Docente registrado exitosamente. Puede activar su cuenta institucional desde su ficha."
+                            : "Personal registrado exitosamente. Puede activar su cuenta institucional desde su ficha.");
         } catch (Exception ex) {
             redirectAttributes.addFlashAttribute("mensajeError", "Error al registrar personal: " + ex.getMessage());
         }
@@ -210,8 +273,12 @@ public class PersonalController {
     }
 
     @GetMapping("/personal/perfil/{id}")
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public String perfil(@PathVariable String id, Model model, RedirectAttributes redirectAttributes) {
+    @Transactional(readOnly = true)
+    public String perfil(
+            @PathVariable String id,
+            @RequestParam(value = "tab", required = false) String tab,
+            Model model,
+            RedirectAttributes redirectAttributes) {
         model.addAttribute("title", "Perfil de Personal – IEACI");
         model.addAttribute("activePage", "personal");
 
@@ -230,6 +297,11 @@ public class PersonalController {
 
         if (docenteOpt.isPresent()) {
             Docente d = docenteOpt.get();
+            List<String> asignaturasNombres = resolverNombresAsignaturas(d);
+            List<String> asignaturasIds = d.getAsignaturas() != null
+                    ? d.getAsignaturas().stream().map(m -> m.getId().toString()).toList()
+                    : List.of();
+
             staff.put("id", d.getId().toString());
             staff.put("tipoPersona", "docente");
             staff.put("primerNombre", d.getNombres());
@@ -242,8 +314,10 @@ public class PersonalController {
             staff.put("numeroDocumento", d.getNumeroDocumento());
             staff.put("telefono", d.getTelefono() != null ? d.getTelefono() : "N/A");
             staff.put("direccion", d.getDireccion() != null ? d.getDireccion() : "N/A");
-            staff.put("profesion", d.getTitulo() != null ? d.getTitulo() : "Licenciado");
-            staff.put("especialidad", d.getEspecialidad() != null ? d.getEspecialidad() : "N/A");
+            staff.put("profesion", (d.getTitulo() != null && !d.getTitulo().isBlank()) ? d.getTitulo() : null);
+            staff.put("asignaturasList", asignaturasNombres);
+            staff.put("asignaturasIds", asignaturasIds);
+            staff.put("especialidad", asignaturasNombres.isEmpty() ? null : String.join(", ", asignaturasNombres));
             staff.put("estado", d.getEstado() != null ? d.getEstado() : "Activo");
             staff.put("foto", d.getFotoKey() != null ? "/storage/public/view?key=" + d.getFotoKey() : null);
 
@@ -277,8 +351,10 @@ public class PersonalController {
             staff.put("numeroDocumento", p.getNumeroDocumento());
             staff.put("telefono", p.getTelefono() != null ? p.getTelefono() : "N/A");
             staff.put("direccion", p.getDireccion() != null ? p.getDireccion() : "N/A");
-            staff.put("profesion", "Administrativo");
-            staff.put("especialidad", "N/A");
+            staff.put("profesion", null);
+            staff.put("asignaturasList", List.of());
+            staff.put("asignaturasIds", List.of());
+            staff.put("especialidad", null);
             staff.put("estado", p.getEstado() != null ? p.getEstado() : "Activo");
             staff.put("foto", p.getFotoKey() != null ? "/storage/public/view?key=" + p.getFotoKey() : null);
 
@@ -302,9 +378,34 @@ public class PersonalController {
             return "redirect:/personal";
         }
 
+        String resolvedTab = "cuenta".equalsIgnoreCase(tab) ? "cuenta"
+                : ("laboral".equalsIgnoreCase(tab) ? "laboral" : "informacion");
         model.addAttribute("staff", staff);
-        model.addAttribute("activeTab", "informacion");
+        model.addAttribute("materiasList", materiaRepository.findByEstadoOrderByNombreAsc("Activo"));
+        model.addAttribute("activeTab", resolvedTab);
         return "personal/perfil";
+    }
+
+    @PostMapping("/personal/{id}/asignaturas")
+    @Transactional
+    public String actualizarAsignaturasDocente(
+            @PathVariable String id,
+            @RequestParam(value = "materiaIds", required = false) List<UUID> materiaIds,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            UUID uuid = UUID.fromString(id);
+            Docente docente = personalService.buscarDocentePorId(uuid)
+                    .orElseThrow(() -> new IllegalArgumentException("Docente no encontrado."));
+
+            asignarMateriasADocente(docente, materiaIds, null, false);
+            personalService.guardarDocente(docente);
+
+            redirectAttributes.addFlashAttribute("mensajeExito", "Asignaturas del docente actualizadas correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar asignaturas: " + ex.getMessage());
+        }
+        return "redirect:/personal/perfil/" + id + "?tab=laboral";
     }
 
     @PostMapping("/personal/{id}/crear-cuenta")
@@ -315,6 +416,7 @@ public class PersonalController {
             @RequestParam(value = "rol", required = false) String rol,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
         try {
             UUID uuid = UUID.fromString(id);
             String numDoc = null;
@@ -344,6 +446,123 @@ public class PersonalController {
             redirectAttributes.addFlashAttribute("mensajeError", "Error al crear cuenta: " + ex.getMessage());
         }
 
+        return "redirect:/personal/perfil/" + id + "?tab=cuenta";
+    }
+
+    @PostMapping("/personal/{id}/toggle-estado")
+    public String toggleEstadoPersonal(
+            @PathVariable String id,
+            @RequestParam(value = "redirectTo", required = false) String redirectTo,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            UUID uuid = UUID.fromString(id);
+            String nuevoEstado = personalService.toggleEstadoPersonal(uuid);
+            String mensaje = "Activo".equalsIgnoreCase(nuevoEstado)
+                    ? "Miembro habilitado nuevamente (acceso activo)."
+                    : "Miembro deshabilitado (" + nuevoEstado + ") y acceso bloqueado.";
+            redirectAttributes.addFlashAttribute("mensajeExito", mensaje);
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar estado: " + ex.getMessage());
+        }
+
+        if ("/personal".equals(redirectTo)) {
+            return "redirect:/personal";
+        }
         return "redirect:/personal/perfil/" + id;
+    }
+
+    @PostMapping("/personal/{id}/foto")
+    public String actualizarFotoPersonal(
+            @PathVariable String id,
+            @RequestParam("fotoFile") MultipartFile fotoFile,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            if (perfilFotoService == null) {
+                throw new IllegalStateException("Servicio de almacenamiento de fotos no disponible.");
+            }
+            perfilFotoService.actualizarFotoPersonal(UUID.fromString(id), fotoFile);
+            redirectAttributes.addFlashAttribute("mensajeExito", "Foto del perfil actualizada exitosamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar foto: " + ex.getMessage());
+        }
+        return "redirect:/personal/perfil/" + id;
+    }
+
+    @PostMapping("/personal/{id}/foto/eliminar")
+    public String eliminarFotoPersonal(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            if (perfilFotoService != null) {
+                perfilFotoService.eliminarFotoPersonal(UUID.fromString(id));
+            }
+            redirectAttributes.addFlashAttribute("mensajeExito", "Foto del perfil eliminada correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al eliminar foto: " + ex.getMessage());
+        }
+        return "redirect:/personal/perfil/" + id;
+    }
+
+    @PostMapping("/personal/{id}/eliminar")
+    public String eliminarPersonal(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            UUID uuid = UUID.fromString(id);
+            String emailActual = currentUserContextService != null
+                    ? currentUserContextService.getAuthentication()
+                            .map(org.springframework.security.core.Authentication::getName)
+                            .orElse(null)
+                    : null;
+            personalService.eliminarPersonal(uuid, emailActual);
+            redirectAttributes.addFlashAttribute("mensajeExito", "Miembro del personal y su cuenta vinculada fueron eliminados correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al eliminar miembro del personal: " + ex.getMessage());
+        }
+        return "redirect:/personal";
+    }
+
+    private void asignarMateriasADocente(Docente docente, List<UUID> materiaIds, String especialidadFallback, boolean permitirFallbackTexto) {
+        if (materiaIds != null && !materiaIds.isEmpty()) {
+            List<Materia> seleccionadas = materiaRepository.findAllById(materiaIds).stream()
+                    .sorted(Comparator.comparing(Materia::getNombre, String.CASE_INSENSITIVE_ORDER))
+                    .toList();
+            if (seleccionadas.isEmpty()) {
+                throw new IllegalArgumentException("Las asignaturas seleccionadas no son válidas.");
+            }
+            docente.setAsignaturas(new LinkedHashSet<>(seleccionadas));
+            docente.setEspecialidad(seleccionadas.stream()
+                    .map(Materia::getNombre)
+                    .collect(Collectors.joining(", ")));
+            return;
+        }
+
+        if (permitirFallbackTexto && especialidadFallback != null && !especialidadFallback.isBlank()) {
+            docente.setEspecialidad(especialidadFallback.trim());
+            return;
+        }
+
+        if (!materiaRepository.findByEstadoOrderByNombreAsc("Activo").isEmpty()) {
+            throw new IllegalArgumentException("Debe seleccionar al menos una asignatura para el docente.");
+        }
+
+        docente.getAsignaturas().clear();
+        docente.setEspecialidad(null);
+    }
+
+    private List<String> resolverNombresAsignaturas(Docente docente) {
+        if (docente.getAsignaturas() != null && !docente.getAsignaturas().isEmpty()) {
+            return docente.getAsignaturas().stream()
+                    .map(Materia::getNombre)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+        }
+        if (docente.getEspecialidad() != null && !docente.getEspecialidad().isBlank()) {
+            return Arrays.stream(docente.getEspecialidad().split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
+                    .toList();
+        }
+        return List.of();
     }
 }

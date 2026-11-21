@@ -7,6 +7,16 @@
 
 <th:block th:fragment="content">
     <div class="flex flex-col gap-6">
+        <!-- Flash Messages -->
+        <div th:if="${mensajeExito}" class="p-4 rounded-xl bg-green-50 border border-green-200 text-xs font-bold text-sidebar flex items-center gap-2">
+            <i data-lucide="check-circle" class="size-4.5 text-sidebar shrink-0"></i>
+            <span th:text="${mensajeExito}">Éxito</span>
+        </div>
+        <div th:if="${mensajeError}" class="p-4 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-alert-red flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="size-4.5 text-alert-red shrink-0"></i>
+            <span th:text="${mensajeError}">Error</span>
+        </div>
+
         <!-- Header -->
         <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
             <div>
@@ -145,28 +155,33 @@
                     <thead class="sticky top-0 z-20 border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700 [&_th]:bg-surface-sunken">
                         <tr>
                             <th class="py-3 px-4 pl-6">Funcionario</th>
-                            <th class="py-3 px-4">Cargo / Especialidad</th>
-                            <th class="py-3 px-4 text-center w-36">Categoría</th>
-                            <th class="py-3 px-4">Contacto</th>
-                            <th class="py-3 px-4 pr-6 text-right w-24">Acciones</th>
+                            <th class="py-3 px-4">Cargo / Asignaturas</th>
+                            <th class="py-3 px-4 text-center w-32">Categoría</th>
+                            <th class="py-3 px-4 text-center w-36">Teléfono</th>
+                            <th class="py-3 px-4 text-center">Cuenta Institucional</th>
+                            <th class="py-3 px-3 text-center w-24">Estado</th>
+                            <th class="py-3 px-4 pr-6 text-center w-16">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="text-brand-900">
                         <!-- Estado Vacío -->
                         <th:block th:if="${personalList == null || #lists.isEmpty(personalList)}">
-                            <tr th:replace="~{components/tables/empty-state :: emptyState(colspan=5, title='No se encontró personal registrado', description='No se encontraron miembros del personal con los filtros seleccionados.', resetUrl='/personal')}"></tr>
+                            <tr th:replace="~{components/tables/empty-state :: emptyState(colspan=7, title='No se encontró personal registrado', description='No se encontraron miembros del personal con los filtros seleccionados.', resetUrl='/personal')}"></tr>
                         </th:block>
 
                         <!-- Filas de Personal -->
                         <tr th:each="p : ${personalList}" 
                             class="transition-colors personal-row"
+                            x-data="{ open: false }"
+                            :class="open ? 'relative z-50' : ''"
                             th:data-tipo="${p.tipo != null ? p.tipo : 'DOCENTE'}">
                             
                             <!-- Nombre y Documento -->
                             <td class="py-3 px-4 pl-6">
                                 <div class="flex items-center gap-3">
-                                    <div class="size-9 rounded-full bg-surface-sunken text-sidebar font-black grid place-items-center border border-border text-xs shrink-0 shadow-2xs">
-                                        <span th:text="${p.nombres != null ? #strings.substring(p.nombres, 0, 1) : (p.nombreCompleto != null ? #strings.substring(p.nombreCompleto, 0, 1) : 'P')}">C</span>
+                                    <div class="size-9 rounded-full bg-surface-sunken text-sidebar font-black grid place-items-center border border-border text-xs shrink-0 shadow-2xs overflow-hidden">
+                                        <img th:if="${p.foto != null and !#strings.isEmpty(p.foto)}" th:src="${p.foto}" alt="Foto" class="w-full h-full object-cover">
+                                        <span th:unless="${p.foto != null and !#strings.isEmpty(p.foto)}" th:text="${p.nombres != null ? #strings.substring(p.nombres, 0, 1) : (p.nombreCompleto != null ? #strings.substring(p.nombreCompleto, 0, 1) : 'P')}">C</span>
                                     </div>
                                     <div>
                                         <a th:href="@{'/personal/perfil/' + ${p.id}}" class="font-black text-sidebar text-sm hover:underline" th:text="${p.nombreCompleto != null ? p.nombreCompleto : (p.nombres + ' ' + p.apellidos)}">Carlos Mendoza</a>
@@ -175,8 +190,18 @@
                                 </div>
                             </td>
 
-                            <!-- Cargo -->
-                            <td class="py-3 px-4 font-bold text-brand-800 text-xs" th:text="${p.cargo != null ? p.cargo : 'Docente'}">Docente de Matemáticas</td>
+                            <!-- Cargo / Asignaturas -->
+                            <td class="py-3 px-4">
+                                <div th:if="${p.tipo == 'DOCENTE' and p.asignaturasList != null and !#lists.isEmpty(p.asignaturasList)}"
+                                     class="flex flex-wrap gap-1.5">
+                                    <span th:each="asig : ${p.asignaturasList}"
+                                          class="inline-flex items-center px-2 py-0.5 rounded-md bg-pill-green/70 text-sidebar font-bold text-[11px] border border-[#cbe5c7]"
+                                          th:text="${asig}">Matemáticas</span>
+                                </div>
+                                <span th:unless="${p.tipo == 'DOCENTE' and p.asignaturasList != null and !#lists.isEmpty(p.asignaturasList)}"
+                                      class="font-bold text-brand-800 text-xs"
+                                      th:text="${p.cargo != null ? p.cargo : 'Docente'}">Docente</span>
+                            </td>
 
                             <!-- Tipo / Rol Badge -->
                             <td class="py-3 px-4 text-center">
@@ -185,21 +210,65 @@
                                       th:text="${p.tipo != null ? p.tipo : 'DOCENTE'}">DOCENTE</span>
                             </td>
 
-                            <!-- Contacto -->
-                            <td class="py-3 px-4">
-                                <div class="font-semibold text-brand-800 text-xs" th:text="${p.email != null ? p.email : (p.correo != null ? p.correo : 'carlos.mendoza@ieaci.edu.co')}">carlos.mendoza@ieaci.edu.co</div>
-                                <div class="text-[11px] text-brand-500 font-medium" th:text="${p.telefono != null ? p.telefono : '3001234567'}">3001234567</div>
+                            <!-- Teléfono -->
+                            <td class="py-3 px-4 text-center text-xs font-semibold text-brand-700 whitespace-nowrap"
+                                th:text="${p.telefono != null ? p.telefono : 'Sin teléfono'}">3001234567</td>
+
+                            <!-- Cuenta Institucional -->
+                            <td class="py-3 px-4 text-center">
+                                <span th:if="${p.tieneCuenta and p.email != null}"
+                                      class="inline-block px-2.5 py-0.5 rounded-md bg-pill-green text-sidebar font-extrabold text-[11px] border border-[#cbe5c7]"
+                                      th:text="${p.email}">carlos.mendoza@ieaci.edu.co</span>
+                                <span th:unless="${p.tieneCuenta and p.email != null}"
+                                      class="inline-block px-2.5 py-0.5 rounded-md bg-surface-sunken text-text-secondary font-medium text-[11px] border border-border">Sin cuenta</span>
                             </td>
 
-                            <!-- Acciones -->
-                            <td class="py-3 px-4 pr-6 text-right">
-                                <div class="flex justify-end items-center gap-1.5">
-                                    <a th:href="@{'/personal/perfil/' + ${p.id}}" class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar" title="Ver hoja de vida">
-                                        <i data-lucide="eye" class="size-4 stroke-2"></i>
-                                    </a>
-                                    <button type="button" class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar cursor-pointer" title="Editar datos">
-                                        <i data-lucide="edit-3" class="size-4 stroke-2"></i>
+                            <!-- Estado -->
+                            <td class="py-3 px-3 text-center">
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider leading-none inline-block shadow-2xs"
+                                      th:classappend="${p.estado == 'Activo'} ? 'bg-pill-green text-sidebar border border-[#cbe5c7]' : 'bg-pill-red text-alert-red border border-[#f5cece]'"
+                                      th:text="${p.estado}">Activo</span>
+                            </td>
+
+                            <!-- Acción (Menú unificado de 3 puntos) -->
+                            <td class="py-3 px-4 pr-6 text-center" :class="open ? 'relative z-50' : 'relative'">
+                                <div class="inline-block text-left relative" :class="open ? 'z-50' : ''" @click.outside="open = false">
+                                    <button type="button" @click.stop="open = !open"
+                                            class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-500 hover:text-brand-800 cursor-pointer"
+                                            title="Acciones de miembro">
+                                        <i data-lucide="more-vertical" class="size-4 stroke-2"></i>
                                     </button>
+
+                                    <div x-show="open" x-cloak
+                                         x-transition:enter="transition ease-out duration-150"
+                                         x-transition:enter-start="opacity-0 scale-95"
+                                         x-transition:enter-end="opacity-100 scale-100"
+                                         x-transition:leave="transition ease-in duration-100"
+                                         x-transition:leave-start="opacity-100 scale-100"
+                                         x-transition:leave-end="opacity-0 scale-95"
+                                         class="absolute right-0 mt-1 w-52 rounded-surface bg-white border border-border shadow-pop py-1 z-50 text-left">
+                                        <a th:href="@{'/personal/perfil/' + ${p.id}}"
+                                           class="flex items-center gap-2 px-3.5 py-2 text-brand-800 hover:bg-surface-muted transition-colors font-bold text-xs">
+                                            <i data-lucide="user-cog" class="size-3.5 text-sidebar stroke-2"></i> Gestionar usuario
+                                        </a>
+                                        <form th:action="@{'/personal/' + ${p.id} + '/toggle-estado'}" method="post" class="w-full">
+                                            <input type="hidden" name="redirectTo" value="/personal">
+                                            <button type="submit"
+                                                    class="w-full flex items-center gap-2 px-3.5 py-2 transition-colors font-bold text-xs text-left cursor-pointer"
+                                                    th:classappend="${p.estado == 'Activo'} ? 'text-amber-800 hover:bg-amber-50' : 'text-sidebar hover:bg-surface-muted'">
+                                                <i th:data-lucide="${p.estado == 'Activo' ? 'user-x' : 'user-check'}" class="size-3.5 stroke-2"></i>
+                                                <span th:text="${p.tipo == 'DOCENTE' ? (p.estado == 'Activo' ? 'Deshabilitar docente' : 'Habilitar docente') : (p.estado == 'Activo' ? 'Deshabilitar miembro' : 'Habilitar miembro')}">Deshabilitar</span>
+                                            </button>
+                                        </form>
+                                        <form th:action="@{'/personal/' + ${p.id} + '/eliminar'}" method="post" class="w-full"
+                                              onsubmit="return confirm('¿Está seguro de ELIMINAR permanentemente a este miembro del personal y desvincular su cuenta institucional?');">
+                                            <button type="submit"
+                                                    class="w-full flex items-center gap-2 px-3.5 py-2 text-alert-red hover:bg-red-50 transition-colors font-bold text-xs text-left cursor-pointer border-t border-border mt-1">
+                                                <i data-lucide="trash-2" class="size-3.5 stroke-2"></i>
+                                                <span th:text="${p.tipo == 'DOCENTE' ? 'Eliminar docente' : 'Eliminar miembro'}">Eliminar</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </td>
                         </tr>

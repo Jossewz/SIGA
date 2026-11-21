@@ -1,0 +1,26 @@
+relationship Rel_Fact_Dim_Estudiante
+	fromColumn: Fact_Seguimiento_Periodo.EstudianteKey
+	toColumn: Dim_Estudiante.EstudianteKey
+
+relationship Rel_Fact_Dim_Curso
+	fromColumn: Fact_Seguimiento_Periodo.CursoKey
+	toColumn: Dim_Curso.CursoKey
+
+relationship Rel_Fact_Dim_Periodo
+	fromColumn: Fact_Seguimiento_Periodo.PeriodoKey
+	toColumn: Dim_Periodo.PeriodoKey
+
+relationship Rel_Fact_Dim_Nivel
+	fromColumn: Fact_Seguimiento_Periodo.NivelKey
+	toColumn: Dim_Nivel_Desempeno.NivelKey
+
+relationship 52b8b44c-81fa-4182-94ce-d26822ff9c40
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Dim_Periodo.Fecha_Inicio
+	toColumn: LocalDateTable_1c6f8d8a-0391-4539-87d0-dd06f6a13add.Date
+
+relationship e09c64fc-f882-4915-9182-c5d10d020474
+	joinOnDateBehavior: datePartOnly
+	fromColumn: Dim_Periodo.Fecha_Fin
+	toColumn: LocalDateTable_997925ab-2378-4435-b453-0ba0709b1cdf.Date
+

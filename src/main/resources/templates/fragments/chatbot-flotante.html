@@ -4,36 +4,72 @@
 
 <!-- Fragmento del Chatbot Asistente Institucional Flotante (Mangle - SIGA IEACI) -->
 <th:block th:fragment="widget">
-    <div id="siga-chatbot-container" class="relative z-50" x-data="sigaChatbotWidget()" th:data-current-user="${currentUser != null ? currentUser.email : ''}" x-init="init()">
+<div id="siga-chatbot-container"
+     class="relative z-50"
+     x-data="sigaChatbotWidget()"
+     th:data-current-user="${currentUser != null ? currentUser.email : ''}"
+     x-init="init()"
+     @toggle-mangle.window="toggleFromShortcut()"
+     @keydown.window="handleGlobalShortcut($event)">
 
         <!-- ══════════════════════════════════════════════════════════
              1. GLOBO DE SALUDO FLOTANTE ("HOLA, SOY MANGLE")
              ══════════════════════════════════════════════════════════ -->
-        <div x-show="!isOpen && showGreetingBubble"
+        <div x-show="isFabVisible && !isOpen && showGreetingBubble"
+             x-cloak
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-y-2 scale-95"
              x-transition:enter-end="opacity-100 translate-y-0 scale-100"
              x-transition:leave="transition ease-in duration-200"
              x-transition:leave-start="opacity-100 scale-100"
              x-transition:leave-end="opacity-0 scale-95"
-             class="fixed bottom-22 sm:bottom-24 right-6 sm:right-8 z-50 select-none cursor-pointer group"
-             @click="toggleChat()">
+             @mouseenter="pauseAutoHide()"
+             @mouseleave="scheduleAutoHide()"
+             class="fixed bottom-22 sm:bottom-24 right-6 sm:right-8 z-50 select-none flex items-center gap-1.5">
 
             <!-- Pastilla verde de saludo -->
-            <div class="bg-[#134e1e] hover:bg-[#1b6327] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 border border-emerald-500/40 hover:scale-105 transition-transform duration-200">
+            <div @click="toggleChat()"
+                 class="bg-[#134e1e] hover:bg-[#1b6327] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 border border-emerald-500/40 hover:scale-105 transition-transform duration-200 cursor-pointer">
                 <span class="inline-block">🌿</span>
                 <span>Hola, soy Mangle...</span>
             </div>
+            <button type="button"
+                    @click.stop="dismissFab()"
+                    title="Ocultar Mangle (Alt + M para volver)"
+                    aria-label="Ocultar Mangle"
+                    class="size-6 rounded-full bg-white/95 hover:bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-sm flex items-center justify-center text-xs font-bold cursor-pointer">
+                ×
+            </button>
         </div>
 
         <!-- ══════════════════════════════════════════════════════════
              2. BOTÓN CIRCULAR FLOTANTE (FAB CON AVATAR MANGLE)
              ══════════════════════════════════════════════════════════ -->
-        <button type="button"
-                id="btn-siga-chatbot-toggle"
-                @click="toggleChat()"
-                class="fixed bottom-6 right-6 sm:right-8 size-14 sm:size-16 rounded-full bg-[#134e1e] hover:bg-[#1b6327] text-white shadow-2xl ring-4 ring-amber-400/90 flex items-center justify-center transition-all duration-300 transform hover:scale-105 active:scale-95 z-50 cursor-pointer group"
-                aria-label="Abrir asistente virtual Mangle">
+        <div x-show="isFabVisible && !isOpen"
+             x-cloak
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-90"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-90"
+             @mouseenter="pauseAutoHide()"
+             @mouseleave="scheduleAutoHide()"
+             class="fixed bottom-6 right-6 sm:right-8 z-50 group">
+
+            <button type="button"
+                    @click.stop="dismissFab()"
+                    title="Ocultar Mangle (Alt + M)"
+                    aria-label="Ocultar asistente Mangle"
+                    class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-sm flex items-center justify-center text-[11px] font-black opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
+                ×
+            </button>
+
+            <button type="button"
+                    id="btn-siga-chatbot-toggle"
+                    @click="toggleChat()"
+                    class="size-14 sm:size-16 rounded-full bg-[#134e1e] hover:bg-[#1b6327] text-white shadow-2xl ring-4 ring-amber-400/90 flex items-center justify-center transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-pointer relative"
+                    aria-label="Abrir asistente virtual Mangle">
             
             <!-- Avatar Mangle institucional SVG 100% Original -->
             <div class="relative size-11 sm:size-12 rounded-full overflow-hidden flex items-center justify-center bg-[#0d3815]">
@@ -102,6 +138,20 @@
                 <span class="absolute inset-0 size-full rounded-full bg-emerald-400 animate-ping opacity-75"></span>
             </span>
         </button>
+        </div>
+
+        <!-- Aviso breve cuando Mangle se oculta -->
+        <div x-show="showHideHint"
+             x-cloak
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed bottom-5 right-6 z-40 px-3 py-1.5 rounded-full bg-slate-900/85 text-white text-[11px] font-semibold shadow-md pointer-events-none">
+            Mangle oculto · Presiona <kbd class="px-1 py-0.2 rounded bg-white/20 text-white font-bold">Alt + M</kbd> o usa la barra superior
+        </div>
 
         <!-- ══════════════════════════════════════════════════════════
              3. VENTANA MODAL FLOTANTE DEL CHATBOT (MANGLE)
@@ -368,13 +418,21 @@
          ══════════════════════════════════════════════════════════ -->
     <script>
         function sigaChatbotWidget() {
+            const GREETING_HIDE_MS = 5000;
+            const FAB_HIDE_MS = 12000;
+
             return {
                 isOpen: false,
+                isFabVisible: true,
                 showGreetingBubble: true,
+                showHideHint: false,
                 showSuggestions: true,
                 inputMessage: '',
                 isLoading: false,
                 messages: [],
+                greetingTimer: null,
+                fabHideTimer: null,
+                hintTimer: null,
 
                 init() {
                     // Cargar estado de conversación desde sessionStorage para no perder mensajes al navegar
@@ -389,6 +447,9 @@
                         const savedUserEmail = sessionStorage.getItem('siga_mangle_chat_user');
                         if (savedUserEmail && currentUserEmail && savedUserEmail !== currentUserEmail) {
                             sessionStorage.removeItem('siga_mangle_chat_history');
+                            sessionStorage.removeItem('siga_mangle_fab_hidden');
+                            sessionStorage.removeItem('siga_mangle_greeting_dismissed');
+                            sessionStorage.removeItem('siga_mangle_hide_toast_shown');
                         }
                         if (currentUserEmail) {
                             sessionStorage.setItem('siga_mangle_chat_user', currentUserEmail);
@@ -402,6 +463,9 @@
                                     sessionStorage.removeItem('siga_mangle_chat_history');
                                     sessionStorage.removeItem('siga_mangle_chat_user');
                                     sessionStorage.removeItem('siga_chat_open');
+                                    sessionStorage.removeItem('siga_mangle_fab_hidden');
+                                    sessionStorage.removeItem('siga_mangle_greeting_dismissed');
+                                    sessionStorage.removeItem('siga_mangle_hide_toast_shown');
                                 });
                             }
                         });
@@ -415,13 +479,83 @@
                         }
 
                         const wasOpen = sessionStorage.getItem('siga_chat_open');
+                        const wasFabHidden = sessionStorage.getItem('siga_mangle_fab_hidden') === 'true';
+                        const greetingDismissed = sessionStorage.getItem('siga_mangle_greeting_dismissed') === 'true';
+
                         if (wasOpen === 'true') {
                             this.isOpen = true;
+                            this.isFabVisible = true;
                             this.showGreetingBubble = false;
                             this.$nextTick(() => this.scrollToBottom());
+                        } else if (wasFabHidden) {
+                            this.isFabVisible = false;
+                            this.showGreetingBubble = false;
+                        } else {
+                            this.showGreetingBubble = !greetingDismissed;
+                            this.scheduleGreetingHide();
+                            this.scheduleAutoHide();
                         }
                     } catch (e) {
                         this.inicializarBienvenida();
+                    }
+                },
+
+                scheduleGreetingHide() {
+                    if (this.greetingTimer) clearTimeout(this.greetingTimer);
+                    if (!this.showGreetingBubble || this.isOpen) return;
+                    this.greetingTimer = setTimeout(() => {
+                        this.showGreetingBubble = false;
+                        try { sessionStorage.setItem('siga_mangle_greeting_dismissed', 'true'); } catch (e) {}
+                    }, GREETING_HIDE_MS);
+                },
+
+                scheduleAutoHide() {
+                    if (this.fabHideTimer) clearTimeout(this.fabHideTimer);
+                    if (this.isOpen || !this.isFabVisible) return;
+                    this.fabHideTimer = setTimeout(() => {
+                        if (!this.isOpen) {
+                            this.dismissFab(true);
+                        }
+                    }, FAB_HIDE_MS);
+                },
+
+                pauseAutoHide() {
+                    if (this.greetingTimer) clearTimeout(this.greetingTimer);
+                    if (this.fabHideTimer) clearTimeout(this.fabHideTimer);
+                },
+
+                dismissFab(esAutomatico = false) {
+                    this.pauseAutoHide();
+                    this.showGreetingBubble = false;
+                    this.isFabVisible = false;
+                    try {
+                        sessionStorage.setItem('siga_mangle_fab_hidden', 'true');
+                        sessionStorage.setItem('siga_mangle_greeting_dismissed', 'true');
+                        if (!esAutomatico || !sessionStorage.getItem('siga_mangle_hide_toast_shown')) {
+                            sessionStorage.setItem('siga_mangle_hide_toast_shown', 'true');
+                            this.showHideHint = true;
+                            if (this.hintTimer) clearTimeout(this.hintTimer);
+                            this.hintTimer = setTimeout(() => { this.showHideHint = false; }, 2800);
+                        }
+                    } catch (e) {}
+                },
+
+                toggleFromShortcut() {
+                    this.showHideHint = false;
+                    this.isFabVisible = true;
+                    try { sessionStorage.removeItem('siga_mangle_fab_hidden'); } catch (e) {}
+                    this.toggleChat();
+                },
+
+                handleGlobalShortcut(event) {
+                    if (event.altKey && !event.ctrlKey && !event.metaKey && event.key && event.key.toLowerCase() === 'm') {
+                        event.preventDefault();
+                        this.toggleFromShortcut();
+                        return;
+                    }
+                    if (event.key === 'Escape' && this.isOpen) {
+                        this.isOpen = false;
+                        try { sessionStorage.setItem('siga_chat_open', 'false'); } catch (e) {}
                     }
                 },
 
@@ -442,7 +576,10 @@
                 toggleChat() {
                     this.isOpen = !this.isOpen;
                     if (this.isOpen) {
+                        this.pauseAutoHide();
+                        this.isFabVisible = true;
                         this.showGreetingBubble = false;
+                        this.showHideHint = false;
                         sessionStorage.setItem('siga_chat_open', 'true');
                         this.$nextTick(() => {
                             this.scrollToBottom();
@@ -450,6 +587,7 @@
                         });
                     } else {
                         sessionStorage.setItem('siga_chat_open', 'false');
+                        this.scheduleAutoHide();
                     }
                 },
 

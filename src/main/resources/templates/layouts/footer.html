@@ -1,5 +1,5 @@
 <div th:fragment="footer">
     <footer class="py-4 text-center text-xs text-text-secondary">
-        <p>© 2026 Plataforma Colegio</p>
+        <p th:text="${'© ' + (anioLectivoActivo ?: '2026') + ' SIGA · IEACI'}">© SIGA · IEACI</p>
     </footer>
 </div>

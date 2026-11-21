@@ -8,20 +8,394 @@
 <th:block th:fragment="content">
     <div class="flex flex-col gap-6 flex-1">
         <!-- Header -->
-        <div>
-            <h1 class="text-text-primary text-[28px] font-black tracking-tight leading-none mb-1.5">Control de Asistencia</h1>
-            <p class="text-text-secondary text-sm font-semibold">Toma de asistencia diaria, ausencias justificadas y reportes de puntualidad.</p>
+        <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
+            <div>
+                <h1 class="text-text-primary text-[28px] font-black tracking-tight leading-none mb-1.5"
+                    th:text="${modoVista == 'ESTUDIANTE' ? 'Mi Historial de Asistencia' : 'Consolidado de Asistencia'}">Control de Asistencia</h1>
+                <p class="text-text-secondary text-sm font-semibold"
+                   th:text="${modoVista == 'ESTUDIANTE' ? 'Consulta de asistencia diaria, tardanzas y excusas registradas por asignatura.' : 'Resumen institucional de asistencia registrada por curso y fecha.'}">Seguimiento real de asistencia escolar.</p>
+            </div>
+
+            <div th:if="${modoVista == 'ADMIN'}" class="flex flex-wrap items-center gap-2">
+                <a th:href="@{/asistencias/excel/exportar(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, estado=${estadoFiltro}, materia=${materiaFiltro}, q=${queryFiltro})}"
+                   class="px-4 py-2.5 rounded-xl bg-white border border-border text-sidebar text-xs font-extrabold hover:bg-surface-sunken transition inline-flex items-center gap-2 shadow-2xs"
+                   th:title="${cursoSeleccionado != null ? 'Descargar plantilla oficial editable (.xlsx)' : 'Exportar reporte consolidado (.xlsx)'}">
+                    <i data-lucide="download" class="size-4 stroke-2"></i>
+                    <span th:text="${cursoSeleccionado != null ? 'Exportar Plantilla (.xlsx)' : 'Exportar Excel'}">Exportar Excel</span>
+                </a>
+
+                <form th:if="${cursoSeleccionado != null}"
+                      th:action="@{/asistencias/excel/importar}"
+                      method="post"
+                      enctype="multipart/form-data"
+                      class="m-0">
+                    <input type="hidden" name="cursoId" th:value="${cursoSeleccionado.id}">
+                    <input type="hidden" name="fecha" th:value="${fechaFiltro}">
+                    <label class="px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-sidebar text-xs font-extrabold hover:bg-emerald-100 transition inline-flex items-center gap-2 shadow-2xs cursor-pointer">
+                        <i data-lucide="upload" class="size-4 stroke-2"></i>
+                        <span>Importar Excel</span>
+                        <input type="file" name="archivo" accept=".xlsx" class="hidden" onchange="if(this.files.length) this.form.submit()">
+                    </label>
+                </form>
+
+                <a th:if="${cursoSeleccionado != null}"
+                   th:href="@{/clases/gestion(codigo=${cursoSeleccionado.codigoCurso})}"
+                   class="px-4 py-2.5 rounded-xl bg-sidebar text-white text-xs font-extrabold hover:brightness-110 transition inline-flex items-center gap-2 shadow-sm">
+                    <i data-lucide="external-link" class="size-4 stroke-2"></i>
+                    <span>Gestionar en Curso</span>
+                </a>
+                <a th:if="${cursoSeleccionado == null}"
+                   th:href="@{/clases}"
+                   class="px-4 py-2.5 rounded-xl bg-white border border-border text-text-primary text-xs font-extrabold hover:bg-surface-sunken transition inline-flex items-center gap-2 shadow-2xs">
+                    <i data-lucide="layout-grid" class="size-4 stroke-2 text-sidebar"></i>
+                    <span>Ir a Cursos</span>
+                </a>
+            </div>
         </div>
 
-        <!-- Main Card Container -->
-        <div class="bg-white rounded-xl border border-border shadow-soft flex-1 p-8 flex flex-col items-center justify-center text-center">
-            <div class="size-16 rounded-2xl bg-surface-sunken text-sidebar grid place-items-center mb-4 border border-border">
-                <i data-lucide="calendar-days" class="size-8 stroke-2"></i>
+        <!-- Mensajes de importación/validación Excel -->
+        <div th:if="${mensajeExito}" class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-sidebar flex items-center gap-2.5">
+            <i data-lucide="check-circle-2" class="size-4.5 shrink-0 stroke-2"></i>
+            <span th:text="${mensajeExito}">Éxito</span>
+        </div>
+        <div th:if="${mensajeError}" class="p-4 rounded-xl bg-rose-50 border border-rose-300 text-xs font-bold text-alert-red">
+            <div class="flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="size-4.5 shrink-0 stroke-2"></i>
+                <span th:text="${mensajeError}">Error</span>
             </div>
-            <h2 class="text-text-primary text-lg font-black">Módulo de Asistencia</h2>
-            <p class="text-text-secondary text-xs font-semibold max-w-md mt-1.5">Gestión diaria de asistencia escolar por curso y jornada académica.</p>
+            <ul th:if="${erroresExcel != null and !#lists.isEmpty(erroresExcel)}" class="mt-2 list-disc list-inside space-y-0.5 text-[11px] font-semibold text-rose-800">
+                <li th:each="err : ${erroresExcel}" th:text="${err}">Detalle error</li>
+            </ul>
+        </div>
+
+        <!-- Tarjetas resumen reales (clickeables para filtrar por estado) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado=${estadoFiltro == 'PRESENTE' ? '' : 'PRESENTE'})}"
+               class="bg-white rounded-xl border p-4 shadow-2xs transition-all hover:border-sidebar/50 hover:shadow-xs flex items-center justify-between gap-3"
+               th:classappend="${estadoFiltro == 'PRESENTE'} ? 'border-sidebar ring-2 ring-sidebar/20 bg-pill-green/20' : 'border-border'">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Presente (P)</span>
+                    <p class="text-2xl font-black text-sidebar mt-1" th:text="${cntPresente ?: 0}">0</p>
+                </div>
+                <div class="size-9 rounded-lg bg-pill-green/70 text-sidebar flex items-center justify-center shrink-0">
+                    <i data-lucide="check-circle-2" class="size-4 stroke-2"></i>
+                </div>
+            </a>
+
+            <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado=${estadoFiltro == 'TARDE' ? '' : 'TARDE'})}"
+               class="bg-white rounded-xl border p-4 shadow-2xs transition-all hover:border-amber-400 hover:shadow-xs flex items-center justify-between gap-3"
+               th:classappend="${estadoFiltro == 'TARDE'} ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/40' : 'border-border'">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Tardanza (T)</span>
+                    <p class="text-2xl font-black text-amber-600 mt-1" th:text="${cntTarde ?: 0}">0</p>
+                </div>
+                <div class="size-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="clock-3" class="size-4 stroke-2"></i>
+                </div>
+            </a>
+
+            <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado=${estadoFiltro == 'EXCUSADO' ? '' : 'EXCUSADO'})}"
+               class="bg-white rounded-xl border p-4 shadow-2xs transition-all hover:border-sky-400 hover:shadow-xs flex items-center justify-between gap-3"
+               th:classappend="${estadoFiltro == 'EXCUSADO'} ? 'border-sky-600 ring-2 ring-sky-500/20 bg-sky-50/40' : 'border-border'">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Excusado (E)</span>
+                    <p class="text-2xl font-black text-sky-700 mt-1" th:text="${cntExcusado ?: 0}">0</p>
+                </div>
+                <div class="size-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+                    <i data-lucide="file-check-2" class="size-4 stroke-2"></i>
+                </div>
+            </a>
+
+            <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado=${estadoFiltro == 'AUSENTE' ? '' : 'AUSENTE'})}"
+               class="bg-white rounded-xl border p-4 shadow-2xs transition-all hover:border-alert-red/60 hover:shadow-xs flex items-center justify-between gap-3"
+               th:classappend="${estadoFiltro == 'AUSENTE'} ? 'border-alert-red ring-2 ring-alert-red/20 bg-pill-red/30' : 'border-border'">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Inasistencia (FI)</span>
+                    <p class="text-2xl font-black text-alert-red mt-1" th:text="${cntAusente ?: 0}">0</p>
+                </div>
+                <div class="size-9 rounded-lg bg-pill-red/70 text-alert-red flex items-center justify-center shrink-0">
+                    <i data-lucide="user-x" class="size-4 stroke-2"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Barra de filtros completa ADMIN -->
+        <form th:if="${modoVista == 'ADMIN'}" id="form-filtros-asistencia" method="get" th:action="@{/asistencias}"
+              class="bg-white rounded-xl border border-border p-4 shadow-2xs flex flex-col gap-3">
+            <input type="hidden" name="estado" id="filtro-estado-hidden" th:value="${estadoFiltro}">
+
+            <div class="flex flex-col xl:flex-row xl:items-end gap-3">
+                <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                    <!-- Buscador instantáneo -->
+                    <div class="flex flex-col gap-1 lg:col-span-3">
+                        <label for="filtro-busqueda" class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Buscar</label>
+                        <div class="relative">
+                            <input type="text" id="filtro-busqueda" name="q" th:value="${queryFiltro}"
+                                   placeholder="Estudiante o documento..."
+                                   oninput="filtrarTablaAsistencias(this.value)"
+                                   class="w-full h-10 pl-3.5 pr-9 bg-surface-sunken border border-border rounded-lg text-xs font-bold text-text-primary placeholder:text-text-secondary/70 focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar transition">
+                            <i data-lucide="search" class="size-4 text-text-secondary stroke-2 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Curso -->
+                    <div class="flex flex-col gap-1 lg:col-span-3">
+                        <label for="filtro-curso" class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Curso</label>
+                        <select id="filtro-curso" name="cursoId" onchange="this.form.submit()"
+                                class="w-full h-10 px-3 bg-surface-sunken border border-border rounded-lg text-xs font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar cursor-pointer">
+                            <option value="" th:selected="${cursoSeleccionado == null}">Todos los cursos</option>
+                            <option th:each="c : ${cursos}" th:value="${c.id}"
+                                    th:text="${c.grado + ' - ' + (c.grupo != null ? c.grupo : '01') + ' (' + c.jornada + ')'}"
+                                    th:selected="${cursoSeleccionado != null and cursoSeleccionado.id == c.id}"></option>
+                        </select>
+                    </div>
+
+                    <!-- Asignatura -->
+                    <div class="flex flex-col gap-1 lg:col-span-2">
+                        <label for="filtro-materia" class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Asignatura</label>
+                        <select id="filtro-materia" name="materia" onchange="this.form.submit()"
+                                class="w-full h-10 px-3 bg-surface-sunken border border-border rounded-lg text-xs font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar cursor-pointer">
+                            <option value="" th:selected="${materiaFiltro == null or #strings.isEmpty(materiaFiltro)}">Todas</option>
+                            <option th:each="mat : ${materiasDisponibles}" th:value="${mat}" th:text="${mat}"
+                                    th:selected="${materiaFiltro != null and #strings.equalsIgnoreCase(materiaFiltro, mat)}"></option>
+                        </select>
+                    </div>
+
+                    <!-- Fecha con stepper de días -->
+                    <div class="flex flex-col gap-1 lg:col-span-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <label for="filtro-fecha" class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Fecha</label>
+                            <a th:if="${fechaFiltro != fechaHoy}"
+                               th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaHoy}, estado=${estadoFiltro}, materia=${materiaFiltro}, q=${queryFiltro})}"
+                               class="text-[10px] font-black text-sidebar hover:underline">Hoy</a>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaAnterior}, estado=${estadoFiltro}, materia=${materiaFiltro}, q=${queryFiltro})}"
+                               title="Día anterior"
+                               class="h-10 w-9 shrink-0 rounded-lg bg-surface-sunken border border-border text-text-primary hover:bg-brand-100 transition flex items-center justify-center">
+                                <i data-lucide="chevron-left" class="size-4 stroke-2"></i>
+                            </a>
+                            <input type="date" id="filtro-fecha" name="fecha" th:value="${fechaFiltro}" onchange="this.form.submit()"
+                                   class="flex-1 min-w-0 h-10 px-2.5 bg-surface-sunken border border-border rounded-lg text-xs font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar">
+                            <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaSiguiente}, estado=${estadoFiltro}, materia=${materiaFiltro}, q=${queryFiltro})}"
+                               title="Día siguiente"
+                               class="h-10 w-9 shrink-0 rounded-lg bg-surface-sunken border border-border text-text-primary hover:bg-brand-100 transition flex items-center justify-center">
+                                <i data-lucide="chevron-right" class="size-4 stroke-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <a th:if="${cursoSeleccionado != null or !#strings.isEmpty(estadoFiltro) or !#strings.isEmpty(materiaFiltro) or !#strings.isEmpty(queryFiltro) or fechaFiltro != fechaHoy}"
+                       th:href="@{/asistencias}"
+                       class="h-10 px-3.5 rounded-lg border border-border bg-white text-text-secondary hover:text-text-primary hover:bg-surface-sunken text-xs font-extrabold transition inline-flex items-center gap-1.5"
+                       title="Restablecer filtros">
+                        <i data-lucide="rotate-ccw" class="size-3.5 stroke-2"></i>
+                        <span>Limpiar</span>
+                    </a>
+                    <button type="submit"
+                            class="h-10 px-5 rounded-lg bg-sidebar text-white text-xs font-extrabold hover:brightness-110 transition cursor-pointer inline-flex items-center justify-center gap-1.5 shadow-xs">
+                        <i data-lucide="search" class="size-3.5 stroke-2"></i>
+                        <span>Consultar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Franja inferior: chips rápidos de estado + progreso de asistencia -->
+            <div class="pt-3 border-t border-border/70 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary mr-1">Estado:</span>
+                    <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro})}"
+                       class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                       th:classappend="${#strings.isEmpty(estadoFiltro)} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">
+                        Todos
+                    </a>
+                    <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado='PRESENTE')}"
+                       class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                       th:classappend="${estadoFiltro == 'PRESENTE'} ? 'bg-pill-green text-sidebar border-sidebar/40' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">
+                        Presente
+                    </a>
+                    <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado='TARDE')}"
+                       class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                       th:classappend="${estadoFiltro == 'TARDE'} ? 'bg-pill-warning text-[#8f5b12] border-amber-400' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">
+                        Tardanza
+                    </a>
+                    <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado='EXCUSADO')}"
+                       class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                       th:classappend="${estadoFiltro == 'EXCUSADO'} ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">
+                        Excusado
+                    </a>
+                    <a th:href="@{/asistencias(cursoId=${cursoSeleccionado != null ? cursoSeleccionado.id : ''}, fecha=${fechaFiltro}, materia=${materiaFiltro}, q=${queryFiltro}, estado='AUSENTE')}"
+                       class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                       th:classappend="${estadoFiltro == 'AUSENTE'} ? 'bg-pill-red text-alert-red border-alert-red/40' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">
+                        Inasistencia
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-4 text-xs">
+                    <span class="font-semibold text-text-secondary">
+                        Mostrando <strong id="asist-visible-count" class="text-text-primary font-black" th:text="${registrosCurso != null ? #lists.size(registrosCurso) : 0}">0</strong>
+                        <span th:if="${totalRegistrosBase != null and totalRegistrosBase > 0}">
+                            de <strong class="text-text-primary font-black" th:text="${totalRegistrosBase}">0</strong>
+                        </span> registro(s)
+                    </span>
+                    <div th:if="${totalRegistrosBase != null and totalRegistrosBase > 0}" class="flex items-center gap-2">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Asistencia</span>
+                        <div class="w-20 h-2 rounded-full bg-surface-sunken overflow-hidden border border-border/60">
+                            <div class="h-full bg-sidebar rounded-full transition-all" th:style="'width:' + ${tasaAsistencia} + '%'"></div>
+                        </div>
+                        <span class="font-black text-sidebar" th:text="${tasaAsistencia + '%'}">100%</span>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Barra de filtros ESTUDIANTE -->
+        <form th:if="${modoVista == 'ESTUDIANTE'}" method="get" th:action="@{/asistencias}"
+              class="bg-white rounded-xl border border-border p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <input type="hidden" name="estado" th:value="${estadoFiltro}">
+            <div class="relative flex-1 min-w-[220px] max-w-md">
+                <input type="text" name="q" th:value="${queryFiltro}"
+                       placeholder="Buscar por asignatura, docente u observación..."
+                       oninput="filtrarTablaAsistencias(this.value)"
+                       class="w-full h-10 pl-3.5 pr-9 bg-surface-sunken border border-border rounded-lg text-xs font-bold text-text-primary placeholder:text-text-secondary/70 focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar transition">
+                <i data-lucide="search" class="size-4 text-text-secondary stroke-2 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1.5">
+                <a th:href="@{/asistencias(q=${queryFiltro})}"
+                   class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                   th:classappend="${#strings.isEmpty(estadoFiltro)} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">Todos</a>
+                <a th:href="@{/asistencias(q=${queryFiltro}, estado='PRESENTE')}"
+                   class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                   th:classappend="${estadoFiltro == 'PRESENTE'} ? 'bg-pill-green text-sidebar border-sidebar/40' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">Presente</a>
+                <a th:href="@{/asistencias(q=${queryFiltro}, estado='TARDE')}"
+                   class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                   th:classappend="${estadoFiltro == 'TARDE'} ? 'bg-pill-warning text-[#8f5b12] border-amber-400' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">Tardanza</a>
+                <a th:href="@{/asistencias(q=${queryFiltro}, estado='EXCUSADO')}"
+                   class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                   th:classappend="${estadoFiltro == 'EXCUSADO'} ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">Excusado</a>
+                <a th:href="@{/asistencias(q=${queryFiltro}, estado='AUSENTE')}"
+                   class="px-2.5 py-1 rounded-full text-[11px] font-extrabold transition border"
+                   th:classappend="${estadoFiltro == 'AUSENTE'} ? 'bg-pill-red text-alert-red border-alert-red/40' : 'bg-surface-sunken text-text-secondary border-border hover:text-text-primary'">Inasistencia</a>
+            </div>
+
+            <div th:if="${totalRegistrosBase != null and totalRegistrosBase > 0}" class="flex items-center gap-2 text-xs">
+                <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary">Asistencia</span>
+                <div class="w-20 h-2 rounded-full bg-surface-sunken overflow-hidden border border-border/60">
+                    <div class="h-full bg-sidebar rounded-full" th:style="'width:' + ${tasaAsistencia} + '%'"></div>
+                </div>
+                <span class="font-black text-sidebar" th:text="${tasaAsistencia + '%'}">100%</span>
+            </div>
+        </form>
+
+        <!-- Tabla Estudiante -->
+        <div th:if="${modoVista == 'ESTUDIANTE'}" class="rounded-surface border border-border bg-white shadow-card overflow-hidden">
+            <table class="tabla-siga w-full text-left text-sm bg-surface">
+                <thead class="border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700">
+                    <tr>
+                        <th class="py-3 px-4 pl-6">Fecha</th>
+                        <th class="py-3 px-4">Asignatura</th>
+                        <th class="py-3 px-4">Docente</th>
+                        <th class="py-3 px-4 text-center">Estado</th>
+                        <th class="py-3 px-4 pr-6">Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody class="text-brand-900">
+                    <tr th:if="${historialEstudiante == null || #lists.isEmpty(historialEstudiante)}">
+                        <td colspan="5" class="py-10 text-center text-xs font-semibold text-text-secondary">
+                            No hay registros de asistencia que coincidan con el filtro aplicado.
+                        </td>
+                    </tr>
+                    <tr th:each="item : ${historialEstudiante}" class="asist-row"
+                        th:attr="data-search=${#strings.toLowerCase((item.fecha ?: '') + ' ' + (item.materia ?: '') + ' ' + (item.docente ?: '') + ' ' + (item.observaciones ?: ''))}">
+                        <td class="py-3 px-4 pl-6 font-bold text-xs" th:text="${item.fecha}">2026-11-18</td>
+                        <td class="py-3 px-4 font-black text-sidebar text-xs" th:text="${item.materia}">Matemáticas</td>
+                        <td class="py-3 px-4 text-xs font-semibold" th:text="${item.docente}">Docente</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border"
+                                  th:classappend="${item.estado == 'PRESENTE'} ? 'bg-pill-green text-sidebar border-[#cbe5c7]' : (${item.estado == 'AUSENTE'} ? 'bg-pill-red text-alert-red border-[#f5cece]' : (${item.estado == 'TARDE'} ? 'bg-pill-warning text-[#8f5b12] border-[#f0dec0]' : 'bg-sky-50 text-sky-700 border-sky-200'))"
+                                  th:text="${item.estado}">PRESENTE</span>
+                        </td>
+                        <td class="py-3 px-4 pr-6 text-xs text-text-secondary" th:text="${item.observaciones}">-</td>
+                    </tr>
+                    <tr id="asist-empty-search" class="hidden">
+                        <td colspan="5" class="py-10 text-center text-xs font-semibold text-text-secondary">
+                            Ningún registro coincide con la búsqueda ingresada.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tabla Admin -->
+        <div th:if="${modoVista == 'ADMIN'}" class="rounded-surface border border-border bg-white shadow-card overflow-hidden">
+            <table class="tabla-siga w-full text-left text-sm bg-surface">
+                <thead class="border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700">
+                    <tr>
+                        <th class="py-3 px-4 pl-6">Estudiante</th>
+                        <th class="py-3 px-4">Documento</th>
+                        <th class="py-3 px-4">Curso</th>
+                        <th class="py-3 px-4">Asignatura / Sesión</th>
+                        <th class="py-3 px-4">Docente</th>
+                        <th class="py-3 px-4 pr-6 text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody class="text-brand-900">
+                    <tr th:if="${registrosCurso == null || #lists.isEmpty(registrosCurso)}">
+                        <td colspan="6" class="py-10 text-center text-xs font-semibold text-text-secondary">
+                            No se registraron asistencias para los filtros seleccionados en esta fecha.
+                        </td>
+                    </tr>
+                    <tr th:each="r : ${registrosCurso}" class="asist-row"
+                        th:attr="data-search=${#strings.toLowerCase((r.estudiante ?: '') + ' ' + (r.documento ?: '') + ' ' + (r.curso ?: '') + ' ' + (r.materia ?: '') + ' ' + (r.docente ?: ''))}">
+                        <td class="py-3 px-4 pl-6 font-bold text-xs" th:text="${r.estudiante}">Estudiante</td>
+                        <td class="py-3 px-4 text-xs text-text-secondary font-medium" th:text="${r.documento}">1010</td>
+                        <td class="py-3 px-4 text-xs">
+                            <span class="px-2 py-0.5 rounded-md bg-surface-sunken border border-border text-[11px] font-bold text-text-primary" th:text="${r.curso}">11° - 01</span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="font-bold text-sidebar text-xs" th:text="${r.materia}">Matemáticas</div>
+                            <p th:if="${r.observaciones != null}" class="text-[11px] text-text-secondary mt-0.5" th:text="${r.observaciones}"></p>
+                        </td>
+                        <td class="py-3 px-4 text-xs font-medium" th:text="${r.docente}">Docente</td>
+                        <td class="py-3 px-4 pr-6 text-center">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border"
+                                  th:classappend="${r.estado == 'PRESENTE'} ? 'bg-pill-green text-sidebar border-[#cbe5c7]' : (${r.estado == 'AUSENTE'} ? 'bg-pill-red text-alert-red border-[#f5cece]' : (${r.estado == 'TARDE'} ? 'bg-pill-warning text-[#8f5b12] border-[#f0dec0]' : 'bg-sky-50 text-sky-700 border-sky-200'))"
+                                  th:text="${r.estado}">PRESENTE</span>
+                        </td>
+                    </tr>
+                    <tr id="asist-empty-search" class="hidden">
+                        <td colspan="6" class="py-10 text-center text-xs font-semibold text-text-secondary">
+                            Ningún registro coincide con la búsqueda ingresada.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
+
+    <script>
+        function filtrarTablaAsistencias(rawValue) {
+            const needle = (rawValue || '').trim().toLowerCase();
+            const rows = document.querySelectorAll('tr.asist-row');
+            let visible = 0;
+            rows.forEach((row) => {
+                const hay = row.getAttribute('data-search') || '';
+                const match = !needle || hay.includes(needle);
+                row.classList.toggle('hidden', !match);
+                if (match) visible++;
+            });
+            const counter = document.getElementById('asist-visible-count');
+            if (counter) counter.textContent = String(visible);
+            const emptySearchRow = document.getElementById('asist-empty-search');
+            if (emptySearchRow && rows.length > 0) {
+                emptySearchRow.classList.toggle('hidden', visible > 0);
+            }
+        }
+    </script>
 </th:block>
 
 </body>

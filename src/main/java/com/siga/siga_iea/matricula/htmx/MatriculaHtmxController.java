@@ -13,7 +13,7 @@ import com.siga.siga_iea.usuarios.service.AcudienteService;
 import com.siga.siga_iea.usuarios.service.EstudianteService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,17 +34,20 @@ public class MatriculaHtmxController {
     private final EstudianteService estudianteService;
     private final AcudienteService acudienteService;
     private final CursoRepository cursoRepository;
+    private final TransactionTemplate transactionTemplate;
 
     public MatriculaHtmxController(MatriculaService matriculaService,
                                    DocumentoService documentoService,
                                    EstudianteService estudianteService,
                                    AcudienteService acudienteService,
-                                   CursoRepository cursoRepository) {
+                                   CursoRepository cursoRepository,
+                                   TransactionTemplate transactionTemplate) {
         this.matriculaService = matriculaService;
         this.documentoService = documentoService;
         this.estudianteService = estudianteService;
         this.acudienteService = acudienteService;
         this.cursoRepository = cursoRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @PostMapping("/update-name")
@@ -59,7 +62,7 @@ public class MatriculaHtmxController {
         String fNames = (String) session.getAttribute("studentNames");
         String fSurnames = (String) session.getAttribute("studentSurnames");
         String fullName = ((fNames != null ? fNames : "") + " " + (fSurnames != null ? fSurnames : "")).trim();
-        return fullName.isEmpty() ? "Julián Andrés Gómez" : fullName;
+        return fullName.isEmpty() ? "Sin especificar" : fullName;
     }
 
     @PostMapping("/paso/3/selection")
@@ -189,7 +192,6 @@ public class MatriculaHtmxController {
     }
 
     @PostMapping("/paso/finalizar")
-    @Transactional
     public String handleFinalize(HttpSession session, Model model) {
         String civil = (String) session.getAttribute("civilDocName");
         String salud = (String) session.getAttribute("saludFileName");
@@ -203,7 +205,6 @@ public class MatriculaHtmxController {
             return "matricula/htmx-step";
         }
 
-        // 1. Guardar/Buscar Acudiente
         String parentNames = (String) session.getAttribute("parentNames");
         String parentSurnames = (String) session.getAttribute("parentSurnames");
         String parentDocType = (String) session.getAttribute("parentDocType");
@@ -213,14 +214,16 @@ public class MatriculaHtmxController {
         String parentEmail = (String) session.getAttribute("parentEmail");
         String parentSecondaryEmail = (String) session.getAttribute("parentSecondaryEmail");
 
-        Acudiente acudiente = acudienteService.buscarOCrear(
-                parentNames, parentSurnames, parentRelation,
-                parentDocType, parentId, parentPhone, parentEmail, parentSecondaryEmail
-        );
-
-        // 2. Guardar Estudiante con sus datos reales
         String studentNames = (String) session.getAttribute("studentNames");
+        String studentSurnames = (String) session.getAttribute("studentSurnames");
+        String studentDocType = (String) session.getAttribute("studentDocType");
         String studentDocNumber = (String) session.getAttribute("studentDocNumber");
+        String studentGender = (String) session.getAttribute("studentGender");
+        String studentPhone = (String) session.getAttribute("studentPhone");
+        String birthdayStr = (String) session.getAttribute("studentBirthday");
+        String studentAddress = (String) session.getAttribute("studentAddress");
+        String grado = (String) session.getAttribute("grado");
+        Boolean autoriza = (Boolean) session.getAttribute("autorizaTratamientoDatos");
 
         if (studentNames == null || studentNames.isBlank() || studentDocNumber == null || studentDocNumber.isBlank()) {
             model.addAttribute("error", "Por favor regrese al Paso 1 e ingrese los nombres y el número de documento del estudiante.");
@@ -229,86 +232,107 @@ public class MatriculaHtmxController {
             return "matricula/htmx-step";
         }
 
-        Estudiante estudiante = new Estudiante();
-        estudiante.setNombres(studentNames);
-        estudiante.setApellidos((String) session.getAttribute("studentSurnames"));
-        estudiante.setTipoDocumento((String) session.getAttribute("studentDocType"));
-        estudiante.setNumeroDocumento(studentDocNumber);
-        estudiante.setGenero((String) session.getAttribute("studentGender"));
-        estudiante.setTelefono((String) session.getAttribute("studentPhone"));
-
-        String birthdayStr = (String) session.getAttribute("studentBirthday");
-        if (birthdayStr != null && !birthdayStr.isBlank()) {
-            try {
-                estudiante.setFechaNacimiento(LocalDate.parse(birthdayStr));
-            } catch (Exception ignored) {}
-        }
-
-        estudiante.setDireccion((String) session.getAttribute("studentAddress"));
-        estudiante.setFotoKey((String) session.getAttribute("fotoFileKey"));
-        estudiante.setAcudiente(acudiente);
-        estudiante.setEstado("Activo");
-
         try {
-            estudiante = estudianteService.guardar(estudiante);
+            // La transacción se ejecuta y confirma completamente ANTES de limpiar la sesión,
+            // evitando perder los datos ingresados si ocurre algún error de validación o BD.
+            transactionTemplate.executeWithoutResult(status -> {
+                // 1. Guardar/Buscar Acudiente
+                Acudiente acudiente = acudienteService.buscarOCrear(
+                        parentNames, parentSurnames, parentRelation,
+                        parentDocType, parentId, parentPhone, parentEmail, parentSecondaryEmail
+                );
 
-            if (acudiente != null) {
-                estudianteService.asociarAcudiente(estudiante.getId(), acudiente.getId(),
-                        parentRelation != null ? parentRelation : "Acudiente Principal", true);
-            }
-
-            // 3. Guardar Matrícula con Curso y Consentimiento Ley 1581
-            Matricula nuevaMatricula = new Matricula();
-            nuevaMatricula.setEstudiante(estudiante);
-
-            String grado = (String) session.getAttribute("grado");
-            nuevaMatricula.setGrado(grado != null ? grado : "No Asignado");
-            nuevaMatricula.setSalon("01");
-            nuevaMatricula.setAnoLectivo(String.valueOf(Year.now().getValue()));
-            nuevaMatricula.setEstado("PENDIENTE_DE_REVISION");
-            nuevaMatricula.setFechaMatricula(LocalDate.now());
-
-            Boolean autoriza = (Boolean) session.getAttribute("autorizaTratamientoDatos");
-            nuevaMatricula.setAutorizaTratamientoDatos(autoriza != null ? autoriza : true);
-            nuevaMatricula.setFechaAutorizacionDatos(LocalDateTime.now());
-
-            if (grado != null && !grado.isBlank()) {
-                Optional<Curso> cursoOpt = cursoRepository.findByGradoAndGrupoAndAnoLectivo(grado, "01", nuevaMatricula.getAnoLectivo());
-                if (cursoOpt.isEmpty()) {
-                    cursoOpt = cursoRepository.findByGradoAndGrupo(grado, "01");
+                // 2. Guardar Estudiante con sus datos reales
+                Estudiante estudiante = new Estudiante();
+                estudiante.setNombres(studentNames);
+                estudiante.setApellidos(studentSurnames);
+                estudiante.setTipoDocumento(studentDocType);
+                estudiante.setNumeroDocumento(studentDocNumber);
+                estudiante.setGenero(studentGender);
+                estudiante.setTelefono(studentPhone);
+                if (birthdayStr != null && !birthdayStr.isBlank()) {
+                    try {
+                        estudiante.setFechaNacimiento(LocalDate.parse(birthdayStr));
+                    } catch (Exception ignored) {}
                 }
-                cursoOpt.ifPresent(nuevaMatricula::setCurso);
-            }
+                estudiante.setDireccion(studentAddress);
+                estudiante.setFotoKey((String) session.getAttribute("fotoFileKey"));
+                estudiante.setAcudiente(acudiente);
+                estudiante.setEstado("Activo");
 
-            matriculaService.guardar(nuevaMatricula);
+                estudiante = estudianteService.guardar(estudiante);
 
-            // 4. Vincular documentos a la matrícula
-            Map<String, TipoDocumento> fieldToTipo = Map.of(
-                    "parentDoc", TipoDocumento.DOCUMENTO_ACUDIENTE,
-                    "civilDoc", TipoDocumento.REGISTRO_CIVIL,
-                    "saludFile", TipoDocumento.CERTIFICADO_SALUD,
-                    "fotoFile", TipoDocumento.FOTO_ESTUDIANTE,
-                    "historialFile", TipoDocumento.HISTORIAL_ACADEMICO
-            );
+                if (acudiente != null) {
+                    estudianteService.asociarAcudiente(estudiante.getId(), acudiente.getId(),
+                            parentRelation != null ? parentRelation : "Acudiente Principal", true);
+                }
 
-            for (var entry : fieldToTipo.entrySet()) {
-                String field = entry.getKey();
-                String tempKey = (String) session.getAttribute(field + "Key");
-                if (tempKey != null) {
-                    Documento doc = documentoService.vincularAMatricula(
-                            tempKey,
-                            nuevaMatricula,
-                            entry.getValue(),
-                            (String) session.getAttribute(field + "Name"),
-                            (String) session.getAttribute(field + "ContentType"),
-                            (Long) session.getAttribute(field + "Size")
-                    );
-                    if ("fotoFile".equals(field)) {
-                        estudiante.setFotoKey(doc.getStorageKey());
-                        estudianteService.guardar(estudiante);
+                // 3. Guardar Matrícula con Curso, AnioLectivo y Consentimiento Ley 1581
+                Matricula nuevaMatricula = new Matricula();
+                nuevaMatricula.setEstudiante(estudiante);
+                nuevaMatricula.setGrado(grado != null ? grado : "No Asignado");
+                nuevaMatricula.setSalon("01");
+                nuevaMatricula.setAnoLectivo(String.valueOf(Year.now().getValue()));
+                nuevaMatricula.setEstado("PENDIENTE_DE_REVISION");
+                nuevaMatricula.setFechaMatricula(LocalDate.now());
+
+                boolean autorizaDatos = autoriza != null ? autoriza : true;
+                nuevaMatricula.setAutorizaTratamientoDatos(autorizaDatos);
+                nuevaMatricula.setFechaAutorizacionDatos(LocalDateTime.now());
+                if (autorizaDatos) {
+                    String autorizanteNombre = ((parentNames != null ? parentNames : "") + " "
+                            + (parentSurnames != null ? parentSurnames : "")).trim();
+                    if (!autorizanteNombre.isBlank()) {
+                        nuevaMatricula.setAutorizadoPorNombre(autorizanteNombre);
+                    }
+                    if (parentId != null && !parentId.isBlank()) {
+                        nuevaMatricula.setAutorizadoPorDocumento(parentId.trim());
                     }
                 }
-            }
+
+                if (grado != null && !grado.isBlank()) {
+                    Optional<Curso> cursoOpt = cursoRepository.findByGradoAndGrupoAndAnoLectivo(grado, "01", nuevaMatricula.getAnoLectivo());
+                    if (cursoOpt.isEmpty()) {
+                        cursoOpt = cursoRepository.findByGradoAndGrupo(grado, "01");
+                    }
+                    cursoOpt.ifPresent(c -> {
+                        nuevaMatricula.setCurso(c);
+                        if (c.getAnioLectivo() != null) {
+                            nuevaMatricula.setAnioLectivo(c.getAnioLectivo());
+                        }
+                    });
+                }
+
+                Matricula guardada = matriculaService.guardar(nuevaMatricula);
+
+                // 4. Vincular documentos a la matrícula solo después de persistir y validar BD
+                Map<String, TipoDocumento> fieldToTipo = Map.of(
+                        "parentDoc", TipoDocumento.DOCUMENTO_ACUDIENTE,
+                        "civilDoc", TipoDocumento.REGISTRO_CIVIL,
+                        "saludFile", TipoDocumento.CERTIFICADO_SALUD,
+                        "fotoFile", TipoDocumento.FOTO_ESTUDIANTE,
+                        "historialFile", TipoDocumento.HISTORIAL_ACADEMICO
+                );
+
+                for (var entry : fieldToTipo.entrySet()) {
+                    String field = entry.getKey();
+                    String tempKey = (String) session.getAttribute(field + "Key");
+                    if (tempKey != null) {
+                        Documento doc = documentoService.vincularAMatricula(
+                                tempKey,
+                                guardada,
+                                entry.getValue(),
+                                (String) session.getAttribute(field + "Name"),
+                                (String) session.getAttribute(field + "ContentType"),
+                                (Long) session.getAttribute(field + "Size")
+                        );
+                        if ("fotoFile".equals(field)) {
+                            estudiante.setFotoKey(doc.getStorageKey());
+                            estudianteService.guardar(estudiante);
+                        }
+                    }
+                }
+            });
         } catch (Exception ex) {
             model.addAttribute("error", "Error al procesar la matrícula: " + ex.getMessage());
             model.addAttribute("currentStep", 4);
@@ -316,7 +340,7 @@ public class MatriculaHtmxController {
             return "matricula/htmx-step";
         }
 
-        // 5. Limpiar sesión
+        // 5. Limpiar sesión únicamente cuando el commit fue exitoso
         List<String> keysToRemove = List.of(
                 "studentNames", "studentSurnames", "studentDocType", "studentDocNumber",
                 "studentGender", "studentPhone", "studentBirthday", "studentAddress",

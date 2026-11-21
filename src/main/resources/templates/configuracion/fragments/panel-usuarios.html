@@ -1,0 +1,287 @@
+<th:block xmlns:th="http://www.thymeleaf.org">
+    <div th:fragment="panelUsuarios" class="flex flex-col gap-6" x-data="{ modalReset: false, modalRol: false, selectedUser: {} }">
+        <!-- Encabezado de la pestaña -->
+        <div class="border-b border-[#c4eec0]/30 pb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="text-sidebar text-base font-black uppercase tracking-wide">Gestión de Usuarios</h3>
+                <p class="text-text-secondary text-[12px] font-semibold">Administración y control de credenciales, accesos y asignación de roles de seguridad.</p>
+            </div>
+            <button type="button" onclick="switchConfigTab(document.querySelector('[onclick*=cfg-roles]'), 'cfg-roles')"
+                    class="px-3.5 py-2 bg-[#f1fbe4] border border-[#c4eec0] rounded-xl text-sidebar text-[11px] font-black hover:bg-[#e3f7dc] transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="shield" class="size-3.5 stroke-2"></i>
+                <span>Ver Matriz de Permisos</span>
+            </button>
+        </div>
+
+        <!-- Tarjetas métricas -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-[#f9fbf8] rounded-xl border border-border p-4 flex items-center gap-3.5">
+                <div class="size-10 rounded-xl bg-[#eafbe4] text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="users" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Total Cuentas</span>
+                    <strong class="text-lg font-black text-text-primary" th:text="${totalUsuarios ?: 0}">0</strong>
+                </div>
+            </div>
+
+            <div class="bg-[#f9fbf8] rounded-xl border border-border p-4 flex items-center gap-3.5">
+                <div class="size-10 rounded-xl bg-pill-green text-sidebar grid place-items-center shrink-0">
+                    <i data-lucide="user-check" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Cuentas Activas</span>
+                    <strong class="text-lg font-black text-sidebar" th:text="${activosCount ?: 0}">0</strong>
+                </div>
+            </div>
+
+            <div class="bg-[#f9fbf8] rounded-xl border border-border p-4 flex items-center gap-3.5">
+                <div class="size-10 rounded-xl bg-pill-red text-alert-red grid place-items-center shrink-0">
+                    <i data-lucide="lock" class="size-5 stroke-2"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-text-secondary block">Bloqueadas / Inactivas</span>
+                    <strong class="text-lg font-black text-alert-red" th:text="${bloqueadosCount ?: 0}">0</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aviso de Auditoría -->
+        <div class="p-3.5 rounded-xl bg-card-warning border border-card-border flex gap-3 text-[11px] font-bold text-text-secondary">
+            <i data-lucide="shield-alert" class="size-5 shrink-0 text-alert-red stroke-2"></i>
+            <div>
+                <strong class="block text-text-primary font-black mb-0.5">Control de Seguridad Institucional y Auditoría</strong>
+                <span>Todos los reseteos de contraseñas, cambios de rol y bloqueos quedan grabados de forma permanente en auditoría.</span>
+            </div>
+        </div>
+
+        <!-- Barra de filtros -->
+        <form th:action="@{/configuracion}" method="get" class="flex flex-wrap items-center justify-between gap-3 bg-[#f9fbf8] p-3.5 rounded-xl border border-border">
+            <input type="hidden" name="tab" value="cfg-usuarios">
+            <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[260px]">
+                <div class="relative flex-1 min-w-[190px]">
+                    <i data-lucide="search" class="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"></i>
+                    <input type="text" name="search" th:value="${search}" placeholder="Buscar por correo, nombre o documento..."
+                           class="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar bg-white">
+                </div>
+
+                <select name="userRol" class="px-3 py-2 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar bg-white">
+                    <option value="" th:selected="${selectedRol == null or selectedRol == ''}">Todos los Roles</option>
+                    <option value="ADMIN" th:selected="${selectedRol == 'ADMIN'}">ADMIN</option>
+                    <option value="PERSONAL_ADMINISTRATIVO" th:selected="${selectedRol == 'PERSONAL_ADMINISTRATIVO'}">PERSONAL ADMINISTRATIVO</option>
+                    <option value="DOCENTE" th:selected="${selectedRol == 'DOCENTE'}">DOCENTE</option>
+                    <option value="ESTUDIANTE" th:selected="${selectedRol == 'ESTUDIANTE'}">ESTUDIANTE</option>
+                </select>
+
+                <select name="estado" class="px-3 py-2 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar bg-white">
+                    <option value="" th:selected="${selectedEstado == null or selectedEstado == ''}">Todos los Estados</option>
+                    <option value="Activo" th:selected="${selectedEstado == 'Activo'}">Activo</option>
+                    <option value="Bloqueado" th:selected="${selectedEstado == 'Bloqueado'}">Bloqueado</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="submit" class="px-4 py-2 bg-sidebar text-white rounded-xl text-xs font-black hover:brightness-110 transition shadow-2xs flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="filter" class="size-3.5 stroke-2"></i>
+                    <span>Filtrar</span>
+                </button>
+                <a th:href="@{/configuracion(tab='cfg-usuarios')}" class="px-3 py-2 bg-white border border-border hover:bg-brand-100 rounded-xl text-text-secondary text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Limpiar filtros">
+                    <i data-lucide="rotate-ccw" class="size-3.5 stroke-2"></i>
+                </a>
+            </div>
+        </form>
+
+        <!-- Tabla de Usuarios -->
+        <div class="bg-white rounded-xl border border-border overflow-visible">
+            <table class="w-full text-left border-collapse text-[12px]">
+                <thead>
+                    <tr class="bg-surface-sunken border-b border-border text-text-secondary font-black uppercase tracking-wider text-[10px]">
+                        <th class="p-3.5 pl-5">Usuario (Email)</th>
+                        <th class="p-3.5">Persona Asignada</th>
+                        <th class="p-3.5">Rol de Seguridad</th>
+                        <th class="p-3.5">Último Acceso</th>
+                        <th class="p-3.5">Estado</th>
+                        <th class="p-3.5 pr-5 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border text-text-primary">
+                    <tr th:if="${usuariosList == null or #lists.isEmpty(usuariosList)}">
+                        <td colspan="6" class="p-8 text-center text-text-secondary font-bold">
+                            No se encontraron usuarios registrados con los criterios seleccionados.
+                        </td>
+                    </tr>
+                    <tr th:each="u : ${usuariosList}" class="hover:bg-brand-100/50 transition-colors"
+                        x-data="{ open: false }"
+                        :class="open ? 'relative z-50' : ''">
+                        <td class="p-3.5 pl-5 font-bold text-sidebar text-[12.5px]">
+                            <div class="flex items-center gap-2">
+                                <div class="size-7 rounded-full bg-sidebar/10 text-sidebar flex items-center justify-center text-[10px] font-black uppercase shrink-0">
+                                    <span th:text="${u.username != null ? #strings.substring(u.username,0,1) : 'U'}">U</span>
+                                </div>
+                                <span th:text="${u.username}">usuario@ieaci.edu.co</span>
+                            </div>
+                        </td>
+                        <td class="p-3.5">
+                            <span class="font-bold block" th:text="${u.persona}">Carlos Mendoza</span>
+                            <small class="text-[10px] text-text-secondary font-semibold" th:if="${u.documento != null}" th:text="'Doc: ' + ${u.documento}">Doc: 12345</small>
+                        </td>
+                        <td class="p-3.5">
+                            <span class="px-2 py-0.5 rounded bg-surface-sunken text-sidebar font-extrabold text-[10px] tracking-wide border border-border" th:text="${u.rol}">DOCENTE</span>
+                        </td>
+                        <td class="p-3.5 font-semibold text-text-secondary" th:text="${u.ultimoAcceso}">Sin registros</td>
+                        <td class="p-3.5">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wide leading-none border"
+                                  th:classappend="${u.estado == 'Activo'} ? 'bg-pill-green text-sidebar border-[#cbe5c7]' : 'bg-pill-red text-alert-red border-[#f5cece]'"
+                                  th:text="${u.estado}">Activo</span>
+                        </td>
+                        <td class="p-3.5 pr-5 text-right" :class="open ? 'relative z-50' : 'relative'">
+                            <div class="inline-block text-left relative" :class="open ? 'z-50' : ''" @click.outside="open = false">
+                                <button type="button" @click.stop="open = !open" class="p-1.5 hover:bg-brand-100 rounded-lg transition-colors text-text-secondary cursor-pointer" aria-label="Acciones de usuario">
+                                    <i data-lucide="more-vertical" class="size-4 stroke-[2.2]"></i>
+                                </button>
+
+                                <div x-show="open" x-cloak
+                                     x-transition:enter="transition ease-out duration-150"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     class="absolute right-0 mt-1 w-52 rounded-xl bg-white border border-border shadow-xl py-1.5 z-50 text-left">
+
+                                    <button type="button"
+                                            th:data-id="${u.id}"
+                                            th:data-username="${u.username}"
+                                            th:data-persona="${u.persona}"
+                                            @click="selectedUser = { id: $el.dataset.id, username: $el.dataset.username, persona: $el.dataset.persona }; modalReset = true; open = false;"
+                                            class="w-full flex items-center gap-2 px-3.5 py-2 text-text-primary hover:bg-[#eafbe4] transition-colors font-bold text-left cursor-pointer">
+                                        <i data-lucide="key-round" class="size-4 text-sidebar stroke-2"></i> Restablecer clave
+                                    </button>
+
+                                    <button type="button"
+                                            th:data-id="${u.id}"
+                                            th:data-username="${u.username}"
+                                            th:data-rol="${u.rol}"
+                                            @click="selectedUser = { id: $el.dataset.id, username: $el.dataset.username, rol: $el.dataset.rol }; modalRol = true; open = false;"
+                                            class="w-full flex items-center gap-2 px-3.5 py-2 text-text-primary hover:bg-[#eafbe4] transition-colors font-bold text-left cursor-pointer">
+                                        <i data-lucide="user-cog" class="size-4 text-sidebar stroke-2"></i> Cambiar rol
+                                    </button>
+
+                                    <form th:if="${u.estado == 'Activo'}" th:action="@{'/usuarios/' + ${u.id} + '/cambiar-estado'}" method="post" class="m-0">
+                                        <input type="hidden" name="nuevoEstado" value="Bloqueado">
+                                        <button type="submit" onclick="return confirm('¿Desea bloquear el acceso para este usuario? Su sesión se cerrará.');"
+                                                class="w-full flex items-center gap-2 px-3.5 py-2 text-alert-red hover:bg-pill-red transition-colors font-bold text-left cursor-pointer">
+                                            <i data-lucide="lock" class="size-4 text-alert-red stroke-2"></i> Bloquear acceso
+                                        </button>
+                                    </form>
+
+                                    <form th:if="${u.estado != 'Activo'}" th:action="@{'/usuarios/' + ${u.id} + '/cambiar-estado'}" method="post" class="m-0">
+                                        <input type="hidden" name="nuevoEstado" value="Activo">
+                                        <button type="submit"
+                                                class="w-full flex items-center gap-2 px-3.5 py-2 text-sidebar hover:bg-[#eafbe4] transition-colors font-bold text-left cursor-pointer">
+                                            <i data-lucide="unlock" class="size-4 text-sidebar stroke-2"></i> Activar acceso
+                                        </button>
+                                    </form>
+
+                                    <div class="h-px bg-border my-1"></div>
+
+                                    <form th:action="@{'/usuarios/' + ${u.id} + '/eliminar'}" method="post" class="m-0"
+                                          onsubmit="return confirm('¿Está seguro de eliminar permanentemente esta cuenta de acceso?');">
+                                        <button type="submit" class="w-full flex items-center gap-2 px-3.5 py-2 text-alert-red hover:bg-pill-red transition-colors font-bold text-left cursor-pointer">
+                                            <i data-lucide="trash-2" class="size-4 stroke-2"></i> Eliminar cuenta
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Modal: Restablecer Contraseña -->
+        <div x-show="modalReset" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <div @click.outside="modalReset = false" class="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="p-5 border-b border-border flex items-center justify-between bg-surface-sunken">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="key-round" class="size-5 text-sidebar stroke-2"></i>
+                        <h3 class="font-black text-text-primary text-sm">Restablecer Contraseña</h3>
+                    </div>
+                    <button type="button" @click="modalReset = false" class="text-text-secondary hover:text-text-primary cursor-pointer">
+                        <i data-lucide="x" class="size-4 stroke-2"></i>
+                    </button>
+                </div>
+
+                <form :action="'/usuarios/' + selectedUser.id + '/reset-password'" method="post" class="p-6 space-y-4">
+                    <input type="hidden" th:if="${_csrf}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="p-3 bg-[#eafbe4] rounded-xl border border-[#c4eec0] text-xs">
+                        <span class="block font-bold text-text-secondary">Usuario:</span>
+                        <strong class="text-sidebar block text-sm" x-text="selectedUser.username"></strong>
+                        <span class="text-[11px] text-text-secondary" x-text="selectedUser.persona"></span>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-extrabold text-text-primary mb-1">Nueva Contraseña (Opcional)</label>
+                        <input type="text" name="nuevaPassword" th:placeholder="${'Dejar vacío para IEACI' + (anioLectivoActivo ?: '2026') + '*'}"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar bg-surface-sunken">
+                        <small class="block text-[10px] text-text-secondary font-medium mt-1">
+                            Si se deja en blanco, se generará la clave temporal <span class="font-bold text-sidebar" th:text="${'IEACI' + (anioLectivoActivo ?: '2026') + '*'}">IEACI*</span>.
+                        </small>
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-end gap-2.5">
+                        <button type="button" @click="modalReset = false" class="px-4 py-2 rounded-xl text-xs font-bold text-text-secondary hover:bg-surface-muted transition cursor-pointer">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-5 py-2 rounded-xl bg-sidebar text-white text-xs font-black shadow-md hover:brightness-110 transition cursor-pointer flex items-center gap-1.5">
+                            <i data-lucide="check" class="size-4 stroke-2"></i>
+                            <span>Restablecer Clave</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Cambiar Rol -->
+        <div x-show="modalRol" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <div @click.outside="modalRol = false" class="bg-white rounded-2xl border border-border shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="p-5 border-b border-border flex items-center justify-between bg-surface-sunken">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="user-cog" class="size-5 text-sidebar stroke-2"></i>
+                        <h3 class="font-black text-text-primary text-sm">Cambiar Rol de Seguridad</h3>
+                    </div>
+                    <button type="button" @click="modalRol = false" class="text-text-secondary hover:text-text-primary cursor-pointer">
+                        <i data-lucide="x" class="size-4 stroke-2"></i>
+                    </button>
+                </div>
+
+                <form :action="'/usuarios/' + selectedUser.id + '/cambiar-rol'" method="post" class="p-6 space-y-4">
+                    <input type="hidden" th:if="${_csrf}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="p-3 bg-[#eafbe4] rounded-xl border border-[#c4eec0] text-xs">
+                        <span class="block font-bold text-text-secondary">Usuario:</span>
+                        <strong class="text-sidebar block text-sm" x-text="selectedUser.username"></strong>
+                        <span class="text-[11px] text-text-secondary" x-text="'Rol actual: ' + selectedUser.rol"></span>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-extrabold text-text-primary mb-1">Seleccionar Nuevo Rol</label>
+                        <select name="nuevoRol" required class="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sidebar/20 focus:border-sidebar bg-surface-sunken">
+                            <option value="DOCENTE">DOCENTE (Acceso a clases, asistencias y calificaciones)</option>
+                            <option value="PERSONAL_ADMINISTRATIVO">PERSONAL ADMINISTRATIVO (Gestión escolar y matrículas)</option>
+                            <option value="ADMIN">ADMIN (Acceso total al sistema y seguridad)</option>
+                            <option value="ESTUDIANTE">ESTUDIANTE (Consulta de notas y certificados)</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-end gap-2.5">
+                        <button type="button" @click="modalRol = false" class="px-4 py-2 rounded-xl text-xs font-bold text-text-secondary hover:bg-surface-muted transition cursor-pointer">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-5 py-2 rounded-xl bg-sidebar text-white text-xs font-black shadow-md hover:brightness-110 transition cursor-pointer flex items-center gap-1.5">
+                            <i data-lucide="check" class="size-4 stroke-2"></i>
+                            <span>Guardar Rol</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</th:block>
+

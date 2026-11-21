@@ -35,11 +35,20 @@ services:
       MINIO_ACCESS_KEY: admin
       MINIO_SECRET_KEY: admin123
       MINIO_BUCKET: siga
+      APP_REMEMBER_ME_KEY: ${APP_REMEMBER_ME_KEY:-siga-ieaci-docker-secret-key}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+      APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-no-reply@ieaci.edu.co}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
     ports:
       - "8080:8080"
     volumes:
-      - .:/workspace
+      - .:/workspace:z
       - siga_maven_cache:/root/.m2
+      - siga_target:/workspace/target
     command: sh -c "./mvnw tailwind:compile && ./mvnw spring-boot:run -Dtailwind.phase=none"
 
   pgadmin:
@@ -70,22 +79,9 @@ services:
     volumes:
       - siga_minio_data:/data
 
-  frontend:
-    image: node:22-alpine
-    container_name: siga-vite
-    profiles:
-      - frontend
-    working_dir: /workspace/frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - .:/workspace
-      - siga_node_modules:/workspace/frontend/node_modules
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
-
 volumes:
   siga_postgres_data:
   siga_maven_cache:
-  siga_node_modules:
+  siga_target:
   siga_pgadmin_data:
   siga_minio_data:

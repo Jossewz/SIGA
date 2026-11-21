@@ -1,5 +1,6 @@
 package com.siga.siga_iea.estudiantes.controller;
 
+import com.siga.siga_iea.auth.service.CurrentUserContextService;
 import com.siga.siga_iea.matricula.entity.Matricula;
 import com.siga.siga_iea.matricula.service.MatriculaService;
 import com.siga.siga_iea.storage.entity.Documento;
@@ -9,13 +10,17 @@ import com.siga.siga_iea.usuarios.entity.Estudiante;
 import com.siga.siga_iea.usuarios.entity.EstudianteAcudiente;
 import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.service.EstudianteService;
+import com.siga.siga_iea.usuarios.service.PerfilFotoService;
 import com.siga.siga_iea.usuarios.service.UsuarioService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.*;
@@ -27,15 +32,53 @@ public class EstudianteController {
     private final MatriculaService matriculaService;
     private final UsuarioService usuarioService;
     private final com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository;
+    private final CurrentUserContextService currentUserContextService;
+    private final PerfilFotoService perfilFotoService;
+
+    @Autowired
+    public EstudianteController(EstudianteService estudianteService,
+                                MatriculaService matriculaService,
+                                UsuarioService usuarioService,
+                                com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository,
+                                @Autowired(required = false) CurrentUserContextService currentUserContextService,
+                                @Autowired(required = false) PerfilFotoService perfilFotoService) {
+        this.estudianteService = estudianteService;
+        this.matriculaService = matriculaService;
+        this.usuarioService = usuarioService;
+        this.cursoEstudianteRepository = cursoEstudianteRepository;
+        this.currentUserContextService = currentUserContextService;
+        this.perfilFotoService = perfilFotoService;
+    }
+
+    public EstudianteController(EstudianteService estudianteService,
+                                MatriculaService matriculaService,
+                                UsuarioService usuarioService,
+                                com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository,
+                                CurrentUserContextService currentUserContextService) {
+        this(estudianteService, matriculaService, usuarioService, cursoEstudianteRepository, currentUserContextService, null);
+    }
 
     public EstudianteController(EstudianteService estudianteService,
                                 MatriculaService matriculaService,
                                 UsuarioService usuarioService,
                                 com.siga.siga_iea.clases.repository.CursoEstudianteRepository cursoEstudianteRepository) {
-        this.estudianteService = estudianteService;
-        this.matriculaService = matriculaService;
-        this.usuarioService = usuarioService;
-        this.cursoEstudianteRepository = cursoEstudianteRepository;
+        this(estudianteService, matriculaService, usuarioService, cursoEstudianteRepository, null, null);
+    }
+
+    private boolean esSoloEstudiante() {
+        return currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && currentUserContextService.getRolAutenticado().esEstudiante()
+                && !currentUserContextService.esAdminOAdministrativo()
+                && !currentUserContextService.esDocente();
+    }
+
+    private void exigirAdminOAdministrativo() {
+        if (currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && !currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("Solo Administración o Secretaría puede ejecutar esta acción sobre estudiantes.");
+        }
     }
 
     @GetMapping("/estudiantes")
@@ -47,6 +90,8 @@ public class EstudianteController {
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "15") int size,
             Model model) {
+
+        exigirAdminOAdministrativo();
 
         model.addAttribute("title", "Gestión de Estudiantes – IEACI");
         model.addAttribute("activePage", "estudiantes");
@@ -117,6 +162,20 @@ public class EstudianteController {
         if (estOpt.isEmpty()) {
             redirectAttributes.addFlashAttribute("mensajeError", "Estudiante no encontrado.");
             return "redirect:/estudiantes";
+        }
+
+        if (esSoloEstudiante()) {
+            Optional<Estudiante> propio = currentUserContextService.getUsuarioAutenticado()
+                    .map(Usuario::getNumeroDocumento)
+                    .filter(d -> d != null && !d.isBlank())
+                    .flatMap(estudianteService::buscarPorNumeroDocumento);
+            if (propio.isEmpty() || !propio.get().getId().equals(estOpt.get().getId())) {
+                throw new AccessDeniedException("No tiene permiso para consultar el perfil académico de otro estudiante.");
+            }
+        } else if (currentUserContextService != null
+                && currentUserContextService.getAuthentication().isPresent()
+                && !currentUserContextService.esAdminOAdministrativo()) {
+            throw new AccessDeniedException("La gestión administrativa de fichas de estudiantes es exclusiva de Administración.");
         }
 
         Map<String, Object> student = new HashMap<>();
@@ -208,6 +267,8 @@ public class EstudianteController {
             @RequestParam(value = "password", required = false) String password,
             RedirectAttributes redirectAttributes) {
 
+        exigirAdminOAdministrativo();
+
         try {
             UUID uuid = UUID.fromString(id);
             String pass = (password != null && !password.isBlank()) ? password : "IEACI" + java.time.Year.now().getValue() + "*";
@@ -223,25 +284,64 @@ public class EstudianteController {
     }
 
     @PostMapping("/estudiantes/{id}/toggle-estado")
-    public String toggleEstadoEstudiante(@PathVariable String id, RedirectAttributes redirectAttributes) {
+    public String toggleEstadoEstudiante(
+            @PathVariable String id,
+            @RequestParam(value = "redirectTo", required = false) String redirectTo,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
         try {
             UUID uuid = UUID.fromString(id);
-            Estudiante e = estudianteService.buscarPorId(uuid)
-                    .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado"));
-
-            e.setEstado("Activo".equalsIgnoreCase(e.getEstado()) ? "Retirado" : "Activo");
-            estudianteService.guardar(e);
-
-            redirectAttributes.addFlashAttribute("mensajeExito", "Estado del estudiante actualizado a " + e.getEstado());
+            String nuevoEstado = estudianteService.toggleEstado(uuid);
+            String mensaje = "Activo".equalsIgnoreCase(nuevoEstado)
+                    ? "Estudiante habilitado nuevamente (cuenta activa)."
+                    : "Estudiante deshabilitado (" + nuevoEstado + ") y acceso bloqueado.";
+            redirectAttributes.addFlashAttribute("mensajeExito", mensaje);
         } catch (Exception ex) {
             redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar estado: " + ex.getMessage());
         }
 
+        if ("/estudiantes".equals(redirectTo)) {
+            return "redirect:/estudiantes";
+        }
+        return "redirect:/estudiantes/perfil/" + id;
+    }
+
+    @PostMapping("/estudiantes/{id}/foto")
+    public String actualizarFotoEstudiante(
+            @PathVariable String id,
+            @RequestParam("fotoFile") MultipartFile fotoFile,
+            RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            if (perfilFotoService == null) {
+                throw new IllegalStateException("Servicio de almacenamiento de fotos no disponible.");
+            }
+            UUID uuid = UUID.fromString(id);
+            perfilFotoService.actualizarFotoEstudiante(uuid, fotoFile);
+            redirectAttributes.addFlashAttribute("mensajeExito", "Foto del estudiante actualizada exitosamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al actualizar foto: " + ex.getMessage());
+        }
+        return "redirect:/estudiantes/perfil/" + id;
+    }
+
+    @PostMapping("/estudiantes/{id}/foto/eliminar")
+    public String eliminarFotoEstudiante(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
+        try {
+            if (perfilFotoService != null) {
+                perfilFotoService.eliminarFotoEstudiante(UUID.fromString(id));
+            }
+            redirectAttributes.addFlashAttribute("mensajeExito", "Foto del estudiante eliminada correctamente.");
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("mensajeError", "Error al eliminar foto: " + ex.getMessage());
+        }
         return "redirect:/estudiantes/perfil/" + id;
     }
 
     @PostMapping("/estudiantes/{id}/eliminar")
     public String eliminarEstudiante(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        exigirAdminOAdministrativo();
         try {
             UUID uuid = UUID.fromString(id);
             estudianteService.eliminarEstudiante(uuid);

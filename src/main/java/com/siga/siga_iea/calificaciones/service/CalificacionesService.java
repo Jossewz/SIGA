@@ -159,11 +159,13 @@ public class CalificacionesService {
         }
 
         Evaluacion nueva = new Evaluacion(cm, "Nota " + nuevaCantidad, periodo, pesoEquitativo);
+        LocalDate fechaEval = LocalDate.now();
         if (fechaStr != null && !fechaStr.isBlank()) {
             try {
-                nueva.setFecha(LocalDate.parse(fechaStr));
+                fechaEval = LocalDate.parse(fechaStr);
             } catch (Exception ignored) {}
         }
+        nueva.setFecha(fechaEval);
         return evaluacionRepository.save(nueva);
     }
 
@@ -204,8 +206,18 @@ public class CalificacionesService {
         return evaluacionRepository.findByCursoMateriaId(cursoMateriaId);
     }
 
+    public List<Evaluacion> obtenerEvaluacionesPorCursoYMateriaYFecha(UUID cursoMateriaId, Integer periodo, LocalDate fecha) {
+        if (fecha != null && periodo != null) {
+            return evaluacionRepository.findByCursoMateriaIdAndPeriodoAndFecha(cursoMateriaId, periodo, fecha);
+        }
+        return obtenerEvaluacionesPorCursoYMateria(cursoMateriaId, periodo);
+    }
+
     public Map<UUID, Map<UUID, BigDecimal>> obtenerCalificacionesMapa(UUID cursoMateriaId, Integer periodo) {
-        List<Evaluacion> evaluaciones = obtenerEvaluacionesPorCursoYMateria(cursoMateriaId, periodo);
+        return obtenerCalificacionesMapa(obtenerEvaluacionesPorCursoYMateria(cursoMateriaId, periodo));
+    }
+
+    public Map<UUID, Map<UUID, BigDecimal>> obtenerCalificacionesMapa(List<Evaluacion> evaluaciones) {
         Map<UUID, Map<UUID, BigDecimal>> mapaEstudiantes = new HashMap<>();
 
         for (Evaluacion ev : evaluaciones) {
@@ -257,7 +269,32 @@ public class CalificacionesService {
         for (CursoEstudiante ce : cursosEst) {
             UUID cursoId = ce.getCurso().getId();
             List<CursoMateria> materiasDelCurso = cursoMateriaRepository.findByCursoId(cursoId);
+            if (materiasDelCurso.isEmpty()) continue;
 
+            List<UUID> cmIds = materiasDelCurso.stream().map(CursoMateria::getId).toList();
+
+            // 1. Cargar todas las evaluaciones del curso en una sola consulta batch
+            List<Evaluacion> todasEvaluaciones = evaluacionRepository.findByCursoMateriaIdIn(cmIds);
+            Map<UUID, Map<Integer, List<Evaluacion>>> evaluacionesPorMateriaYPeriodo = new HashMap<>();
+            for (Evaluacion ev : todasEvaluaciones) {
+                if (ev.getCursoMateria() != null && ev.getPeriodo() != null) {
+                    evaluacionesPorMateriaYPeriodo
+                            .computeIfAbsent(ev.getCursoMateria().getId(), k -> new HashMap<>())
+                            .computeIfAbsent(ev.getPeriodo(), k -> new ArrayList<>())
+                            .add(ev);
+                }
+            }
+
+            // 2. Cargar todas las calificaciones del estudiante en una sola consulta batch
+            List<Calificacion> califs = calificacionesRepository.findByEstudianteId(estudianteId);
+            Map<UUID, BigDecimal> notaPorEvaluacion = new HashMap<>();
+            for (Calificacion c : califs) {
+                if (c.getEvaluacion() != null) {
+                    notaPorEvaluacion.put(c.getEvaluacion().getId(), c.getNota());
+                }
+            }
+
+            // 3. Ensamblado ágil 100% en memoria
             for (CursoMateria cm : materiasDelCurso) {
                 BoletinMateriaDTO dto = new BoletinMateriaDTO(
                         cm.getId().toString(),
@@ -266,19 +303,18 @@ public class CalificacionesService {
                 );
 
                 BigDecimal sumaPonderadaDefinitiva = BigDecimal.ZERO;
+                Map<Integer, List<Evaluacion>> evsPorPeriodo = evaluacionesPorMateriaYPeriodo.getOrDefault(cm.getId(), Collections.emptyMap());
 
                 for (int p = 1; p <= 3; p++) {
-                    List<Evaluacion> evs = evaluacionRepository.findByCursoMateriaIdAndPeriodo(cm.getId(), p);
+                    List<Evaluacion> evs = evsPorPeriodo.getOrDefault(p, Collections.emptyList());
                     List<EvaluacionResumenDTO> evResList = new ArrayList<>();
 
                     BigDecimal sumaNotaXpeso = BigDecimal.ZERO;
                     BigDecimal sumaPesos = BigDecimal.ZERO;
 
                     for (Evaluacion ev : evs) {
-                        Optional<Calificacion> cOpt = calificacionesRepository.findByEvaluacionIdAndEstudianteId(ev.getId(), estudianteId);
-                        BigDecimal nota = cOpt.map(Calificacion::getNota).orElse(BigDecimal.ZERO);
+                        BigDecimal nota = notaPorEvaluacion.getOrDefault(ev.getId(), BigDecimal.ZERO);
                         String fechaDisp = ev.getFecha() != null ? ev.getFecha().format(dtf) : "";
-
                         BigDecimal peso = ev.getPeso() != null ? ev.getPeso() : BigDecimal.ZERO;
 
                         evResList.add(new EvaluacionResumenDTO(

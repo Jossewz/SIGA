@@ -22,14 +22,29 @@
                 </div>
             </div>
 
-            <!-- Información del Día y Docente -->
-            <div class="flex items-center gap-3 bg-surface-sunken/60 px-4 py-2.5 rounded-xl border border-border self-start md:self-auto">
-                <i data-lucide="calendar" class="size-4.5 text-forest-green stroke-2"></i>
-                <div class="text-xs font-semibold text-text-primary">
-                    <span th:if="${vista != null}" th:text="${#temporals.format(vista.fecha, 'EEEE, dd ''de'' MMMM ''de'' yyyy')}">Miércoles, 30 de Septiembre de 2026</span>
-                    <span th:if="${vista == null}" th:text="${#temporals.format(#temporals.createNow(), 'EEEE, dd ''de'' MMMM ''de'' yyyy')}">Hoy</span>
-                </div>
-                <div th:if="${docente != null}" class="ml-2 pl-3 border-l border-border/80 flex items-center gap-2">
+            <!-- Selector de Fecha y Docente -->
+            <div class="flex flex-wrap items-center gap-3 bg-surface-sunken/60 px-4 py-2.5 rounded-xl border border-border self-start md:self-auto">
+                <form method="get" th:action="@{/mi-jornada}" class="flex items-center gap-2 m-0">
+                    <i data-lucide="calendar" class="size-4.5 text-forest-green stroke-2 shrink-0"></i>
+                    <input type="date"
+                           id="mi-jornada-fecha"
+                           name="fecha"
+                           th:value="${vista != null ? vista.fecha : #temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}"
+                           th:max="${vista != null ? vista.hoy : #temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}"
+                           onchange="this.form.submit()"
+                           class="bg-white border border-border rounded-lg px-2.5 py-1 text-xs font-extrabold text-forest-green focus:outline-none focus:ring-1 focus:ring-forest-green cursor-pointer">
+                    <span th:if="${vista != null}"
+                          class="hidden sm:inline text-xs font-semibold text-text-secondary capitalize"
+                          th:text="${#temporals.format(vista.fecha, 'EEEE, dd ''de'' MMMM')}">
+                        Lunes, 16 de noviembre
+                    </span>
+                    <a th:if="${vista != null and !vista.esHoy}"
+                       th:href="@{/mi-jornada}"
+                       class="px-2.5 py-1 rounded-lg bg-forest-green text-white text-[11px] font-bold hover:bg-forest-green/90 transition">
+                        Hoy
+                    </a>
+                </form>
+                <div th:if="${docente != null}" class="pl-3 border-l border-border/80 flex items-center gap-2">
                     <span class="size-2 rounded-full bg-emerald-500"></span>
                     <span class="text-xs font-bold text-forest-green" th:text="${docente.nombres + ' ' + docente.apellidos}">Docente</span>
                 </div>
@@ -71,18 +86,24 @@
         <div th:if="${!sinDocente and vista != null and vista.diaHabil}" class="flex flex-col gap-6">
 
             <!-- Barra de Acciones del Día -->
-            <div class="flex flex-wrap items-center justify-between gap-4 bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/80">
-                <div class="flex items-center gap-3">
-                    <span class="size-3 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span class="text-sm font-bold text-emerald-950">Jornada escolar activa</span>
-                    <span class="text-xs font-semibold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300/60"
+            <div id="barra-estado-jornada"
+                 class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl border"
+                 th:classappend="${!vista.esHoy or vista.jornadaFinalizada} ? 'bg-slate-50 border-slate-200' : 'bg-emerald-50/70 border-emerald-200/80'">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="size-3 rounded-full"
+                          th:classappend="${!vista.esHoy or vista.jornadaFinalizada} ? 'bg-slate-400' : (${vista.jornadaIniciada} ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500')"></span>
+                    <span class="text-sm font-bold"
+                          th:classappend="${!vista.esHoy or vista.jornadaFinalizada} ? 'text-slate-800' : 'text-emerald-950'"
+                          th:text="${!vista.esHoy ? 'Consulta histórica de jornada' : (vista.jornadaFinalizada ? 'Jornada finalizada automáticamente' : (vista.jornadaIniciada ? 'Jornada escolar en curso' : 'Jornada escolar pendiente por iniciar'))}">Jornada escolar en curso</span>
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border"
+                          th:classappend="${!vista.esHoy or vista.jornadaFinalizada} ? 'text-slate-700 bg-white border-slate-300' : 'text-emerald-800 bg-emerald-100/80 border-emerald-300/60'"
                           th:text="${vista.sesiones.size() + ' sesiones programadas'}">
                         0 sesiones programadas
                     </span>
                 </div>
 
-                <!-- Botón Iniciar Jornada (Idempotente y con protección de doble clic) -->
-                <div>
+                <!-- Botón Iniciar Jornada solo aparece si es hoy, aún no ha iniciado y no ha cerrado -->
+                <div th:if="${vista.esHoy and !vista.jornadaFinalizada and !vista.jornadaIniciada}">
                     <form th:hx-post="@{/mi-jornada/iniciar}"
                           hx-target="#contenedor-sesiones"
                           hx-swap="innerHTML"
@@ -91,7 +112,7 @@
                         <button type="submit"
                                 id="btn-iniciar-jornada"
                                 th:disabled="${!vista.tieneClases}"
-                                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-forest-green text-white font-bold text-sm shadow-xs hover:bg-forest-green/90 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-forest-green text-white font-bold text-sm shadow-xs hover:bg-forest-green/90 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                             <span id="spinner-iniciar" class="htmx-indicator">
                                 <i data-lucide="loader-2" class="size-4 animate-spin"></i>
                             </span>
@@ -99,6 +120,16 @@
                             Iniciar jornada
                         </button>
                     </form>
+                </div>
+                <div th:if="${vista.esHoy and !vista.jornadaFinalizada and vista.jornadaIniciada}"
+                     class="text-xs font-bold text-emerald-800 bg-white/80 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                    <i data-lucide="clock" class="size-3.5 stroke-2"></i>
+                    <span th:text="${'Cierre automático a las ' + #temporals.format(vista.horaCierreAutomatico, 'HH:mm')}">Cierre automático a las 19:00</span>
+                </div>
+                <div th:if="${!vista.esHoy or vista.jornadaFinalizada}"
+                     class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <i data-lucide="lock" class="size-3.5 stroke-2"></i>
+                    <span th:text="${vista.esHoy ? 'Cerrada automáticamente (' + #temporals.format(vista.horaCierreAutomatico, 'HH:mm') + ')' : 'Solo lectura para docentes'}">Cerrada automáticamente</span>
                 </div>
             </div>
 
@@ -110,11 +141,15 @@
                     <div class="flex items-center justify-between border-b border-border/80 pb-3">
                         <h2 class="text-base font-black text-text-primary flex items-center gap-2">
                             <i data-lucide="layers" class="size-4.5 text-forest-green stroke-2"></i>
-                            Mis Clases de Hoy
+                            <span th:text="${vista.esHoy ? 'Mis Clases de Hoy' : 'Clases del ' + #temporals.format(vista.fecha, 'dd/MM')}">Mis Clases de Hoy</span>
                         </h2>
                     </div>
 
-                    <div id="contenedor-sesiones">
+                    <div id="contenedor-sesiones"
+                         th:attr="hx-get=@{/mi-jornada/sesiones(fecha=${vista.fecha})}"
+                         hx-trigger="jornadaGuardada from:body"
+                         hx-swap="innerHTML"
+                         hx-vals="js:{activeSesionId: window.miJornadaActiveSesionId || ''}">
                         <!-- Fragmento de sesiones -->
                         <th:block th:replace="~{mi-jornada/fragments :: sesiones}"></th:block>
                     </div>
@@ -122,8 +157,14 @@
 
                 <!-- Columna Derecha: Panel de Toma de Asistencia (8 columnas en lg) -->
                 <div class="lg:col-span-8 bg-white rounded-2xl border border-border shadow-xs p-6 min-h-[500px] flex flex-col">
-                    <div id="panel-toma-asistencia" class="flex-1 flex flex-col justify-center">
-                        <div class="p-12 text-center text-text-secondary flex flex-col items-center justify-center">
+                    <div id="mi-jornada-excel-alert" class="mb-4 empty:hidden"></div>
+                    <div id="panel-toma-asistencia"
+                         class="flex-1 flex flex-col"
+                         th:classappend="${sesion == null} ? 'justify-center' : 'justify-start'">
+                        <th:block th:if="${sesion != null}">
+                            <th:block th:replace="~{mi-jornada/fragments :: tabla}"></th:block>
+                        </th:block>
+                        <div th:if="${sesion == null}" class="p-12 text-center text-text-secondary flex flex-col items-center justify-center">
                             <div class="size-16 rounded-2xl bg-surface-sunken text-sidebar grid place-items-center mb-4 border border-border">
                                 <i data-lucide="users" class="size-8 stroke-2"></i>
                             </div>
@@ -140,6 +181,77 @@
         </div>
 
     </div>
+
+    <script>
+        window.miJornadaActiveSesionId = window.miJornadaActiveSesionId || null;
+        window.seleccionarSesionMiJornada = function(sesionId, fecha) {
+            window.miJornadaActiveSesionId = sesionId || null;
+            const alertBox = document.getElementById('mi-jornada-excel-alert');
+            if (alertBox) alertBox.innerHTML = '';
+            try {
+                const url = new URL(window.location.href);
+                if (fecha) url.searchParams.set('fecha', fecha);
+                if (sesionId) url.searchParams.set('sesionId', sesionId);
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {}
+            const listEl = document.getElementById('contenedor-sesiones');
+            if (listEl && window.htmx) {
+                htmx.trigger(document.body, 'jornadaGuardada');
+            }
+        };
+        window.importarAsistenciaExcel = async function(input, sesionId) {
+            const file = input && input.files && input.files[0];
+            if (!file || !sesionId) return;
+            const alertBox = document.getElementById('mi-jornada-excel-alert');
+            const token = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            const fd = new FormData();
+            fd.append('archivo', file);
+
+            try {
+                const headers = {};
+                if (token && header) headers[header] = token;
+                const res = await fetch('/mi-jornada/sesiones/' + encodeURIComponent(sesionId) + '/excel/importar', {
+                    method: 'POST',
+                    headers: headers,
+                    body: fd
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    if (alertBox) {
+                        alertBox.innerHTML = '<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center justify-between gap-2">'
+                            + '<span>' + (data.mensaje || 'Asistencia importada correctamente.') + '</span>'
+                            + '<button type="button" onclick="this.closest(\'#mi-jornada-excel-alert\').innerHTML=\'\'" class="text-emerald-700 hover:underline font-black cursor-pointer">Cerrar</button>'
+                            + '</div>';
+                    }
+                    if (window.htmx) {
+                        htmx.ajax('GET', '/mi-jornada/sesiones/' + encodeURIComponent(sesionId), { target: '#panel-toma-asistencia', swap: 'innerHTML' });
+                        htmx.trigger(document.body, 'jornadaGuardada');
+                    }
+                } else {
+                    const errs = Array.isArray(data.errores) ? data.errores : [];
+                    const listHtml = errs.length > 0
+                        ? '<ul class="mt-2 list-disc list-inside space-y-0.5 text-[11px] font-semibold">' + errs.map(e => '<li>' + e.replace(/</g, '&lt;') + '</li>').join('') + '</ul>'
+                        : '';
+                    if (alertBox) {
+                        alertBox.innerHTML = '<div class="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold">'
+                            + '<div class="flex items-center justify-between gap-2"><span>' + ((data.mensaje || 'Error al validar la plantilla Excel.').replace(/</g, '&lt;')) + '</span>'
+                            + '<button type="button" onclick="this.closest(\'#mi-jornada-excel-alert\').innerHTML=\'\'" class="text-rose-700 hover:underline font-black cursor-pointer shrink-0">Cerrar</button></div>'
+                            + listHtml + '</div>';
+                    }
+                }
+            } catch (err) {
+                if (alertBox) {
+                    alertBox.innerHTML = '<div class="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold">Error de red al importar el archivo Excel.</div>';
+                }
+            } finally {
+                input.value = '';
+            }
+        };
+        document.body.addEventListener('jornadaIniciada', function() {
+            window.location.assign('/mi-jornada');
+        });
+    </script>
 </th:block>
 
 </body>

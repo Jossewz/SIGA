@@ -15,8 +15,9 @@ Sistema Integral de Gestión Académica y Administrativa de la **Institución Ed
 
 ### Base de Datos y Persistencia
 - **PostgreSQL 16 (16.5 / 16.x):** Motor relacional principal (imagen Docker `postgres:16`).
-- **Flyway Database Migrations:** 21 scripts de migración secuenciales (`V1__` a `V21__`) con claves compuestas de integridad temporal (`V18`), restricciones condicionales de matrícula (`V19`), bitácora inmutable de auditoría con triggers (`V20`) y ponderaciones SIEACI (`V21`).
+- **Flyway Database Migrations:** 28 scripts de migración secuenciales (`V1__` a `V28__`) con claves compuestas de integridad temporal (`V18`), restricciones condicionales de matrícula (`V19`), bitácora inmutable de auditoría con triggers (`V20`), ponderaciones SIEACI (`V21`), vistas analíticas Power BI (`V26`), plan de estudios por grado (`V27`) y bloques de jornada reales (`V28`).
 - **H2 Database:** Base de datos en memoria para ejecución rápida de pruebas unitarias y de integración de controladores.
+- **Apache POI (`poi-ooxml 5.3.0`) & OpenPDF (`2.0.3`):** Importación/exportación de plantillas Excel firmadas para notas y asistencias, y emisión oficial de boletines y certificados en PDF.
 
 ### Almacenamiento de Objetos (Object Storage)
 - **MinIO:** Servidor de almacenamiento de objetos compatible con Amazon S3 API (imagen `quay.io/minio/minio`).
@@ -107,6 +108,7 @@ El asistente inteligente opera bajo una arquitectura resiliente y respeta la pri
 ### 1. Requisitos Previos
 - Java JDK 21 instalado y configurado en el `PATH`.
 - Docker y Docker Compose (opcional pero recomendado para BD y MinIO).
+- Variables de entorno: copie `.env.example` a `.env` (o revise `src/main/resources/application-example.properties`) antes de personalizar contraseñas o claves API en entornos compartidos.
 
 ### 2. Iniciar Servicios de Infraestructura con Docker
 Para levantar únicamente PostgreSQL y MinIO (ideal si ejecutas Spring Boot desde tu IDE):

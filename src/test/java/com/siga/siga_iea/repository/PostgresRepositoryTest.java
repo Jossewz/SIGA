@@ -56,11 +56,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("integration")
 @SpringBootTest
 @TestPropertySource(properties = {
-                "spring.datasource.url=jdbc:postgresql://localhost:5433/siga_test",
+                "spring.datasource.url=${TEST_POSTGRES_URL:jdbc:postgresql://localhost:5433/siga_test}",
                 "spring.datasource.username=postgres",
                 "spring.datasource.password=siga",
                 "spring.datasource.driver-class-name=org.postgresql.Driver",
-                "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.flyway.enabled=true"
 })

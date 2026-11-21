@@ -16,9 +16,10 @@
             
             <!-- Selector y Badge Estudiante -->
             <div class="flex items-center gap-3 max-sm:flex-col max-sm:items-start">
-                <form method="get" th:action="@{/calificaciones}" class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-border shadow-2xs">
+                <form th:if="${soloVistaEstudiante == null or !soloVistaEstudiante}" method="get" th:action="@{/calificaciones}" class="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-border shadow-2xs">
                     <label for="select-estudiante" class="text-[10px] font-black uppercase text-sidebar tracking-wider">Estudiante:</label>
                     <select id="select-estudiante" name="estudianteId" onchange="this.form.submit()" class="h-9 px-3 bg-surface-sunken border border-border rounded-lg text-xs font-black text-sidebar focus:ring-1 focus:ring-sidebar cursor-pointer">
+                        <option th:if="${estudiantes == null || #lists.isEmpty(estudiantes)}" value="" disabled selected>Sin estudiantes registrados</option>
                         <option th:each="est : ${estudiantes}" th:value="${est.id}" th:text="${est.nombreCompleto}" th:selected="${est.id.toString() == estudianteSeleccionadoId}">Mateo Álvarez</option>
                     </select>
                 </form>
@@ -48,9 +49,19 @@
                         <span th:text="${(boletin != null ? #lists.size(boletin) : 0) + ' ASIGNATURAS'}">0 ASIGNATURAS</span>
                     </span>
                 </div>
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-control bg-surface-sunken border border-border text-xs font-bold text-brand-600">
-                    <i data-lucide="calendar" class="size-3.5 stroke-2 text-brand-500"></i>
-                    <span>Año Lectivo 2026</span>
+
+                <div class="flex items-center gap-2">
+                    <a th:if="${estudianteSeleccionadoId != null and !#strings.isEmpty(estudianteSeleccionadoId)}"
+                       th:href="@{/calificaciones/boletin/pdf(estudianteId=${estudianteSeleccionadoId},anoLectivo=${anoLectivo})}"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-sidebar text-white text-xs font-bold hover:brightness-110 transition shadow-2xs"
+                       title="Descargar Boletín Oficial en PDF">
+                        <i data-lucide="download" class="size-3.5 stroke-[2.5]"></i>
+                        <span>Descargar PDF</span>
+                    </a>
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-control bg-surface-sunken border border-border text-xs font-bold text-brand-600">
+                        <i data-lucide="calendar" class="size-3.5 stroke-2 text-brand-500"></i>
+                        <span th:text="${'Año Lectivo ' + (anoLectivo != null ? anoLectivo : anioLectivoActivo)}">Año Lectivo</span>
+                    </div>
                 </div>
             </div>
 
