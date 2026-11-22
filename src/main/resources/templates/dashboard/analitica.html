@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org" th:replace="~{layouts/base :: html(~{::content})}">
+
+<head>
+    <title th:text="${title ?: 'Analítica BI – IEACI'}">Analítica BI</title>
+</head>
+
+<body>
+
+<th:block th:fragment="content">
+    <div class="space-y-5 flex-1 flex flex-col">
+
+        <!-- CABECERA INSTITUCIONAL -->
+        <section class="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-2xl overflow-hidden bg-[#134e1e] text-white shadow-soft border border-white/10">
+            <div class="z-10">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-white"
+                          style="background-color: rgba(255, 255, 255, 0.16);">
+                        <i data-lucide="shield" class="size-3 stroke-2"></i>
+                        Solo Administración
+                    </span>
+                </div>
+                <h1 class="text-2xl md:text-3xl leading-tight font-black tracking-tight text-white">
+                    Dashboard Académico (Power BI)
+                </h1>
+                <p class="text-white/90 text-xs sm:text-sm font-semibold mt-1">
+                    Analítica institucional integrada sobre rendimiento académico, asistencia y seguimiento por periodo.
+                </p>
+            </div>
+
+            <div class="z-10 flex flex-wrap items-center gap-2.5 shrink-0" th:if="${powerBiUrl != null and !#strings.isEmpty(powerBiUrl)}">
+                <button type="button"
+                        onclick="togglePowerBiFullscreen()"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-extrabold border border-white/10 transition cursor-pointer"
+                        style="background-color: rgba(255, 255, 255, 0.15);">
+                    <i data-lucide="maximize-2" class="size-4 stroke-2"></i>
+                    <span>Pantalla completa</span>
+                </button>
+                <a th:href="${powerBiUrl}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-sidebar text-xs font-extrabold shadow-xs transition">
+                    <i data-lucide="external-link" class="size-4 stroke-2"></i>
+                    <span>Abrir en Power BI</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- CONTENEDOR DEL DASHBOARD POWER BI -->
+        <section id="powerbi-wrapper"
+                 th:if="${powerBiUrl != null and !#strings.isEmpty(powerBiUrl)}"
+                 class="flex-1 bg-white rounded-2xl border border-border shadow-soft overflow-hidden flex flex-col">
+            <div class="flex-1 w-full bg-white" style="min-height: 620px; height: calc(100vh - 260px);">
+                <iframe title="SIGA - DASHBOARD ACADEMICO"
+                        th:src="${powerBiUrl}"
+                        style="width: 100%; height: 100%; min-height: 620px; border: 0; display: block;"
+                        frameborder="0"
+                        allowfullscreen="true"
+                        loading="lazy">
+                </iframe>
+            </div>
+        </section>
+
+        <!-- ESTADO SIN URL CONFIGURADA -->
+        <section th:unless="${powerBiUrl != null and !#strings.isEmpty(powerBiUrl)}"
+                 class="bg-white rounded-2xl border border-border p-10 text-center shadow-soft">
+            <div class="mx-auto size-12 rounded-2xl bg-amber-50 text-amber-600 grid place-items-center mb-3">
+                <i data-lucide="alert-triangle" class="size-6 stroke-2"></i>
+            </div>
+            <h2 class="text-base font-black text-text-primary">Enlace de Power BI no configurado</h2>
+            <p class="text-xs font-medium text-text-secondary mt-1 max-w-md mx-auto">
+                Configure la propiedad <code>siga.bi.powerbi-url</code> o la variable de entorno <code>SIGA_POWERBI_URL</code> para visualizar el tablero analítico.
+            </p>
+        </section>
+
+    </div>
+
+    <script>
+        function togglePowerBiFullscreen() {
+            var wrapper = document.getElementById('powerbi-wrapper');
+            if (!wrapper) return;
+            if (!document.fullscreenElement) {
+                if (wrapper.requestFullscreen) {
+                    wrapper.requestFullscreen();
+                }
+            } else if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    </script>
+</th:block>
+
+</body>
+</html>

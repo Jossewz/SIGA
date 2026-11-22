@@ -78,6 +78,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.valueOf("TRACK"), "/**").denyAll()
                         .requestMatchers("/login", "/logout", "/forgot-password", "/reset-password", "/css/**", "/js/**", "/img/**", "/icons/**", "/fonts/**", "/favicon.ico", "/error", "/storage/public/**").permitAll()
                         .requestMatchers("/configuracion/roles/**").hasRole("ADMIN")
+                        .requestMatchers("/analitica", "/analitica/**").hasRole("ADMIN")
                         .requestMatchers("/usuarios/**").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
                         .requestMatchers(HttpMethod.GET, "/estudiantes").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
                         .requestMatchers(HttpMethod.POST, "/personal", "/personal/**", "/estudiantes/**", "/asistencias/excel/importar").hasAnyRole("ADMIN", "PERSONAL_ADMINISTRATIVO")
