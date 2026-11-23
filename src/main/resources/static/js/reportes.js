@@ -270,9 +270,13 @@ function handleFormAtender(e) {
 function filtrarReportesAdmin(filtro) {
     document.querySelectorAll('.row-reporte-admin').forEach(tr => {
         if (filtro === 'todos' || tr.dataset.estado === filtro) {
+            tr.dataset.filteredOut = 'false';
             tr.classList.remove('hidden');
         } else {
-            tr.classList.add('hidden');
+            tr.dataset.filteredOut = 'true';
         }
     });
+    if (typeof window.sigaRefreshPagination === 'function') {
+        window.sigaRefreshPagination(true);
+    }
 }

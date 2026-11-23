@@ -103,14 +103,21 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  html, body {
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     background-color: var(--color-page-bg);
     color: var(--color-text-primary);
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   
   /* Borde sutilmente redondeado (round border ~8px) en todos los inputs, selects y textareas */
@@ -169,6 +176,8 @@
 
   .tabla-siga tbody td {
     border-right: 1px solid var(--color-border);
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
   }
 
   .tabla-siga tbody td:last-child {

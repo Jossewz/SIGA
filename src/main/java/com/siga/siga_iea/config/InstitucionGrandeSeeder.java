@@ -90,11 +90,11 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
     };
 
     private static final String[] GRADOS = {
-            "Transición", "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"
+            "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"
     };
 
     private static final int[] EDAD_POR_GRADO = {
-            5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+            6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
     };
 
     private static final String[] DIAS_SEMANA = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes"};
@@ -125,6 +125,7 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
         String passwordHash = passwordEncoder.encode(DEFAULT_PASSWORD_RAW);
 
         UUID anioLectivoId = obtenerOcrearAnioLectivoActual();
+        limpiarGradosNoSoportados();
         Map<String, UUID> materiasPorNombre = cargarMaterias();
         List<UUID> listaMaterias = new ArrayList<>(materiasPorNombre.values());
 
@@ -137,13 +138,14 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
         // 3. Salones (ampliar infraestructura a 34 espacios)
         List<SalonSeed> salones = seedSalones();
 
-        // 4. Cursos (24 cursos: Transición a 11°, grupos 01 Mañana y 02 Tarde)
+        // 4. Cursos (22 cursos: 1° a 11°, grupos 01 Mañana y 02 Tarde)
         List<CursoSeed> cursos = seedCursos(anioLectivoId, docentes);
 
-        // 5. Acudientes (600) + Estudiantes activos (720) + 15 matrículas en trámite
+        // 5. Acudientes (600) + Estudiantes activos + 15 matrículas en trámite
         List<EstudianteSeed> estudiantesActivos = seedAcudientesEstudiantesYMatriculas(
                 anioLectivoId, cursos, passwordHash, rng);
         seedEstudiantesPendientes(anioLectivoId, passwordHash, rng);
+        sincronizarCorreosInstitucionalesReales();
 
         // 6. Carga académica (curso_materia) y Horarios
         List<CursoMateriaSeed> cursosMaterias = seedCursosMaterias(anioLectivoId, cursos, materiasPorNombre, docentes);
@@ -188,11 +190,74 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
         return jdbc.queryForObject("SELECT id FROM anios_lectivos WHERE anio = 2026 LIMIT 1", UUID.class);
     }
 
+    private void limpiarGradosNoSoportados() {
+        jdbc.update("DELETE FROM plan_estudios_grado WHERE grado = 'Transición'");
+        jdbc.update("UPDATE matriculas SET grado = '1°', curso_id = NULL WHERE grado = 'Transición'");
+        jdbc.update("UPDATE solicitudes_certificado SET grado_referencia = '1°' WHERE grado_referencia = 'Transición'");
+        jdbc.update("DELETE FROM horarios WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
+        jdbc.update("DELETE FROM asistencias WHERE sesion_id IN (SELECT id FROM sesiones_clase WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición'))");
+        jdbc.update("DELETE FROM sesiones_clase WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
+        jdbc.update("DELETE FROM calificaciones WHERE evaluacion_id IN (SELECT id FROM evaluaciones WHERE curso_materia_id IN (SELECT id FROM curso_materia WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')))");
+        jdbc.update("DELETE FROM evaluaciones WHERE curso_materia_id IN (SELECT id FROM curso_materia WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición'))");
+        jdbc.update("DELETE FROM curso_materia WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
+        jdbc.update("DELETE FROM curso_estudiante WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
+        jdbc.update("UPDATE matriculas SET curso_id = NULL WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
+        jdbc.update("DELETE FROM cursos WHERE grado = 'Transición'");
+    }
+
     private Map<String, UUID> cargarMaterias() {
+        record MateriaDef(String nombre, String area, int ih) {}
+        List<MateriaDef> catalogo = List.of(
+                new MateriaDef("Matemáticas", "Ciencias Exactas", 4),
+                new MateriaDef("Español y Literatura", "Humanidades y Lengua Castellana", 4),
+                new MateriaDef("Ciencias Naturales", "Ciencias Naturales y Educación Ambiental", 3),
+                new MateriaDef("Ciencias Sociales", "Ciencias Sociales, Historia y Geografía", 3),
+                new MateriaDef("Inglés Técnico", "Idiomas Extranjeros", 2),
+                new MateriaDef("Tecnología e Informática", "Tecnología e Innovación", 2),
+                new MateriaDef("Educación Física", "Educación Física, Recreación y Deportes", 2),
+                new MateriaDef("Educación Artística", "Educación Artística y Cultural", 1),
+                new MateriaDef("Ética y Valores", "Formación Humana y Ciudadana", 1),
+                new MateriaDef("Filosofía", "Filosofía y Pensamiento Crítico", 2)
+        );
+
         Map<String, UUID> map = new LinkedHashMap<>();
         jdbc.query("SELECT id, nombre FROM materias ORDER BY nombre", rs -> {
             map.put(rs.getString("nombre"), rs.getObject("id", UUID.class));
         });
+
+        for (MateriaDef def : catalogo) {
+            if (!map.containsKey(def.nombre())) {
+                UUID id = UUID.randomUUID();
+                jdbc.update("INSERT INTO materias (id, nombre, area, intensidad_horaria, estado) VALUES (?, ?, ?, ?, 'Activo')",
+                        id, def.nombre(), def.area(), def.ih());
+                map.put(def.nombre(), id);
+            }
+        }
+
+        // Asegurar plan_estudios_grado para los grados 1° a 11°
+        for (int idx = 0; idx < GRADOS.length; idx++) {
+            String grado = GRADOS[idx];
+            int num = idx + 1;
+            for (MateriaDef def : catalogo) {
+                UUID matId = map.get(def.nombre());
+                if (matId == null) continue;
+                int ih = def.ih();
+                if ("Filosofía".equals(def.nombre())) {
+                    ih = (num >= 10) ? 2 : (num == 9 ? 1 : 0);
+                } else if ("Inglés Técnico".equals(def.nombre()) && num >= 10) {
+                    ih = 3;
+                } else if ("Español y Literatura".equals(def.nombre()) && num >= 10) {
+                    ih = 3;
+                } else if ("Ciencias Sociales".equals(def.nombre()) && num >= 10) {
+                    ih = 2;
+                }
+                jdbc.update(
+                        "INSERT INTO plan_estudios_grado (id, grado, materia_id, intensidad_horaria) " +
+                        "VALUES (?, ?, ?, ?) ON CONFLICT (grado, materia_id) DO NOTHING",
+                        UUID.randomUUID(), grado, matId, ih);
+            }
+        }
+
         return map;
     }
 
@@ -527,11 +592,15 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
                 "WHERE numero_documento LIKE '1048000%' AND estado = 'Activo' ORDER BY numero_documento",
                 (rs, rowNum) -> {
                     String doc = rs.getString("numero_documento");
+                    CursoSeed c = cursoPorDocumento.get(doc);
+                    if (c == null && !cursos.isEmpty()) {
+                        c = cursos.get(rowNum % cursos.size());
+                    }
                     return new EstudianteSeed(
                             rs.getObject("id", UUID.class),
                             doc,
                             rs.getString("codigo"),
-                            cursoPorDocumento.get(doc));
+                            c);
                 });
 
         List<Object[]> batchEstAcud = new ArrayList<>(seeded.size());
@@ -543,6 +612,9 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
             EstudianteSeed est = seeded.get(i);
             CursoSeed curso = est.curso();
             AcudienteSeed acud = acudientePorDocumento.get(est.numeroDocumento());
+            if (acud == null && !acudientes.isEmpty()) {
+                acud = acudientes.get(i % acudientes.size());
+            }
             if (curso == null || acud == null) continue;
 
             LocalDate fechaMat = fechaMatBase.plusDays(i % 20);
@@ -568,12 +640,13 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
                 "INSERT INTO matriculas (id, estudiante_id, grado, salon, ano_lectivo, estado, fecha_matricula, " +
                 "curso_id, autoriza_tratamiento_datos, fecha_autorizacion_datos, autorizado_por_nombre, " +
                 "autorizado_por_documento, anio_lectivo_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (estudiante_id, anio_lectivo_id) DO NOTHING",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT (estudiante_id, anio_lectivo_id) DO UPDATE SET grado = EXCLUDED.grado, salon = EXCLUDED.salon, curso_id = EXCLUDED.curso_id",
                 batchMatriculas);
 
         execBatch(
                 "INSERT INTO curso_estudiante (id, curso_id, estudiante_id, ano_lectivo, anio_lectivo_id) " +
-                "VALUES (?, ?, ?, ?, ?) ON CONFLICT (estudiante_id, anio_lectivo_id) DO NOTHING",
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT (estudiante_id, anio_lectivo_id) DO UPDATE SET curso_id = EXCLUDED.curso_id",
                 batchCursoEst);
 
         Integer totalEstEnBd = jdbc.queryForObject("SELECT count(*) FROM estudiantes", Integer.class);
@@ -582,7 +655,7 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
     }
 
     private void seedEstudiantesPendientes(UUID anioLectivoId, String passwordHash, Random rng) {
-        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now().minusDays(30));
         List<AcudienteSeed> acudientes = jdbc.query(
                 "SELECT id, nombres, apellidos, parentesco, numero_documento FROM acudientes ORDER BY numero_documento LIMIT 20",
                 (rs, rowNum) -> new AcudienteSeed(
@@ -648,9 +721,87 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
                 "INSERT INTO matriculas (id, estudiante_id, grado, salon, ano_lectivo, estado, fecha_matricula, " +
                 "curso_id, autoriza_tratamiento_datos, fecha_autorizacion_datos, autorizado_por_nombre, " +
                 "autorizado_por_documento, anio_lectivo_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (estudiante_id, anio_lectivo_id) DO NOTHING",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT (estudiante_id, anio_lectivo_id) DO UPDATE SET grado = EXCLUDED.grado",
                 batchMat);
+        jdbc.update("UPDATE estudiantes SET created_at = ? WHERE numero_documento LIKE '10480009%'", now);
         log.info("  [+] Matrículas en estado PENDIENTE_DE_REVISION aseguradas: {}", batchMat.size());
+    }
+
+    private void sincronizarCorreosInstitucionalesReales() {
+        record PersonaCorreo(String doc, String nombres, String apellidos) {}
+        List<PersonaCorreo> personas = new ArrayList<>();
+
+        jdbc.query("SELECT numero_documento, nombres, apellidos FROM personal_administrativo ORDER BY numero_documento", rs -> {
+            personas.add(new PersonaCorreo(rs.getString("numero_documento"), rs.getString("nombres"), rs.getString("apellidos")));
+        });
+        jdbc.query("SELECT numero_documento, nombres, apellidos FROM docentes ORDER BY numero_documento", rs -> {
+            personas.add(new PersonaCorreo(rs.getString("numero_documento"), rs.getString("nombres"), rs.getString("apellidos")));
+        });
+        jdbc.query("SELECT numero_documento, nombres, apellidos FROM estudiantes ORDER BY numero_documento", rs -> {
+            personas.add(new PersonaCorreo(rs.getString("numero_documento"), rs.getString("nombres"), rs.getString("apellidos")));
+        });
+
+        Set<String> usados = new HashSet<>();
+        usados.add("admin@ieaci.edu.co");
+        jdbc.query("SELECT email, numero_documento FROM usuarios", rs -> {
+            String em = rs.getString("email");
+            String doc = rs.getString("numero_documento");
+            if (em != null && (doc == null || (!doc.startsWith("70001") && !doc.startsWith("71001") && !doc.startsWith("1048000")))) {
+                usados.add(em.toLowerCase(Locale.ROOT));
+            }
+        });
+
+        List<Object[]> updates = new ArrayList<>();
+        for (PersonaCorreo p : personas) {
+            String email = generarEmailRealista(p.nombres(), p.apellidos(), usados);
+            updates.add(new Object[]{email, p.doc()});
+        }
+
+        execBatch("UPDATE usuarios SET email = ? WHERE numero_documento = ?", updates);
+        log.info("  [+] Correos institucionales reales sincronizados para {} usuarios", updates.size());
+    }
+
+    private String generarEmailRealista(String nombres, String apellidos, Set<String> usados) {
+        String[] nParts = (nombres != null && !nombres.isBlank()) ? nombres.trim().split("\\s+") : new String[]{"usuario"};
+        String[] aParts = (apellidos != null && !apellidos.isBlank()) ? apellidos.trim().split("\\s+") : new String[]{"ieaci"};
+
+        String n1 = normalizarSlug(nParts[0]);
+        String n2 = nParts.length > 1 ? normalizarSlug(nParts[1]) : "";
+        String a1 = normalizarSlug(aParts[0]);
+        String a2 = aParts.length > 1 ? normalizarSlug(aParts[1]) : "";
+
+        List<String> candidatos = new ArrayList<>();
+        candidatos.add(n1 + "." + a1);
+        if (!a2.isEmpty()) {
+            candidatos.add(n1 + "." + a1 + "." + a2.charAt(0));
+            candidatos.add(n1 + "." + a1 + a2);
+        }
+        if (!n2.isEmpty()) {
+            candidatos.add(n1 + "." + n2.charAt(0) + "." + a1);
+            candidatos.add(n2 + "." + a1);
+        }
+        if (!n2.isEmpty() && !a2.isEmpty()) {
+            candidatos.add(n2 + "." + a1 + "." + a2.charAt(0));
+            candidatos.add(n1.charAt(0) + "." + n2 + "." + a1);
+        }
+
+        String domain = "@ieaci.edu.co";
+        for (String base : candidatos) {
+            String cand = base + domain;
+            if (usados.add(cand)) {
+                return cand;
+            }
+        }
+
+        int counter = 2;
+        while (true) {
+            String cand = n1 + "." + a1 + counter + domain;
+            if (usados.add(cand)) {
+                return cand;
+            }
+            counter++;
+        }
     }
 
     private List<CursoMateriaSeed> seedCursosMaterias(
@@ -1060,7 +1211,14 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
         List<Object[]> batch = new ArrayList<>();
         for (int i = 1; i <= 60; i++) {
             String codigo = String.format("CERT-SEED-2026-%04d", i);
-            EstudianteSeed est = estudiantes.get(rng.nextInt(estudiantes.size()));
+            EstudianteSeed est;
+            if (i <= 10) {
+                est = estudiantes.get((i - 1) % estudiantes.size());
+            } else if (i <= 20) {
+                est = estudiantes.get(estudiantes.size() - 1 - ((i - 11) % estudiantes.size()));
+            } else {
+                est = estudiantes.get(rng.nextInt(estudiantes.size()));
+            }
             String[] tipo = tipos[i % tipos.length];
             String estado = (i % 3 == 0) ? "Pendiente" : ((i % 5 == 0) ? "En Proceso" : "Resuelto");
             boolean resuelto = "Resuelto".equals(estado);
@@ -1079,7 +1237,8 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
         execBatch(
                 "INSERT INTO solicitudes_certificado (id, codigo, estudiante_id, tipo, categoria, motivo, ano_lectivo, " +
                 "grado_referencia, estado, mensaje_respuesta, archivo_adjunto_key, respondido_por, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (codigo) DO NOTHING",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT (codigo) DO UPDATE SET estudiante_id = EXCLUDED.estudiante_id, grado_referencia = EXCLUDED.grado_referencia",
                 batch);
 
         Integer totalCert = jdbc.queryForObject("SELECT count(*) FROM solicitudes_certificado", Integer.class);

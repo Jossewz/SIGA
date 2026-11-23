@@ -27,10 +27,12 @@
                             No hay estudiantes que requieran atención actualmente.
                         </td>
                     </tr>
-                    <tr th:each="item : ${stats.estudiantesAtencion}" class="hover:bg-brand-100/50 transition-colors">
-                        <td class="py-3 font-extrabold text-text-primary" th:text="${item.nombre}">Estudiante</td>
-                        <td class="py-3 text-text-muted" th:text="${item.motivo}">Motivo</td>
-                        <td class="py-3 text-right">
+                    <tr th:each="item, iterStat : ${stats.estudiantesAtencion}"
+                        th:if="${iterStat.index < 5}"
+                        class="hover:bg-brand-100/50 transition-colors">
+                        <td class="py-2.5 font-extrabold text-text-primary" th:text="${item.nombre}">Estudiante</td>
+                        <td class="py-2.5 text-text-muted" th:text="${item.motivo}">Motivo</td>
+                        <td class="py-2.5 text-right">
                             <span class="px-2 py-0.5 rounded bg-pill-red text-alert-red border border-[#f5cece] font-black text-[9px]" th:text="${item.accion}">Atender</span>
                         </td>
                     </tr>
@@ -38,8 +40,8 @@
             </table>
         </div>
 
-        <a th:if="${esAdmin or esAdministrativo}" th:href="@{/estudiantes}" class="w-full mt-4 py-2 text-center rounded-lg bg-surface-sunken text-sidebar border border-border text-xs font-black transition-colors hover:bg-brand-100 block">
-            Ver Todos los Alumnos
+        <a th:if="${esAdmin or esAdministrativo}" th:href="@{/reportes}" class="w-full mt-4 py-2 text-center rounded-lg bg-surface-sunken text-sidebar border border-border text-xs font-black transition-colors hover:bg-brand-100 block">
+            Mostrar más en Reportes
         </a>
     </article>
 

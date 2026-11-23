@@ -88,7 +88,7 @@ public class EstudianteController {
             @RequestParam(value = "estado", required = false) String estado,
             @RequestParam(value = "nivel", required = false) String nivel,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "15") int size,
+            @RequestParam(value = "size", defaultValue = "8") int size,
             Model model) {
 
         exigirAdminOAdministrativo();

@@ -8,9 +8,9 @@
             Semáforos de Estado
         </h3>
 
-        <ul class="grid gap-3.5 flex-1 justify-center">
+        <ul class="flex flex-col justify-between gap-2.5 flex-1 w-full">
             <li th:each="sem, iterStat : ${stats.semaforos}"
-                class="flex items-center justify-between gap-6 py-1.5"
+                class="flex items-center justify-between gap-4 py-2 w-full"
                 th:classappend="${!iterStat.last} ? ' border-b border-border' : ''">
                 <span class="text-xs font-bold text-text-primary flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full shadow-xs"

@@ -240,9 +240,148 @@ th:fragment="html(content)">
             window.lucide.createIcons();
         }
     }
-    document.addEventListener('DOMContentLoaded', initLucideIcons);
+
+    function initSigaTablePagination() {
+        document.querySelectorAll('table.tabla-siga').forEach(function(table) {
+            var card = table.closest('.rounded-surface, .rounded-xl, section') || table.parentElement;
+            if (card && card.querySelector('nav[aria-label="Paginación de resultados"]:not([data-client-paginator])')) {
+                return;
+            }
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+
+            var isSplitCol = !!table.closest('.lg\\:col-span-7');
+            var pageSize = parseInt(table.dataset.pageSize || (isSplitCol ? '6' : '8'), 10);
+            if (!table._sigaPage) table._sigaPage = 0;
+
+            var wrapper = table.parentElement;
+            var footer = wrapper.parentElement.querySelector('.siga-client-paginator');
+            if (!footer) {
+                footer = document.createElement('div');
+                footer.className = 'siga-client-paginator flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-3.5 border-t border-border bg-white text-xs font-semibold text-text-secondary select-none rounded-b-surface';
+                wrapper.insertAdjacentElement('afterend', footer);
+            }
+
+            function renderPage() {
+                var allRows = Array.from(tbody.children).filter(function(tr) {
+                    return tr.tagName === 'TR' && !tr.querySelector('td[colspan]');
+                });
+                if (allRows.length === 0) {
+                    footer.style.display = 'none';
+                    return;
+                }
+                var eligible = allRows.filter(function(tr) {
+                    return tr.dataset.filteredOut !== 'true';
+                });
+
+                var total = eligible.length;
+                var totalPages = Math.max(1, Math.ceil(total / pageSize));
+                if (table._sigaPage >= totalPages) table._sigaPage = totalPages - 1;
+                if (table._sigaPage < 0) table._sigaPage = 0;
+
+                var start = table._sigaPage * pageSize;
+                var end = Math.min(start + pageSize, total);
+
+                allRows.forEach(function(tr) {
+                    tr.style.display = 'none';
+                });
+                eligible.forEach(function(tr, idx) {
+                    if (idx >= start && idx < end) {
+                        tr.style.display = '';
+                    }
+                });
+
+                if (total === 0) {
+                    footer.style.display = 'none';
+                    return;
+                }
+                footer.style.display = '';
+
+                var startPage = Math.max(0, table._sigaPage - 2);
+                var endPage = Math.min(totalPages - 1, table._sigaPage + 2);
+                var navHtml = '';
+
+                if (totalPages > 1) {
+                    var prevDisabled = table._sigaPage === 0;
+                    navHtml += '<nav data-client-paginator="true" class="flex items-center gap-1.5" aria-label="Paginación de resultados">';
+                    navHtml += '<button type="button" data-page="' + (table._sigaPage - 1) + '" ' + (prevDisabled ? 'disabled ' : '') +
+                        'class="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border text-xs font-bold transition-all ' +
+                        (prevDisabled ? 'opacity-40 pointer-events-none cursor-not-allowed bg-surface-sunken/50 text-text-muted border-border/50' : 'bg-surface-sunken hover:bg-brand-100 text-brand-700 border-border cursor-pointer shadow-2xs') + '">' +
+                        '<span class="max-sm:hidden">‹ Anterior</span><span class="sm:hidden">‹</span></button>';
+
+                    if (startPage > 0) {
+                        navHtml += '<button type="button" data-page="0" class="size-8 grid place-items-center rounded-lg border border-border bg-surface-sunken text-brand-700 hover:bg-brand-100 font-bold transition shadow-2xs cursor-pointer">1</button>';
+                        if (startPage > 1) navHtml += '<span class="px-1 text-text-muted font-bold">...</span>';
+                    }
+
+                    for (var p = startPage; p <= endPage; p++) {
+                        if (p === table._sigaPage) {
+                            navHtml += '<button type="button" data-page="' + p + '" class="size-8 grid place-items-center rounded-lg bg-sidebar text-white font-black shadow-xs cursor-default">' + (p + 1) + '</button>';
+                        } else {
+                            navHtml += '<button type="button" data-page="' + p + '" class="size-8 grid place-items-center rounded-lg border border-border bg-surface-sunken text-brand-700 hover:bg-brand-100 font-bold transition shadow-2xs cursor-pointer">' + (p + 1) + '</button>';
+                        }
+                    }
+
+                    if (endPage < totalPages - 1) {
+                        if (endPage < totalPages - 2) navHtml += '<span class="px-1 text-text-muted font-bold">...</span>';
+                        navHtml += '<button type="button" data-page="' + (totalPages - 1) + '" class="size-8 grid place-items-center rounded-lg border border-border bg-surface-sunken text-brand-700 hover:bg-brand-100 font-bold transition shadow-2xs cursor-pointer">' + totalPages + '</button>';
+                    }
+
+                    var nextDisabled = table._sigaPage >= totalPages - 1;
+                    navHtml += '<button type="button" data-page="' + (table._sigaPage + 1) + '" ' + (nextDisabled ? 'disabled ' : '') +
+                        'class="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border text-xs font-bold transition-all ' +
+                        (nextDisabled ? 'opacity-40 pointer-events-none cursor-not-allowed bg-surface-sunken/50 text-text-muted border-border/50' : 'bg-surface-sunken hover:bg-brand-100 text-brand-700 border-border cursor-pointer shadow-2xs') + '">' +
+                        '<span class="max-sm:hidden">Siguiente ›</span><span class="sm:hidden">›</span></button>';
+                    navHtml += '</nav>';
+                }
+
+                footer.innerHTML =
+                    '<div class="flex items-center gap-1.5 text-text-secondary">' +
+                        '<span>Mostrando</span> ' +
+                        '<strong class="text-text-primary font-black">' + (start + 1) + '</strong> ' +
+                        '<span>a</span> ' +
+                        '<strong class="text-text-primary font-black">' + end + '</strong> ' +
+                        '<span>de</span> ' +
+                        '<strong class="text-sidebar font-black">' + total + '</strong> ' +
+                        '<span>registros</span>' +
+                    '</div>' + navHtml;
+
+                footer.querySelectorAll('button[data-page]').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var targetPage = parseInt(btn.getAttribute('data-page'), 10);
+                        if (!isNaN(targetPage) && targetPage !== table._sigaPage) {
+                            table._sigaPage = targetPage;
+                            renderPage();
+                        }
+                    });
+                });
+            }
+
+            table._sigaRenderPage = renderPage;
+            renderPage();
+        });
+    }
+
+    window.sigaRefreshPagination = function(resetPage) {
+        document.querySelectorAll('table.tabla-siga').forEach(function(table) {
+            if (resetPage) table._sigaPage = 0;
+            if (typeof table._sigaRenderPage === 'function') {
+                table._sigaRenderPage();
+            }
+        });
+        initSigaTablePagination();
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initLucideIcons();
+        initSigaTablePagination();
+    });
     initLucideIcons();
-    document.addEventListener('htmx:afterSwap', initLucideIcons);
+    initSigaTablePagination();
+    document.addEventListener('htmx:afterSwap', function() {
+        initLucideIcons();
+        initSigaTablePagination();
+    });
 
     document.body.addEventListener('htmx:beforeSwap', function(e) {
         if ([403, 409].includes(e.detail.xhr.status)) {

@@ -8,7 +8,7 @@
             Necesita Atención
         </h3>
 
-        <div class="grid gap-3 flex-1 overflow-y-auto max-h-[340px] pr-1">
+        <div class="flex flex-col gap-3 flex-1">
             <div th:if="${#lists.isEmpty(stats.alertasOperativas)}"
                 class="p-6 text-center text-xs text-text-muted italic">
                 No hay alertas operativas pendientes en este momento.
