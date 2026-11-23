@@ -21,7 +21,7 @@ services:
 
   # Almacenamiento de Archivos S3 (MinIO)
   minio:
-    image: quay.io/minio/minio:latest
+    image: minio/minio:latest
     container_name: siga-prod-minio
     restart: always
     environment:
