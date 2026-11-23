@@ -19,6 +19,8 @@ th:fragment="html(content)">
         SIGA
     </title>
 
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+
     <!-- Metadatos de seguridad CSRF para Fetch/AJAX -->
     <meta name="_csrf" th:if="${_csrf}" th:content="${_csrf.token}"/>
     <meta name="_csrf_header" th:if="${_csrf}" th:content="${_csrf.headerName}"/>
@@ -165,8 +167,49 @@ th:fragment="html(content)">
 <!-- CHATBOT ASISTENTE INSTITUCIONAL FLOTANTE (MANGLE) -->
 <th:block th:replace="~{fragments/chatbot-flotante :: widget}"></th:block>
 
+<!-- Contenedor global de alertas SIGA (Toast unificado) -->
+<div id="siga-toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 max-w-md w-full pointer-events-none px-4 sm:px-0"></div>
+
 <!-- Funciones globales de respaldo para interactividad garantizada -->
 <script>
+    window.sigaAlert = function(mensaje, tipo = 'error') {
+        const cont = document.getElementById('siga-toast-container');
+        if (!cont) {
+            alert(mensaje);
+            return;
+        }
+        const estilos = {
+            success: 'bg-green-50 border-green-200 text-sidebar',
+            warning: 'bg-amber-50 border-amber-300 text-amber-900',
+            error: 'bg-red-50 border-red-200 text-alert-red',
+            info: 'bg-surface border-border text-sidebar'
+        };
+        const iconos = {
+            success: 'check-circle',
+            warning: 'alert-triangle',
+            error: 'alert-circle',
+            info: 'info'
+        };
+        const t = estilos[tipo] ? tipo : 'error';
+        const toast = document.createElement('div');
+        toast.className = `pointer-events-auto p-3.5 rounded-xl border text-xs font-bold flex items-start gap-2.5 shadow-lg transition-all duration-300 ${estilos[t]}`;
+        toast.innerHTML = `
+            <i data-lucide="${iconos[t]}" class="size-4.5 shrink-0 mt-0.5"></i>
+            <span class="flex-1 leading-snug"></span>
+            <button type="button" onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 cursor-pointer shrink-0">
+                <i data-lucide="x" class="size-4"></i>
+            </button>
+        `;
+        toast.querySelector('span').textContent = mensaje;
+        cont.appendChild(toast);
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+        setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+        }, 5500);
+    };
+
     window.toggleSigaSidebar = function() {
         var aside = document.getElementById('sidebar-desktop');
         if (!aside) return;
