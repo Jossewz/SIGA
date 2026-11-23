@@ -1,0 +1,95 @@
+services:
+  # Base de Datos Relacional PostgreSQL 16
+  db:
+    image: postgres:16-alpine
+    container_name: siga-prod-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-siga}
+      POSTGRES_USER: ${POSTGRES_USER:-siga_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-siga_prod_2026_secure}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - siga_prod_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-siga_user} -d ${POSTGRES_DB:-siga}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - siga-net
+
+  # Almacenamiento de Archivos S3 (MinIO)
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: siga-prod-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-siga_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-siga_minio_secret_2026}
+    command: server /data
+    volumes:
+      - siga_prod_minio_data:/data
+    networks:
+      - siga-net
+
+  # Aplicación Principal Spring Boot (SIGA)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: siga-prod-app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-siga}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-siga_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-siga_prod_2026_secure}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_THYMELEAF_CACHE: "true"
+      SPRING_DEVTOOLS_RESTART_ENABLED: "false"
+      MINIO_URL: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-siga_minio_admin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-siga_minio_secret_2026}
+      MINIO_BUCKET: ${MINIO_BUCKET:-siga}
+      APP_REMEMBER_ME_KEY: ${APP_REMEMBER_ME_KEY:-siga-ieaci-secret-token-key-2026}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
+      APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
+      SIGA_SEED_ENABLED: ${SIGA_SEED_ENABLED:-false}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      SIGA_POWERBI_URL: ${SIGA_POWERBI_URL:-https://app.powerbi.com/view?r=eyJrIjoiMGU5YTlmZWQtZTUyMy00MjBjLTkzYmEtMmNmOTI4YjI0N2NlIiwidCI6IjlkMTJiZjNmLWU0ZjYtNDdhYi05MTJmLTFhMmYwZmM0OGFhNCIsImMiOjR9}
+    networks:
+      - siga-net
+
+  # Reverse Proxy con HTTPS Automático (Caddy)
+  caddy:
+    image: caddy:2-alpine
+    container_name: siga-prod-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - siga_prod_caddy_data:/data
+      - siga_prod_caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - siga-net
+
+volumes:
+  siga_prod_postgres_data:
+  siga_prod_minio_data:
+  siga_prod_caddy_data:
+  siga_prod_caddy_config:
+
+networks:
+  siga-net:
+    driver: bridge

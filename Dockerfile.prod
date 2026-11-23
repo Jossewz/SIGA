@@ -1,0 +1,39 @@
+# ==============================================================================
+# Dockerfile Multi-Stage para Producción (SIGA - IEACI)
+# Compatible con arquitecturas linux/amd64 y linux/arm64
+# ==============================================================================
+
+# --- Etapa 1: Compilación de la aplicación con Maven ---
+FROM eclipse-temurin:21-jdk-jammy AS builder
+WORKDIR /build
+
+# Copiar configuración de Maven y dependencias primero para aprovechar la caché de Docker
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+RUN sed -i 's/\r$//' ./mvnw && chmod +x ./mvnw
+RUN ./mvnw -B dependency:go-offline
+
+# Copiar el código fuente completo (incluye static, templates, migraciones Flyway)
+COPY src src
+
+# Compilar CSS con Tailwind y empaquetar el JAR ejecutable
+RUN ./mvnw -B -DskipTests clean package
+
+# --- Etapa 2: Runtime ultraligero y seguro para producción ---
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+
+# Crear usuario sin privilegios para ejecución segura
+RUN groupadd -r siga && useradd -r -g siga siga
+
+# Copiar el JAR generado en la etapa anterior
+COPY --from=builder --chown=siga:siga /build/target/*.jar app.jar
+
+USER siga
+
+EXPOSE 8080
+
+# Parámetros JVM optimizados para contenedores (máximo 75% de la RAM del contenedor, G1GC)
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
