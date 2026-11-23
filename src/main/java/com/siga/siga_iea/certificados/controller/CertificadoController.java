@@ -153,15 +153,31 @@ public class CertificadoController {
     }
 
     private List<Map<String, Object>> mapearSolicitudes(List<SolicitudCertificado> lista) {
+        Map<UUID, String> gradosCache = new HashMap<>();
+        boolean necesitaCache = lista.stream().anyMatch(s -> s.getGradoReferencia() == null || s.getGradoReferencia().isBlank());
+        if (necesitaCache) {
+            for (com.siga.siga_iea.clases.entity.CursoEstudiante ce : cursoEstudianteRepository.findAll()) {
+                if (ce.getEstudiante() != null && ce.getCurso() != null) {
+                    com.siga.siga_iea.clases.entity.Curso c = ce.getCurso();
+                    gradosCache.put(ce.getEstudiante().getId(),
+                            c.getGrado() + " - " + (c.getGrupo() != null ? c.getGrupo() : "01"));
+                }
+            }
+        }
         List<Map<String, Object>> result = new ArrayList<>();
         for (SolicitudCertificado s : lista) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", s.getCodigo());
             map.put("estudiante", s.getEstudiante() != null ? s.getEstudiante().getNombreCompleto() : "N/A");
             map.put("documento", s.getEstudiante() != null ? s.getEstudiante().getNumeroDocumento() : "N/A");
-            String grado = (s.getGradoReferencia() != null && !s.getGradoReferencia().isBlank())
-                    ? s.getGradoReferencia()
-                    : resolverGradoEstudiante(s.getEstudiante());
+            String grado;
+            if (s.getGradoReferencia() != null && !s.getGradoReferencia().isBlank()) {
+                grado = s.getGradoReferencia();
+            } else if (s.getEstudiante() != null && gradosCache.containsKey(s.getEstudiante().getId())) {
+                grado = gradosCache.get(s.getEstudiante().getId());
+            } else {
+                grado = resolverGradoEstudiante(s.getEstudiante());
+            }
             map.put("grado", grado);
             map.put("tipo", s.getTipo());
             map.put("categoria", s.getCategoria());

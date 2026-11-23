@@ -52,6 +52,8 @@ public class ConfiguracionController {
                         @RequestParam(value = "search", required = false) String search,
                         @RequestParam(value = "estado", required = false) String estado,
                         @RequestParam(value = "userRol", required = false) String userRol,
+                        @RequestParam(value = "userPage", defaultValue = "0") int userPage,
+                        @RequestParam(value = "userSize", defaultValue = "12") int userSize,
                         Model model) {
         model.addAttribute("title", "Configuración General – IEACI");
         model.addAttribute("activePage", "configuracion");
@@ -112,18 +114,28 @@ public class ConfiguracionController {
         model.addAttribute("rolSeleccionado", rolSeleccionado);
         model.addAttribute("permisosRol", permisosRol);
 
-        // 6. Gestión de Usuarios integrada
+        // 6. Gestión de Usuarios integrada (paginada en servidor para evitar renderizar cientos de filas ocultas)
+        int safeUserSize = Math.max(5, Math.min(userSize, 50));
         if (usuarioDirectoryService != null) {
-            UsuarioDirectoryService.ResumenUsuarios resumen = usuarioDirectoryService.consultarResumen(search, estado, userRol);
+            UsuarioDirectoryService.ResumenUsuarios resumen = usuarioDirectoryService.consultarResumen(
+                    search, estado, userRol, Math.max(0, userPage), safeUserSize);
             model.addAttribute("usuariosList", resumen.usuarios());
             model.addAttribute("totalUsuarios", resumen.totalUsuarios());
             model.addAttribute("activosCount", resumen.activosCount());
             model.addAttribute("bloqueadosCount", resumen.bloqueadosCount());
+            model.addAttribute("usuariosTotalFiltrados", resumen.totalFiltrados());
+            model.addAttribute("usuariosPage", resumen.paginaActual());
+            model.addAttribute("usuariosTotalPages", resumen.totalPaginas());
+            model.addAttribute("usuariosSize", resumen.tamanoPagina());
         } else {
             model.addAttribute("usuariosList", Collections.emptyList());
             model.addAttribute("totalUsuarios", 0);
             model.addAttribute("activosCount", 0L);
             model.addAttribute("bloqueadosCount", 0L);
+            model.addAttribute("usuariosTotalFiltrados", 0);
+            model.addAttribute("usuariosPage", 0);
+            model.addAttribute("usuariosTotalPages", 1);
+            model.addAttribute("usuariosSize", safeUserSize);
         }
         model.addAttribute("search", search);
         model.addAttribute("selectedEstado", estado);

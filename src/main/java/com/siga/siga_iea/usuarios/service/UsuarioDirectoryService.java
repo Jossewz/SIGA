@@ -12,9 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class UsuarioDirectoryService {
@@ -25,8 +23,16 @@ public class UsuarioDirectoryService {
             List<UsuarioDTO> usuarios,
             int totalUsuarios,
             long activosCount,
-            long bloqueadosCount
-    ) {}
+            long bloqueadosCount,
+            int totalFiltrados,
+            int paginaActual,
+            int totalPaginas,
+            int tamanoPagina
+    ) {
+        public ResumenUsuarios(List<UsuarioDTO> usuarios, int totalUsuarios, long activosCount, long bloqueadosCount) {
+            this(usuarios, totalUsuarios, activosCount, bloqueadosCount, usuarios.size(), 0, 1, Math.max(1, usuarios.size()));
+        }
+    }
 
     private final UsuarioService usuarioService;
     private final DocenteRepository docenteRepository;
@@ -45,8 +51,14 @@ public class UsuarioDirectoryService {
 
     @Transactional(readOnly = true)
     public ResumenUsuarios consultarResumen(String search, String estado, String rol) {
+        return consultarResumen(search, estado, rol, 0, Integer.MAX_VALUE);
+    }
+
+    @Transactional(readOnly = true)
+    public ResumenUsuarios consultarResumen(String search, String estado, String rol, int page, int size) {
         List<Usuario> todos = usuarioService.listarTodos();
-        List<UsuarioDTO> dtoList = new ArrayList<>();
+        Map<String, String> nombresPorDoc = cargarMapaNombresPorDocumento();
+        List<UsuarioDTO> filtrados = new ArrayList<>();
 
         long activosCount = 0;
         long bloqueadosCount = 0;
@@ -66,12 +78,16 @@ public class UsuarioDirectoryService {
                 continue;
             }
 
-            String persona = resolverNombrePersona(u.getNumeroDocumento());
+            String doc = u.getNumeroDocumento();
+            String persona = (doc == null || doc.isBlank())
+                    ? "Cuenta de Sistema"
+                    : nombresPorDoc.getOrDefault(doc.trim(), "Funcionario (" + doc + ")");
+
             if (search != null && !search.isBlank()) {
                 String s = search.toLowerCase().trim();
                 boolean matchesEmail = u.getEmail() != null && u.getEmail().toLowerCase().contains(s);
-                boolean matchesPersona = persona != null && persona.toLowerCase().contains(s);
-                boolean matchesDoc = u.getNumeroDocumento() != null && u.getNumeroDocumento().toLowerCase().contains(s);
+                boolean matchesPersona = persona.toLowerCase().contains(s);
+                boolean matchesDoc = doc != null && doc.toLowerCase().contains(s);
                 if (!matchesEmail && !matchesPersona && !matchesDoc) {
                     continue;
                 }
@@ -81,37 +97,60 @@ public class UsuarioDirectoryService {
                     ? u.getUltimoAcceso().format(FORMATTER)
                     : "Sin registros";
 
-            dtoList.add(new UsuarioDTO(
+            filtrados.add(new UsuarioDTO(
                     u.getId(),
                     u.getEmail(),
                     persona,
                     u.getRol(),
                     ultimoAccesoStr,
                     est,
-                    u.getNumeroDocumento()
+                    doc
             ));
         }
 
-        return new ResumenUsuarios(dtoList, todos.size(), activosCount, bloqueadosCount);
+        int totalFiltrados = filtrados.size();
+        int safeSize = Math.max(1, size);
+        int totalPaginas = Math.max(1, (int) Math.ceil((double) totalFiltrados / safeSize));
+        int safePage = Math.max(0, Math.min(page, totalPaginas - 1));
+
+        List<UsuarioDTO> paginaSlice;
+        if (safeSize >= totalFiltrados) {
+            paginaSlice = filtrados;
+        } else {
+            int from = safePage * safeSize;
+            int to = Math.min(from + safeSize, totalFiltrados);
+            paginaSlice = filtrados.subList(from, to);
+        }
+
+        return new ResumenUsuarios(
+                paginaSlice,
+                todos.size(),
+                activosCount,
+                bloqueadosCount,
+                totalFiltrados,
+                safePage,
+                totalPaginas,
+                safeSize
+        );
     }
 
-    private String resolverNombrePersona(String doc) {
-        if (doc == null || doc.isBlank()) {
-            return "Cuenta de Sistema";
+    private Map<String, String> cargarMapaNombresPorDocumento() {
+        Map<String, String> mapa = new HashMap<>();
+        for (Estudiante e : estudianteRepository.findAll()) {
+            if (e.getNumeroDocumento() != null && !e.getNumeroDocumento().isBlank()) {
+                mapa.put(e.getNumeroDocumento().trim(), e.getNombres() + " " + e.getApellidos());
+            }
         }
-        Optional<Docente> docOpt = docenteRepository.findByNumeroDocumento(doc);
-        if (docOpt.isPresent()) {
-            return docOpt.get().getNombres() + " " + docOpt.get().getApellidos();
+        for (PersonalAdministrativo pa : personalAdministrativoRepository.findAll()) {
+            if (pa.getNumeroDocumento() != null && !pa.getNumeroDocumento().isBlank()) {
+                mapa.put(pa.getNumeroDocumento().trim(), pa.getNombres() + " " + pa.getApellidos());
+            }
         }
-        Optional<PersonalAdministrativo> paOpt = personalAdministrativoRepository.findByNumeroDocumento(doc);
-        if (paOpt.isPresent()) {
-            return paOpt.get().getNombres() + " " + paOpt.get().getApellidos();
+        for (Docente d : docenteRepository.findAll()) {
+            if (d.getNumeroDocumento() != null && !d.getNumeroDocumento().isBlank()) {
+                mapa.put(d.getNumeroDocumento().trim(), d.getNombres() + " " + d.getApellidos());
+            }
         }
-        Optional<Estudiante> estOpt = estudianteRepository.findByNumeroDocumento(doc);
-        if (estOpt.isPresent()) {
-            return estOpt.get().getNombres() + " " + estOpt.get().getApellidos();
-        }
-        return "Funcionario (" + doc + ")";
+        return mapa;
     }
 }
-

@@ -194,6 +194,36 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Paginación en servidor para Gestión de Usuarios -->
+            <div th:if="${usuariosTotalPages != null and usuariosTotalPages > 1}"
+                 class="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-border bg-[#f9fbf8] text-xs font-semibold text-text-secondary">
+                <div>
+                    Mostrando página <strong class="text-sidebar font-black" th:text="${usuariosPage + 1}">1</strong>
+                    de <strong class="text-sidebar font-black" th:text="${usuariosTotalPages}">1</strong>
+                    (<strong class="text-text-primary font-black" th:text="${usuariosTotalFiltrados ?: 0}">0</strong> cuentas)
+                </div>
+                <nav class="flex items-center gap-1.5" aria-label="Paginación de usuarios">
+                    <a th:if="${usuariosPage > 0}"
+                       th:href="@{/configuracion(tab='cfg-usuarios', search=${search}, estado=${selectedEstado}, userRol=${selectedRol}, userPage=${usuariosPage - 1}, userSize=${usuariosSize})}"
+                       class="px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-brand-100 text-sidebar font-bold transition">
+                        ‹ Anterior
+                    </a>
+                    <span th:unless="${usuariosPage > 0}"
+                          class="px-3 py-1.5 rounded-lg border border-border/50 bg-surface-sunken/60 text-text-muted font-bold opacity-50 cursor-not-allowed">
+                        ‹ Anterior
+                    </span>
+                    <a th:if="${usuariosPage + 1 < usuariosTotalPages}"
+                       th:href="@{/configuracion(tab='cfg-usuarios', search=${search}, estado=${selectedEstado}, userRol=${selectedRol}, userPage=${usuariosPage + 1}, userSize=${usuariosSize})}"
+                       class="px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-brand-100 text-sidebar font-bold transition">
+                        Siguiente ›
+                    </a>
+                    <span th:unless="${usuariosPage + 1 < usuariosTotalPages}"
+                          class="px-3 py-1.5 rounded-lg border border-border/50 bg-surface-sunken/60 text-text-muted font-bold opacity-50 cursor-not-allowed">
+                        Siguiente ›
+                    </span>
+                </nav>
+            </div>
         </div>
 
         <!-- Modal: Restablecer Contraseña -->

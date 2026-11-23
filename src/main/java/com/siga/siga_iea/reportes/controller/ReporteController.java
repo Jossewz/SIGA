@@ -43,13 +43,22 @@ public class ReporteController {
         this.matriculaService = matriculaService;
     }
 
-    private String resolverGradoEstudiante(Estudiante e) {
-        if (e == null) return "Sin grado";
-        List<com.siga.siga_iea.clases.entity.CursoEstudiante> ces = cursoEstudianteRepository.findByEstudianteId(e.getId());
-        if (!ces.isEmpty()) {
-            com.siga.siga_iea.clases.entity.Curso c = ces.get(ces.size() - 1).getCurso();
-            return c.getGrado() + " - " + (c.getGrupo() != null ? c.getGrupo() : "01");
+    private Map<UUID, String> cargarMapaGradosEstudiantes() {
+        Map<UUID, String> mapa = new HashMap<>();
+        for (com.siga.siga_iea.clases.entity.CursoEstudiante ce : cursoEstudianteRepository.findAll()) {
+            if (ce.getEstudiante() != null && ce.getCurso() != null) {
+                com.siga.siga_iea.clases.entity.Curso c = ce.getCurso();
+                mapa.put(ce.getEstudiante().getId(),
+                        c.getGrado() + " - " + (c.getGrupo() != null ? c.getGrupo() : "01"));
+            }
         }
+        return mapa;
+    }
+
+    private String resolverGradoEstudiante(Estudiante e, Map<UUID, String> gradosCache) {
+        if (e == null) return "Sin grado";
+        String cached = gradosCache.get(e.getId());
+        if (cached != null) return cached;
         return matriculaService.buscarUltimaMatriculaEstudiante(e.getId())
                 .map(m -> (m.getGrado() != null ? m.getGrado() : "Sin grado") + " - " + (m.getSalon() != null ? m.getSalon() : "01"))
                 .orElse("Sin grado");
@@ -99,7 +108,8 @@ public class ReporteController {
         model.addAttribute("esEstudiante", esEstudiante);
         model.addAttribute("userRole", userRole);
 
-        // Fetch students for report dropdown
+        // Fetch students for report dropdown (con mapa precargado en 1 sola consulta para evitar N+1)
+        Map<UUID, String> gradosCache = cargarMapaGradosEstudiantes();
         List<Estudiante> estudiantesDB = estudianteService.listarTodos();
         UUID miEstudianteId = estLogueadoOpt.map(Estudiante::getId).orElse(null);
         List<Map<String, Object>> estudiantesList = new ArrayList<>();
@@ -109,7 +119,7 @@ public class ReporteController {
             Map<String, Object> map = new HashMap<>();
             map.put("id", e.getId().toString());
             map.put("nombre", e.getNombreCompleto());
-            map.put("grado", resolverGradoEstudiante(e));
+            map.put("grado", resolverGradoEstudiante(e, gradosCache));
             estudiantesList.add(map);
             if (miEstudianteId == null || !miEstudianteId.equals(e.getId())) {
                 companerosList.add(map);
@@ -143,7 +153,7 @@ public class ReporteController {
             String objetivoNombre = objEsDocente
                     ? (r.getDocente() != null ? "Prof. " + r.getDocente().getNombreCompleto() : "Docente")
                     : (r.getEstudiante() != null ? r.getEstudiante().getNombreCompleto() : "N/A");
-            String objetivoDetalle = objEsDocente ? "Docente" : resolverGradoEstudiante(r.getEstudiante());
+            String objetivoDetalle = objEsDocente ? "Docente" : resolverGradoEstudiante(r.getEstudiante(), gradosCache);
             String emisorNombre = repEsEstudiante
                     ? (r.getReportanteEstudiante() != null ? r.getReportanteEstudiante().getNombreCompleto() + " (Estudiante)" : "Estudiante")
                     : (r.getDocente() != null ? r.getDocente().getNombreCompleto() : "N/A");
