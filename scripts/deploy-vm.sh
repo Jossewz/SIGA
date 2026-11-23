@@ -18,13 +18,13 @@ if [ ! -f .env ]; then
 fi
 
 echo "=== [3/4] Construyendo imágenes e iniciando servicios ==="
-docker compose -f docker-compose.prod.yml up -d --build
+sudo docker compose -f docker-compose.prod.yml up -d --build
 
 echo "=== [4/4] Estado de los servicios ==="
-docker compose -f docker-compose.prod.yml ps
+sudo docker compose -f docker-compose.prod.yml ps
 
 echo "=============================================================================="
 echo "SIGA desplegado con éxito en producción."
 echo "Para ver los logs del backend:"
-echo "  docker compose -f docker-compose.prod.yml logs -f app"
+echo "  sudo docker compose -f docker-compose.prod.yml logs -f app"
 echo "=============================================================================="
