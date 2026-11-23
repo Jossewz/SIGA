@@ -399,5 +399,37 @@ class RbacYNotificacionesTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Mi Historial de Asistencia")));
     }
+
+    @Test
+    @DisplayName("Analítica BI (/analitica): solo visible y accesible para ADMIN")
+    void testAnaliticaPowerBiSoloAdmin() throws Exception {
+        mockMvc.perform(get("/")
+                        .with(user("admin@ieaci.edu.co").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"/analitica\"")));
+
+        mockMvc.perform(get("/analitica")
+                        .with(user("admin@ieaci.edu.co").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Dashboard Académico (Power BI)")))
+                .andExpect(content().string(containsString("https://app.powerbi.com/view?r=")));
+
+        mockMvc.perform(get("/")
+                        .with(user(userAdmin.getEmail()).roles("PERSONAL_ADMINISTRATIVO")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("href=\"/analitica\""))));
+
+        mockMvc.perform(get("/analitica")
+                        .with(user(userAdmin.getEmail()).roles("PERSONAL_ADMINISTRATIVO")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/analitica")
+                        .with(user(userDocente.getEmail()).roles("DOCENTE")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/analitica")
+                        .with(user(userEstudiante1.getEmail()).roles("ESTUDIANTE")))
+                .andExpect(status().isForbidden());
+    }
 }
 
