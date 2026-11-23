@@ -21,7 +21,7 @@ services:
 
   # Almacenamiento de Archivos S3 (MinIO)
   minio:
-    image: minio/minio:latest
+    image: elestio/minio:latest
     container_name: siga-prod-minio
     restart: always
     environment:
