@@ -6,16 +6,23 @@ import com.siga.siga_iea.configuracion.entity.ConfiguracionInstitucional;
 import com.siga.siga_iea.configuracion.service.PeriodoConfigService;
 import com.siga.siga_iea.configuracion.service.RolPermisoService;
 import com.siga.siga_iea.usuarios.entity.Docente;
+import com.siga.siga_iea.usuarios.entity.Estudiante;
 import com.siga.siga_iea.usuarios.entity.Usuario;
 import com.siga.siga_iea.usuarios.service.PerfilFotoService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Resuelve en una sola pasada por petición HTTP los atributos globales de vista
+ * para evitar múltiples consultas redundantes a PostgreSQL entre fragmentos Thymeleaf.
+ */
 @ControllerAdvice
 public class GlobalModelAdvice {
 
@@ -46,50 +53,90 @@ public class GlobalModelAdvice {
         this(userContextService, rolPermisoService, null, null);
     }
 
-    @ModelAttribute("currentUri")
-    public String populateCurrentUri(HttpServletRequest request) {
-        return request != null ? request.getRequestURI() : "";
-    }
+    @ModelAttribute
+    public void populateGlobalAttributes(Model model, HttpServletRequest request) {
+        model.addAttribute("currentUri", request != null ? request.getRequestURI() : "");
 
-    @ModelAttribute("currentRolCode")
-    public String populateRolCode() {
-        if (userContextService.getAuthentication().isPresent()) {
-            return userContextService.getRolAutenticado().name();
+        boolean isHxRequest = request != null && "true".equalsIgnoreCase(request.getHeader("HX-Request"));
+        boolean authenticated = userContextService.getAuthentication().isPresent();
+
+        Usuario currentUser = authenticated ? userContextService.getUsuarioAutenticado().orElse(null) : null;
+        RolEnum rol = null;
+        if (authenticated) {
+            rol = currentUser != null ? currentUser.getRolEnum() : userContextService.getRolAutenticado();
         }
-        return "INVITADO";
-    }
 
-    @ModelAttribute("modulosPermitidos")
-    public Set<String> populateModulosPermitidos() {
-        if (userContextService.getAuthentication().isPresent()) {
-            RolEnum rol = userContextService.getRolAutenticado();
-            return rolPermisoService.obtenerModulosPermitidos(rol.name());
+        String rolCode = rol != null ? rol.name() : "INVITADO";
+        String roleName = rol != null ? rol.getEtiqueta() : "";
+        boolean esAdmin = rol != null && rol.esAdmin();
+        boolean esDocente = rol != null && rol.esDocente();
+        boolean esAdministrativo = rol != null && rol.esPersonalAdministrativo();
+        boolean esAdminOAdmin = rol != null && rol.esAdminOAdministrativo();
+        boolean esEstudiante = rol != null && rol.esEstudiante() && !esAdminOAdmin && !esDocente;
+
+        Set<String> modulosPermitidos = (authenticated && rol != null)
+                ? rolPermisoService.obtenerModulosPermitidos(rolCode)
+                : Collections.emptySet();
+
+        model.addAttribute("currentUser", currentUser);
+        model.addAttribute("currentRolCode", rolCode);
+        model.addAttribute("currentRoleName", roleName);
+        model.addAttribute("modulosPermitidos", modulosPermitidos);
+        model.addAttribute("esAdmin", esAdmin);
+        model.addAttribute("esDocente", esDocente);
+        model.addAttribute("esAdministrativo", esAdministrativo);
+        model.addAttribute("esEstudiante", esEstudiante);
+        model.addAttribute("puedeAdministrarCursos", esAdminOAdmin);
+
+        // Atributos de barra/cabecera que solo requieren resolverse en vistas completas (no en parciales HTMX)
+        Docente docenteLogueado = null;
+        String firstName = "";
+        String photoUrl = null;
+
+        if (authenticated && !isHxRequest) {
+            if (esDocente) {
+                Optional<Docente> docOpt = userContextService.getDocenteAutenticado();
+                docenteLogueado = docOpt.orElse(null);
+                if (docenteLogueado != null) {
+                    firstName = extraerPrimerNombre(docenteLogueado.getNombres());
+                }
+            } else if (esEstudiante) {
+                Optional<Estudiante> estOpt = userContextService.getEstudianteAutenticado();
+                if (estOpt.isPresent()) {
+                    firstName = extraerPrimerNombre(estOpt.get().getNombres());
+                }
+            }
+
+            if (firstName.isBlank() && currentUser != null && currentUser.getEmail() != null) {
+                String em = currentUser.getEmail();
+                String local = em.contains("@") ? em.substring(0, em.indexOf('@')) : em;
+                String base = local.contains(".") ? local.substring(0, local.indexOf('.')) : local;
+                if (!base.isEmpty()) {
+                    firstName = Character.toUpperCase(base.charAt(0)) + base.substring(1);
+                }
+            }
+
+            if (perfilFotoService != null && currentUser != null) {
+                String key = perfilFotoService.resolverFotoKeyPorUsuario(currentUser);
+                photoUrl = key != null ? perfilFotoService.construirUrl(key) : null;
+            }
+        } else if (authenticated && esDocente) {
+            docenteLogueado = userContextService.getDocenteAutenticado().orElse(null);
         }
-        return Collections.emptySet();
-    }
 
-    @ModelAttribute("currentUser")
-    public Usuario populateCurrentUser() {
-        return userContextService.getUsuarioAutenticado().orElse(null);
-    }
+        model.addAttribute("docenteLogueado", docenteLogueado);
+        model.addAttribute("currentUserFirstName", firstName);
+        model.addAttribute("currentUserPhotoUrl", photoUrl);
 
-    @ModelAttribute("currentUserFirstName")
-    public String populateCurrentUserFirstName() {
-        if (userContextService.getAuthentication().isEmpty()) {
-            return "";
-        }
-        return userContextService.getEstudianteAutenticado()
-                .map(e -> extraerPrimerNombre(e.getNombres()))
-                .filter(s -> !s.isBlank())
-                .or(() -> userContextService.getDocenteAutenticado()
-                        .map(d -> extraerPrimerNombre(d.getNombres()))
-                        .filter(s -> !s.isBlank()))
-                .orElseGet(() -> userContextService.getUsuarioAutenticado()
-                        .map(Usuario::getEmail)
-                        .map(em -> em.contains("@") ? em.substring(0, em.indexOf('@')) : em)
-                        .map(s -> s.contains(".") ? s.substring(0, s.indexOf('.')) : s)
-                        .map(s -> s.isEmpty() ? "" : Character.toUpperCase(s.charAt(0)) + s.substring(1))
-                        .orElse(""));
+        String anioLectivoActivo = periodoConfigService != null
+                ? periodoConfigService.obtenerAnioLectivoCodigo()
+                : String.valueOf(PeriodoConfigService.anioCalendarioActual());
+        ConfiguracionInstitucional configInst = (!isHxRequest && periodoConfigService != null)
+                ? periodoConfigService.obtenerConfiguracionInstitucional()
+                : null;
+
+        model.addAttribute("anioLectivoActivo", anioLectivoActivo);
+        model.addAttribute("configInstitucional", configInst);
     }
 
     private String extraerPrimerNombre(String nombres) {
@@ -97,72 +144,5 @@ public class GlobalModelAdvice {
             return "";
         }
         return nombres.trim().split("\\s+")[0];
-    }
-
-    @ModelAttribute("currentUserPhotoUrl")
-    public String populateCurrentUserPhotoUrl() {
-        if (perfilFotoService == null) {
-            return null;
-        }
-        return userContextService.getUsuarioAutenticado()
-                .map(perfilFotoService::resolverFotoKeyPorUsuario)
-                .map(perfilFotoService::construirUrl)
-                .orElse(null);
-    }
-
-    @ModelAttribute("currentRoleName")
-    public String populateRoleName() {
-        if (userContextService.getAuthentication().isPresent()) {
-            return userContextService.getRolAutenticado().getEtiqueta();
-        }
-        return "";
-    }
-
-    @ModelAttribute("esAdmin")
-    public boolean populateEsAdmin() {
-        return userContextService.esAdmin();
-    }
-
-    @ModelAttribute("esDocente")
-    public boolean populateEsDocente() {
-        return userContextService.esDocente();
-    }
-
-    @ModelAttribute("esAdministrativo")
-    public boolean populateEsAdministrativo() {
-        return userContextService.esPersonalAdministrativo();
-    }
-
-    @ModelAttribute("esEstudiante")
-    public boolean populateEsEstudiante() {
-        return userContextService.esEstudiante()
-                && !userContextService.esAdminOAdministrativo()
-                && !userContextService.esDocente();
-    }
-
-    @ModelAttribute("puedeAdministrarCursos")
-    public boolean populatePuedeAdministrarCursos() {
-        return userContextService.esAdminOAdministrativo();
-    }
-
-    @ModelAttribute("docenteLogueado")
-    public Docente populateDocenteLogueado() {
-        return userContextService.getDocenteAutenticado().orElse(null);
-    }
-
-    @ModelAttribute("anioLectivoActivo")
-    public String populateAnioLectivoActivo() {
-        if (periodoConfigService != null) {
-            return periodoConfigService.obtenerAnioLectivoCodigo();
-        }
-        return String.valueOf(PeriodoConfigService.anioCalendarioActual());
-    }
-
-    @ModelAttribute("configInstitucional")
-    public ConfiguracionInstitucional populateConfigInstitucional() {
-        if (periodoConfigService != null) {
-            return periodoConfigService.obtenerConfiguracionInstitucional();
-        }
-        return null;
     }
 }

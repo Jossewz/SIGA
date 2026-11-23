@@ -372,12 +372,15 @@ th:fragment="html(content)">
         initSigaTablePagination();
     };
 
-    document.addEventListener('DOMContentLoaded', function() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            initLucideIcons();
+            initSigaTablePagination();
+        });
+    } else {
         initLucideIcons();
         initSigaTablePagination();
-    });
-    initLucideIcons();
-    initSigaTablePagination();
+    }
     document.addEventListener('htmx:afterSwap', function() {
         initLucideIcons();
         initSigaTablePagination();

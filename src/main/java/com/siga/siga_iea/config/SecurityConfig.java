@@ -21,7 +21,11 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.header.writers.CacheControlHeadersWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
@@ -49,6 +53,17 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        RequestMatcher isStaticAsset = req -> {
+            String path = req.getRequestURI();
+            return path != null && (path.startsWith("/css/")
+                    || path.startsWith("/js/")
+                    || path.startsWith("/img/")
+                    || path.startsWith("/icons/")
+                    || path.startsWith("/fonts/")
+                    || "/favicon.svg".equals(path)
+                    || "/favicon.ico".equals(path));
+        };
+
         http
                 // Protección CSRF robusta basada en cookies (compatible con SPA / HTMX / Fetch)
                 .csrf(csrf -> csrf
@@ -58,6 +73,11 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 // Cabeceras estrictas de seguridad web (Criterios OWASP / SEGI)
                 .headers(headers -> headers
+                        .cacheControl(cache -> cache.disable())
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                                new NegatedRequestMatcher(isStaticAsset),
+                                new CacheControlHeadersWriter()
+                        ))
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000)
