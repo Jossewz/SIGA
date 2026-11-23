@@ -143,10 +143,6 @@
    en columnas y thead pegajoso (sticky).
    ------------------------------------------------------------------------- */
 @layer components {
-  .tabla-siga {
-    min-width: 640px;
-  }
-
   .tabla-siga thead th {
     background-color: var(--color-sidebar-container, #F4EFE6) !important;
     color: var(--color-forest-green, #134e1e) !important;

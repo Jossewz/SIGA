@@ -127,7 +127,7 @@
                 </div>
 
                 <!-- Columna Derecha: Mis Solicitudes -->
-                <div class="lg:col-span-7 rounded-surface border border-border bg-white shadow-card transition relative flex flex-col">
+                <div class="lg:col-span-7 min-w-0 overflow-hidden rounded-surface border border-border bg-white shadow-card transition relative flex flex-col">
                     <div class="flex flex-col gap-3 px-6 pt-5 pb-4 sm:flex-row sm:items-center sm:justify-between relative z-30">
                         <div class="flex flex-wrap items-center gap-2.5">
                             <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Mis Solicitudes</h2>
@@ -142,11 +142,11 @@
                         <table class="tabla-siga w-full text-left text-sm bg-surface">
                             <thead class="sticky top-0 z-20 border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700 [&_th]:bg-surface-sunken">
                                 <tr>
-                                    <th class="py-3 px-4 pl-5 w-28">Código</th>
-                                    <th class="py-3 px-4">Certificado</th>
-                                    <th class="py-3 px-4 text-center w-28">Fecha</th>
-                                    <th class="py-3 px-4 text-center w-28">Estado</th>
-                                    <th class="py-3 px-4 pr-5 text-right w-36">Documento</th>
+                                    <th class="py-3 px-3 pl-4">Código</th>
+                                    <th class="py-3 px-3">Certificado</th>
+                                    <th class="py-3 px-3 text-center">Fecha</th>
+                                    <th class="py-3 px-3 text-center">Estado</th>
+                                    <th class="py-3 px-3 pr-4 text-right">Documento</th>
                                 </tr>
                             </thead>
                             <tbody class="text-brand-900" id="tbody-solicitudes-estudiante">
@@ -155,18 +155,18 @@
                                 </th:block>
                                 <th:block th:each="sol : ${solicitudesEstudianteMock}">
                                     <tr class="transition-colors">
-                                        <td class="py-3 px-4 pl-5 font-black text-sidebar text-xs" th:text="${sol.id}">CERT-2026-001</td>
-                                        <td class="py-3 px-4">
+                                        <td class="py-3 px-3 pl-4 font-bold text-sidebar text-xs whitespace-nowrap" th:text="${sol.id}">CERT-2026-001</td>
+                                        <td class="py-3 px-3">
                                             <div class="font-bold text-brand-900 text-xs" th:text="${sol.tipo}">Constancia de matrícula</div>
                                             <div class="text-[11px] font-medium text-brand-500" th:text="${sol.motivo}">Trámite EPS</div>
                                         </td>
-                                        <td class="py-3 px-4 text-center font-semibold text-brand-500 text-xs" th:text="${sol.fecha}">2026-07-28</td>
-                                        <td class="py-3 px-4 text-center">
-                                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide inline-block shadow-2xs border"
+                                        <td class="py-3 px-3 text-center font-semibold text-brand-500 text-xs whitespace-nowrap" th:text="${sol.fecha}">2026-07-28</td>
+                                        <td class="py-3 px-3 text-center whitespace-nowrap">
+                                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide inline-block shadow-2xs border"
                                                   th:classappend="${sol.estado == 'Resuelto'} ? 'bg-pill-green text-sidebar border-[#cbe5c7]' : 'bg-pill-warning text-[#8f5b12] border-[#f0dec0]'"
                                                   th:text="${sol.estado}">Resuelto</span>
                                         </td>
-                                        <td class="py-3 px-4 pr-5 text-right">
+                                        <td class="py-3 px-3 pr-4 text-right whitespace-nowrap">
                                             <div th:if="${sol.estado == 'Resuelto'}" class="flex justify-end items-center gap-1.5">
                                                 <button type="button" 
                                                         th:data-id="${sol.id}"
