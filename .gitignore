@@ -51,3 +51,9 @@ AGENTS.md
 
 
 .antigravity/
+
+# Secretos locales y salidas de video
+.env
+.env.local
+presentacion-video/
+out/
