@@ -46,7 +46,7 @@
                 <div class="flex flex-wrap items-center gap-3">
                     <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Boletín Individual de Calificaciones</h2>
                     <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
-                        <span th:text="${(boletin != null ? #lists.size(boletin) : 0) + ' ASIGNATURAS'}">0 ASIGNATURAS</span>
+                        <span th:text="${(totalAsignaturas != null ? totalAsignaturas : (boletin != null ? #lists.size(boletin) : 0)) + ' ASIGNATURAS'}">0 ASIGNATURAS</span>
                     </span>
                 </div>
 
@@ -190,6 +190,11 @@
                     </tbody>
                 </table>
             </div>
+            <div th:replace="~{components/tables/pagination :: pagination(
+                page=${boletinPage},
+                baseUrl='/calificaciones',
+                extraParams=${estudianteSeleccionadoId != null and !#strings.isEmpty(estudianteSeleccionadoId) ? '&estudianteId=' + estudianteSeleccionadoId : ''}
+            )}"></div>
         </div>
     </div>
 

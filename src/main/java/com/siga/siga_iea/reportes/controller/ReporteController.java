@@ -90,7 +90,12 @@ public class ReporteController {
     }
 
     @GetMapping("/reportes")
-    public String index(Model model) {
+    public String index(
+            @RequestParam(value = "estado", required = false, defaultValue = "todos") String estadoFiltro,
+            @RequestParam(value = "vista", required = false, defaultValue = "") String vistaSimulada,
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") int size,
+            Model model) {
         model.addAttribute("title", "Reportes de Estudiantes – IEACI");
         model.addAttribute("activePage", "reportes");
 
@@ -186,9 +191,55 @@ public class ReporteController {
             reportesMock.add(map);
         }
 
-        List<Map<String, Object>> reportesDocente = (esAdmin && !esDocente && reportesMock.size() > 25)
-                ? reportesMock.subList(0, 25)
-                : reportesMock;
+        String estadoLimpio = (estadoFiltro == null || estadoFiltro.isBlank()) ? "todos" : estadoFiltro.trim();
+        String vistaActiva;
+        if (esAdmin) {
+            if ("docente".equalsIgnoreCase(vistaSimulada)) {
+                vistaActiva = "docente";
+            } else if ("estudiante".equalsIgnoreCase(vistaSimulada)) {
+                vistaActiva = "estudiante";
+            } else {
+                vistaActiva = "admin";
+            }
+        } else if (esDocente) {
+            vistaActiva = "docente";
+        } else if (esPersonal) {
+            vistaActiva = "admin";
+        } else {
+            vistaActiva = "estudiante";
+        }
+
+        List<Map<String, Object>> reportesAdminFiltrados = "todos".equalsIgnoreCase(estadoLimpio)
+                ? reportesMock
+                : reportesMock.stream()
+                        .filter(r -> estadoLimpio.equalsIgnoreCase(String.valueOf(r.get("estado"))))
+                        .toList();
+
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int adminPageReq = "admin".equals(vistaActiva) ? page : 0;
+        int totalAdmin = reportesAdminFiltrados.size();
+        int totalAdminPages = totalAdmin == 0 ? 1 : (int) Math.ceil((double) totalAdmin / safeSize);
+        int safeAdminPage = Math.max(0, Math.min(adminPageReq, totalAdminPages - 1));
+        int adminFrom = safeAdminPage * safeSize;
+        int adminTo = Math.min(adminFrom + safeSize, totalAdmin);
+        List<Map<String, Object>> paginaAdmin = adminFrom < totalAdmin
+                ? reportesAdminFiltrados.subList(adminFrom, adminTo)
+                : Collections.emptyList();
+        org.springframework.data.domain.Page<Map<String, Object>> reportesAdminPage = new org.springframework.data.domain.PageImpl<>(
+                paginaAdmin, org.springframework.data.domain.PageRequest.of(safeAdminPage, safeSize), totalAdmin);
+
+        int docPageReq = "docente".equals(vistaActiva) ? page : 0;
+        int totalDoc = reportesMock.size();
+        int totalDocPages = totalDoc == 0 ? 1 : (int) Math.ceil((double) totalDoc / safeSize);
+        int safeDocPage = Math.max(0, Math.min(docPageReq, totalDocPages - 1));
+        int docFrom = safeDocPage * safeSize;
+        int docTo = Math.min(docFrom + safeSize, totalDoc);
+        List<Map<String, Object>> paginaDocente = docFrom < totalDoc
+                ? reportesMock.subList(docFrom, docTo)
+                : Collections.emptyList();
+        org.springframework.data.domain.Page<Map<String, Object>> reportesDocentePage = new org.springframework.data.domain.PageImpl<>(
+                paginaDocente, org.springframework.data.domain.PageRequest.of(safeDocPage, safeSize), totalDoc);
+
         List<Map<String, Object>> reportesRecibidosVista = (esAdmin && !esEstudiante && reportesRecibidosEst.size() > 10)
                 ? reportesRecibidosEst.subList(0, 10)
                 : reportesRecibidosEst;
@@ -196,10 +247,16 @@ public class ReporteController {
         model.addAttribute("estudiantesList", estudiantesList);
         model.addAttribute("companerosList", companerosList);
         model.addAttribute("docentesList", (esAdmin || esEstudiante) ? personalService.listarDocentes() : Collections.emptyList());
-        model.addAttribute("reportesMock", reportesMock);
-        model.addAttribute("reportesDocente", reportesDocente);
+        model.addAttribute("reportesMock", paginaAdmin);
+        model.addAttribute("reportesAdminPage", reportesAdminPage);
+        model.addAttribute("totalReportesAdmin", totalAdmin);
+        model.addAttribute("reportesDocente", paginaDocente);
+        model.addAttribute("reportesDocentePage", reportesDocentePage);
+        model.addAttribute("totalReportesDocente", totalDoc);
         model.addAttribute("reportesRecibidosEst", reportesRecibidosVista);
         model.addAttribute("reportesEnviadosEst", reportesEnviadosEst);
+        model.addAttribute("estadoFiltro", estadoLimpio);
+        model.addAttribute("vistaActiva", vistaActiva);
         return "reportes/index";
     }
 

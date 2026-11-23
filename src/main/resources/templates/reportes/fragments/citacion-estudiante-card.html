@@ -1,6 +1,6 @@
 <th:block xmlns:th="http://www.thymeleaf.org">
     <!-- VISTA ROL ESTUDIANTE: Citaciones Recibidas + Reportes de Convivencia -->
-    <div th:fragment="citacionEstudianteCard" id="vista-estudiante" class="space-y-6" th:classappend="${esEstudiante} ? '' : 'hidden'">
+    <div th:fragment="citacionEstudianteCard" id="vista-estudiante" class="space-y-6" th:classappend="${vistaActiva == 'estudiante' || (!esAdmin && esEstudiante)} ? '' : 'hidden'">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <!-- Formulario Estudiante: Reportar Compañero o Docente -->
             <div class="lg:col-span-5 bg-white rounded-xl border border-border shadow-soft p-6">

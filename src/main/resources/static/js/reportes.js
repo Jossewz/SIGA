@@ -81,6 +81,13 @@ function cambiarRolSimulado(rol) {
         btnEst.className = btnActive;
         vEst.forEach(el => el.classList.remove('hidden'));
     }
+
+    if (window.history && typeof window.history.replaceState === 'function') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('vista', rol);
+        url.searchParams.delete('page');
+        window.history.replaceState({}, '', url.toString());
+    }
 }
 
 // Formulario Docente: Crear Reporte
@@ -266,17 +273,13 @@ function handleFormAtender(e) {
     }
 }
 
-// Filtrar Reportes Admin
+// Filtrar Reportes Admin (navegación real al servidor para actualizar URL y paginación)
 function filtrarReportesAdmin(filtro) {
-    document.querySelectorAll('.row-reporte-admin').forEach(tr => {
-        if (filtro === 'todos' || tr.dataset.estado === filtro) {
-            tr.dataset.filteredOut = 'false';
-            tr.classList.remove('hidden');
-        } else {
-            tr.dataset.filteredOut = 'true';
-        }
-    });
-    if (typeof window.sigaRefreshPagination === 'function') {
-        window.sigaRefreshPagination(true);
+    const url = new URL('/reportes', window.location.origin);
+    url.searchParams.set('vista', 'admin');
+    if (filtro && filtro !== 'todos') {
+        url.searchParams.set('estado', filtro);
     }
+    url.searchParams.set('page', '0');
+    window.location.href = url.toString();
 }

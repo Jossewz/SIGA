@@ -52,6 +52,13 @@ function cambiarRolSimulado(rol) {
         vAdmin.classList.remove('hidden');
         vEst.classList.add('hidden');
     }
+
+    if (window.history && typeof window.history.replaceState === 'function') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('vista', rol);
+        url.searchParams.delete('page');
+        window.history.replaceState({}, '', url.toString());
+    }
 }
 
 // Modal Ver Respuesta para Estudiante
@@ -131,17 +138,13 @@ function actualizarNombreFileAdjunto(input) {
     }
 }
 
-// Filtrar Solicitudes Admin
+// Filtrar Solicitudes Admin (navegación real al servidor para actualizar URL y paginación)
 function filtrarTablaAdmin(filtro) {
-    document.querySelectorAll('.row-solicitud-admin').forEach(tr => {
-        if (filtro === 'todos' || tr.dataset.estado === filtro) {
-            tr.dataset.filteredOut = 'false';
-            tr.classList.remove('hidden');
-        } else {
-            tr.dataset.filteredOut = 'true';
-        }
-    });
-    if (typeof window.sigaRefreshPagination === 'function') {
-        window.sigaRefreshPagination(true);
+    const url = new URL('/certificados', window.location.origin);
+    url.searchParams.set('vista', 'admin');
+    if (filtro && filtro !== 'todos') {
+        url.searchParams.set('estado', filtro);
     }
+    url.searchParams.set('page', '0');
+    window.location.href = url.toString();
 }

@@ -90,7 +90,11 @@ public class CalificacionController {
     }
 
     @GetMapping("/calificaciones")
-    public String index(@RequestParam(value = "estudianteId", required = false) UUID estudianteId, Model model) {
+    public String index(
+            @RequestParam(value = "estudianteId", required = false) UUID estudianteId,
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") int size,
+            Model model) {
         model.addAttribute("title", "Boletín de Calificaciones – IEACI");
         model.addAttribute("activePage", "calificaciones");
 
@@ -149,14 +153,29 @@ public class CalificacionController {
             }
             model.addAttribute("estudianteGrado", gradoStr);
 
-            List<BoletinMateriaDTO> boletin = calificacionesService.obtenerBoletinEstudiante(seleccionado.getId(), anioActivo, ponderaciones);
-            model.addAttribute("boletin", boletin);
+            List<BoletinMateriaDTO> boletinCompleto = calificacionesService.obtenerBoletinEstudiante(seleccionado.getId(), anioActivo, ponderaciones);
+            int safeSize = Math.max(1, Math.min(size, 50));
+            int totalAsig = boletinCompleto.size();
+            int totalPages = totalAsig == 0 ? 1 : (int) Math.ceil((double) totalAsig / safeSize);
+            int safePage = Math.max(0, Math.min(page, totalPages - 1));
+            int fromIdx = safePage * safeSize;
+            int toIdx = Math.min(fromIdx + safeSize, totalAsig);
+            List<BoletinMateriaDTO> paginaBoletin = fromIdx < totalAsig
+                    ? boletinCompleto.subList(fromIdx, toIdx)
+                    : Collections.emptyList();
+            org.springframework.data.domain.Page<BoletinMateriaDTO> boletinPage = new org.springframework.data.domain.PageImpl<>(
+                    paginaBoletin, org.springframework.data.domain.PageRequest.of(safePage, safeSize), totalAsig);
+            model.addAttribute("boletin", paginaBoletin);
+            model.addAttribute("boletinPage", boletinPage);
+            model.addAttribute("totalAsignaturas", totalAsig);
         } else {
             model.addAttribute("estudianteSeleccionadoId", "");
             model.addAttribute("estudianteNombre", "Sin estudiante registrado");
             model.addAttribute("estudianteDocumento", "-");
             model.addAttribute("estudianteGrado", "-");
             model.addAttribute("boletin", Collections.emptyList());
+            model.addAttribute("boletinPage", org.springframework.data.domain.Page.empty());
+            model.addAttribute("totalAsignaturas", 0);
         }
 
         List<Curso> cursos = cursoService.listarTodosLosCursos();

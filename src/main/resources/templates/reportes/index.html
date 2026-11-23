@@ -28,17 +28,17 @@
             <!-- Selector / Toggle de Rol para Pruebas (Solo visible para ADMIN) -->
             <div th:if="${esAdmin}" class="bg-white rounded-xl border border-border p-1.5 flex items-center gap-1 shadow-2xs">
                 <button type="button" onclick="cambiarRolSimulado('docente')" id="btn-rol-docente"
-                        class="px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-1.5 cursor-pointer">
+                        th:class="${vistaActiva == 'docente'} ? 'px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer bg-sidebar text-white shadow-2xs' : 'px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-1.5 cursor-pointer'">
                     <i data-lucide="user-check" class="size-4 stroke-[2.5]"></i>
                     <span>Rol Docente</span>
                 </button>
                 <button type="button" onclick="cambiarRolSimulado('admin')" id="btn-rol-admin"
-                        class="px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer bg-sidebar text-white shadow-2xs">
+                        th:class="${vistaActiva == null || vistaActiva == 'admin'} ? 'px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer bg-sidebar text-white shadow-2xs' : 'px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-1.5 cursor-pointer'">
                     <i data-lucide="shield-check" class="size-4 stroke-[2.5]"></i>
                     <span>Rol Personal Administrativo</span>
                 </button>
                 <button type="button" onclick="cambiarRolSimulado('estudiante')" id="btn-rol-estudiante"
-                        class="px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-1.5 cursor-pointer">
+                        th:class="${vistaActiva == 'estudiante'} ? 'px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer bg-sidebar text-white shadow-2xs' : 'px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-1.5 cursor-pointer'">
                     <i data-lucide="graduation-cap" class="size-4 stroke-[2.5]"></i>
                     <span>Rol Estudiante</span>
                 </button>
@@ -48,7 +48,7 @@
         <!-- ========================================================================= -->
         <!-- VISTA 1: ROL DOCENTE (Creación de Reportes) -->
         <!-- ========================================================================= -->
-        <div id="vista-docente" th:if="${esDocente || esAdmin}" class="space-y-6" th:classappend="${esDocente} ? '' : 'hidden'">
+        <div id="vista-docente" th:if="${esDocente || esAdmin}" class="space-y-6" th:classappend="${vistaActiva == 'docente' || (!esAdmin && esDocente)} ? '' : 'hidden'">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 <!-- Formulario de Nuevo Reporte de Estudiante -->
@@ -134,7 +134,7 @@
                         <div class="flex flex-wrap items-center gap-2.5">
                             <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Reportes Generados</h2>
                             <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
-                                <span th:text="${(reportesMock != null ? #lists.size(reportesMock) : 0) + ' EMITIDOS'}">0 EMITIDOS</span>
+                                <span th:text="${(totalReportesDocente != null ? totalReportesDocente : (reportesDocente != null ? #lists.size(reportesDocente) : 0)) + ' EMITIDOS'}">0 EMITIDOS</span>
                             </span>
                         </div>
                     </div>
@@ -177,6 +177,11 @@
                             </tbody>
                         </table>
                     </div>
+                    <div th:replace="~{components/tables/pagination :: pagination(
+                        page=${reportesDocentePage},
+                        baseUrl='/reportes',
+                        extraParams='&vista=docente'
+                    )}"></div>
                 </div>
             </div>
         </div>
@@ -184,23 +189,23 @@
         <!-- ========================================================================= -->
         <!-- VISTA 2: ROL PERSONAL ADMINISTRATIVO (Revisión y Citaciones) -->
         <!-- ========================================================================= -->
-        <div id="vista-admin" th:if="${esPersonal || esAdmin}" class="space-y-6" th:classappend="${esPersonal || esAdmin} ? '' : 'hidden'">
+        <div id="vista-admin" th:if="${esPersonal || esAdmin}" class="space-y-6" th:classappend="${vistaActiva == 'admin' || (!esAdmin && esPersonal)} ? '' : 'hidden'">
             <div class="rounded-surface border border-border bg-white shadow-card transition relative">
                 <div class="flex flex-col gap-4 px-6 pt-5 pb-4 sm:flex-row sm:items-center sm:justify-between relative z-30">
                     <div class="flex flex-wrap items-center gap-3">
                         <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Bandeja de Reportes</h2>
                         <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
-                            <span th:text="${(reportesMock != null ? #lists.size(reportesMock) : 0) + ' REGISTROS'}">0 REGISTROS</span>
+                            <span th:text="${(totalReportesAdmin != null ? totalReportesAdmin : (reportesMock != null ? #lists.size(reportesMock) : 0)) + ' REGISTROS'}">0 REGISTROS</span>
                         </span>
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <label class="text-xs font-bold text-brand-600">Filtrar:</label>
-                        <select onchange="filtrarReportesAdmin(this.value)" class="rounded-control border border-border bg-surface-muted py-1.5 px-3 text-xs font-bold text-brand-800 focus:outline-none focus:ring-2 focus:ring-accent-100 transition shadow-2xs">
-                            <option value="todos">Todos los reportes</option>
-                            <option value="Pendiente">Pendientes</option>
-                            <option value="Aceptado">Aceptados (Citados)</option>
-                            <option value="Rechazado">Rechazados</option>
+                        <label for="filtro-estado-reportes" class="text-xs font-bold text-brand-600">Filtrar:</label>
+                        <select id="filtro-estado-reportes" onchange="filtrarReportesAdmin(this.value)" class="rounded-control border border-border bg-surface-muted py-1.5 px-3 text-xs font-bold text-brand-800 focus:outline-none focus:ring-2 focus:ring-accent-100 transition shadow-2xs">
+                            <option value="todos" th:selected="${estadoFiltro == null || estadoFiltro == 'todos'}">Todos los reportes</option>
+                            <option value="Pendiente" th:selected="${estadoFiltro == 'Pendiente'}">Pendientes</option>
+                            <option value="Aceptado" th:selected="${estadoFiltro == 'Aceptado'}">Aceptados (Citados)</option>
+                            <option value="Rechazado" th:selected="${estadoFiltro == 'Rechazado'}">Rechazados</option>
                         </select>
                     </div>
                 </div>
@@ -258,6 +263,11 @@
                         </tbody>
                     </table>
                 </div>
+                <div th:replace="~{components/tables/pagination :: pagination(
+                    page=${reportesAdminPage},
+                    baseUrl='/reportes',
+                    extraParams='&vista=admin&estado=' + (${estadoFiltro ?: 'todos'})
+                )}"></div>
             </div>
         </div>
 

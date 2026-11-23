@@ -257,7 +257,7 @@ th:fragment="html(content)">
     function initSigaTablePagination() {
         document.querySelectorAll('table.tabla-siga').forEach(function(table) {
             var card = table.closest('.rounded-surface, .rounded-xl, section') || table.parentElement;
-            if (card && card.querySelector('nav[aria-label="Paginación de resultados"]:not([data-client-paginator])')) {
+            if (card && card.querySelector('[data-server-paginator="true"], nav[aria-label="Paginación de resultados"]:not([data-client-paginator])')) {
                 return;
             }
             var tbody = table.querySelector('tbody');

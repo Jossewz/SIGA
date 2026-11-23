@@ -74,6 +74,8 @@ public class PersonalController {
             @RequestParam(value = "area", required = false) String area,
             @RequestParam(value = "estado", required = false) String estado,
             @RequestParam(value = "tipo", required = false) String tipo,
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") int size,
             Model model) {
 
         model.addAttribute("title", "Gestión de Personal – IEACI");
@@ -165,7 +167,21 @@ public class PersonalController {
             }
         }
 
-        model.addAttribute("personalList", personalList);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int totalPersonal = personalList.size();
+        int totalPages = totalPersonal == 0 ? 1 : (int) Math.ceil((double) totalPersonal / safeSize);
+        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+        int fromIdx = safePage * safeSize;
+        int toIdx = Math.min(fromIdx + safeSize, totalPersonal);
+        List<Map<String, Object>> paginaPersonal = fromIdx < totalPersonal
+                ? personalList.subList(fromIdx, toIdx)
+                : Collections.emptyList();
+        org.springframework.data.domain.Page<Map<String, Object>> personalPage = new org.springframework.data.domain.PageImpl<>(
+                paginaPersonal, org.springframework.data.domain.PageRequest.of(safePage, safeSize), totalPersonal);
+
+        model.addAttribute("personalList", paginaPersonal);
+        model.addAttribute("personalPage", personalPage);
+        model.addAttribute("totalPersonal", totalPersonal);
         return "personal/index";
     }
 

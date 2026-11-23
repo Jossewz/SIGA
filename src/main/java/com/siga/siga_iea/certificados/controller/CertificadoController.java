@@ -86,7 +86,12 @@ public class CertificadoController {
     }
 
     @GetMapping("/certificados")
-    public String index(Model model) {
+    public String index(
+            @RequestParam(value = "estado", required = false, defaultValue = "todos") String estadoFiltro,
+            @RequestParam(value = "vista", required = false, defaultValue = "") String vistaSimulada,
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") int size,
+            Model model) {
         model.addAttribute("title", "Certificados y Constancias – IEACI");
         model.addAttribute("activePage", "certificados");
 
@@ -96,10 +101,26 @@ public class CertificadoController {
         Optional<Estudiante> estLogueadoOpt = getEstudianteLogueado();
         boolean esEstudiante = currentUserContextService.getRolAutenticado().esEstudiante() || estLogueadoOpt.isPresent();
 
+        String estadoLimpio = (estadoFiltro == null || estadoFiltro.isBlank()) ? "todos" : estadoFiltro.trim();
+        String vistaActiva;
+        if (esAdmin) {
+            if ("admin".equalsIgnoreCase(vistaSimulada) || !"todos".equalsIgnoreCase(estadoLimpio)) {
+                vistaActiva = "admin";
+            } else {
+                vistaActiva = "estudiante";
+            }
+        } else if (esPersonal) {
+            vistaActiva = "admin";
+        } else {
+            vistaActiva = "estudiante";
+        }
+
         model.addAttribute("esAdmin", esAdmin);
         model.addAttribute("esPersonal", esPersonal);
         model.addAttribute("esEstudiante", esEstudiante);
         model.addAttribute("userRole", userRole);
+        model.addAttribute("estadoFiltro", estadoLimpio);
+        model.addAttribute("vistaActiva", vistaActiva);
 
         Estudiante estudianteSeleccionado = null;
         List<SolicitudCertificado> solicitudesEstudianteDB;
@@ -112,6 +133,9 @@ public class CertificadoController {
             } else {
                 solicitudesEstudianteDB = Collections.emptyList();
             }
+        } else if (esPersonal && !esAdmin) {
+            model.addAttribute("listaEstudiantes", Collections.emptyList());
+            solicitudesEstudianteDB = Collections.emptyList();
         } else {
             List<Estudiante> todosEstudiantes = estudianteService.listarTodos();
             model.addAttribute("listaEstudiantes", todosEstudiantes);
@@ -136,18 +160,51 @@ public class CertificadoController {
             model.addAttribute("estudianteId", null);
         }
 
-        // Listar solicitudes del estudiante (privadas)
-        List<Map<String, Object>> solicitudesEstudianteMock = mapearSolicitudes(solicitudesEstudianteDB);
-        model.addAttribute("solicitudesEstudianteMock", solicitudesEstudianteMock);
+        int safeSize = Math.max(1, Math.min(size, 100));
 
-        // Listar todas las solicitudes solo para personal administrativo o admin
-        List<Map<String, Object>> solicitudesAdminMock = (esAdmin || esPersonal)
+        // Listar y paginar solicitudes del estudiante
+        List<Map<String, Object>> solicitudesEstAll = mapearSolicitudes(solicitudesEstudianteDB);
+        int estPageReq = "estudiante".equals(vistaActiva) ? page : 0;
+        int totalEst = solicitudesEstAll.size();
+        int totalEstPages = totalEst == 0 ? 1 : (int) Math.ceil((double) totalEst / safeSize);
+        int safeEstPage = Math.max(0, Math.min(estPageReq, totalEstPages - 1));
+        int estFrom = safeEstPage * safeSize;
+        int estTo = Math.min(estFrom + safeSize, totalEst);
+        List<Map<String, Object>> paginaEst = estFrom < totalEst
+                ? solicitudesEstAll.subList(estFrom, estTo)
+                : Collections.emptyList();
+        org.springframework.data.domain.Page<Map<String, Object>> solicitudesEstudiantePage = new org.springframework.data.domain.PageImpl<>(
+                paginaEst, org.springframework.data.domain.PageRequest.of(safeEstPage, safeSize), totalEst);
+        model.addAttribute("solicitudesEstudianteMock", paginaEst);
+        model.addAttribute("solicitudesEstudiantePage", solicitudesEstudiantePage);
+        model.addAttribute("totalSolicitudesEstudiante", totalEst);
+
+        // Listar, filtrar y paginar solicitudes institucionales para personal administrativo o admin
+        List<Map<String, Object>> solicitudesAdminAll = (esAdmin || esPersonal)
                 ? mapearSolicitudes(certificadoService.listarTodas())
                 : Collections.emptyList();
-        model.addAttribute("solicitudesAdminMock", solicitudesAdminMock);
+        List<Map<String, Object>> solicitudesAdminFiltradas = "todos".equalsIgnoreCase(estadoLimpio)
+                ? solicitudesAdminAll
+                : solicitudesAdminAll.stream()
+                        .filter(s -> estadoLimpio.equalsIgnoreCase(String.valueOf(s.get("estado"))))
+                        .toList();
+        int adminPageReq = "admin".equals(vistaActiva) ? page : 0;
+        int totalAdmin = solicitudesAdminFiltradas.size();
+        int totalAdminPages = totalAdmin == 0 ? 1 : (int) Math.ceil((double) totalAdmin / safeSize);
+        int safeAdminPage = Math.max(0, Math.min(adminPageReq, totalAdminPages - 1));
+        int adminFrom = safeAdminPage * safeSize;
+        int adminTo = Math.min(adminFrom + safeSize, totalAdmin);
+        List<Map<String, Object>> paginaAdmin = adminFrom < totalAdmin
+                ? solicitudesAdminFiltradas.subList(adminFrom, adminTo)
+                : Collections.emptyList();
+        org.springframework.data.domain.Page<Map<String, Object>> solicitudesAdminPage = new org.springframework.data.domain.PageImpl<>(
+                paginaAdmin, org.springframework.data.domain.PageRequest.of(safeAdminPage, safeSize), totalAdmin);
+        model.addAttribute("solicitudesAdminMock", paginaAdmin);
+        model.addAttribute("solicitudesAdminPage", solicitudesAdminPage);
+        model.addAttribute("totalSolicitudesAdmin", totalAdmin);
 
         // Compatibilidad
-        model.addAttribute("solicitudesMock", solicitudesEstudianteMock);
+        model.addAttribute("solicitudesMock", paginaEst);
 
         return "certificados/index";
     }

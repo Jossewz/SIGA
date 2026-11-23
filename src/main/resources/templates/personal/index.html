@@ -144,7 +144,7 @@
                 <div class="flex flex-wrap items-center gap-3">
                     <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Directorio Institucional</h2>
                     <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
-                        <span th:text="${(personalList != null ? #lists.size(personalList) : 0) + ' FUNCIONARIOS'}">0 FUNCIONARIOS</span>
+                        <span th:text="${(totalPersonal != null ? totalPersonal : (personalList != null ? #lists.size(personalList) : 0)) + ' FUNCIONARIOS'}">0 FUNCIONARIOS</span>
                     </span>
                 </div>
             </div>
@@ -275,6 +275,11 @@
                     </tbody>
                 </table>
             </div>
+            <div th:replace="~{components/tables/pagination :: pagination(
+                page=${personalPage},
+                baseUrl='/personal',
+                extraParams='&search=' + (${search ?: ''}) + '&tipo=' + (${tipo ?: ''}) + '&estado=' + (${estado ?: ''}) + '&cargo=' + (${cargo ?: ''}) + '&area=' + (${area ?: ''})
+            )}"></div>
         </div>
     </div>
 

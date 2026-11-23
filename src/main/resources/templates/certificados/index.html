@@ -32,12 +32,12 @@
             <!-- Selector / Toggle de Rol (Solo visible para ADMIN) -->
             <div th:if="${esAdmin}" class="bg-white rounded-xl border border-border p-1.5 flex items-center gap-1 shadow-2xs">
                 <button type="button" onclick="cambiarRolSimulado('estudiante')" id="btn-rol-estudiante"
-                        class="px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 cursor-pointer bg-sidebar text-white shadow-2xs">
+                        th:class="${vistaActiva == null || vistaActiva == 'estudiante'} ? 'px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 cursor-pointer bg-sidebar text-white shadow-2xs' : 'px-3.5 py-2 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-2 cursor-pointer'">
                     <i data-lucide="user" class="size-4 stroke-[2.5]"></i>
                     <span>Rol Estudiante</span>
                 </button>
                 <button type="button" onclick="cambiarRolSimulado('admin')" id="btn-rol-admin"
-                        class="px-3.5 py-2 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-2 cursor-pointer">
+                        th:class="${vistaActiva == 'admin'} ? 'px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 cursor-pointer bg-sidebar text-white shadow-2xs' : 'px-3.5 py-2 rounded-lg text-xs font-bold text-text-secondary hover:text-sidebar hover:bg-brand-100 transition-all flex items-center gap-2 cursor-pointer'">
                     <i data-lucide="shield-check" class="size-4 stroke-[2.5]"></i>
                     <span>Rol Personal Administrativo</span>
                 </button>
@@ -45,7 +45,7 @@
         </div>
 
         <!-- VISTA: ROL ESTUDIANTE -->
-        <div id="vista-estudiante" class="space-y-6" th:classappend="${esPersonal} ? 'hidden' : ''">
+        <div id="vista-estudiante" th:if="${!esPersonal || esAdmin}" class="space-y-6" th:classappend="${vistaActiva == 'admin'} ? 'hidden' : ''">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 <!-- Columna Izquierda: Formulario -->
@@ -132,7 +132,7 @@
                         <div class="flex flex-wrap items-center gap-2.5">
                             <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Mis Solicitudes</h2>
                             <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
-                                <span th:text="${(solicitudesEstudianteMock != null ? #lists.size(solicitudesEstudianteMock) : 0) + ' TRÁMITES'}">0 TRÁMITES</span>
+                                <span th:text="${(totalSolicitudesEstudiante != null ? totalSolicitudesEstudiante : (solicitudesEstudianteMock != null ? #lists.size(solicitudesEstudianteMock) : 0)) + ' TRÁMITES'}">0 TRÁMITES</span>
                             </span>
                         </div>
                         <span class="text-xs font-bold text-brand-500" th:text="${esEstudiante ? 'Estudiante: ' + estudianteNombre : 'Vista previa de solicitudes'}">Estudiante: Mateo Álvarez</span>
@@ -192,27 +192,32 @@
                             </tbody>
                         </table>
                     </div>
+                    <div th:replace="~{components/tables/pagination :: pagination(
+                        page=${solicitudesEstudiantePage},
+                        baseUrl='/certificados',
+                        extraParams='&vista=estudiante'
+                    )}"></div>
                 </div>
             </div>
         </div>
 
         <!-- VISTA: ROL PERSONAL ADMINISTRATIVO -->
-        <div id="vista-admin" class="space-y-6" th:classappend="${esPersonal} ? '' : 'hidden'">
+        <div id="vista-admin" th:if="${esPersonal || esAdmin}" class="space-y-6" th:classappend="${vistaActiva == 'admin' || (!esAdmin && esPersonal)} ? '' : 'hidden'">
             <div class="rounded-surface border border-border bg-white shadow-card transition relative">
                 <div class="flex flex-col gap-4 px-6 pt-5 pb-4 sm:flex-row sm:items-center sm:justify-between relative z-30">
                     <div class="flex flex-wrap items-center gap-3">
                         <h2 class="text-base font-bold uppercase tracking-wider text-brand-900">Bandeja de Solicitudes</h2>
                         <span class="inline-flex items-center rounded-full bg-surface-sunken border border-border px-2.5 py-0.5 text-xs font-bold uppercase text-brand-700 shadow-2xs">
-                            <span th:text="${(solicitudesAdminMock != null ? #lists.size(solicitudesAdminMock) : 0) + ' ENTRADAS'}">0 ENTRADAS</span>
+                            <span th:text="${(totalSolicitudesAdmin != null ? totalSolicitudesAdmin : (solicitudesAdminMock != null ? #lists.size(solicitudesAdminMock) : 0)) + ' ENTRADAS'}">0 ENTRADAS</span>
                         </span>
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <label class="text-xs font-bold text-brand-600">Filtrar:</label>
-                        <select onchange="filtrarTablaAdmin(this.value)" class="rounded-control border border-border bg-surface-muted py-1.5 px-3 text-xs font-bold text-brand-800 focus:outline-none focus:ring-2 focus:ring-accent-100 transition shadow-2xs">
-                            <option value="todos">Todas las solicitudes</option>
-                            <option value="Pendiente">Pendientes</option>
-                            <option value="Resuelto">Resueltas</option>
+                        <label for="filtro-estado-certificados" class="text-xs font-bold text-brand-600">Filtrar:</label>
+                        <select id="filtro-estado-certificados" onchange="filtrarTablaAdmin(this.value)" class="rounded-control border border-border bg-surface-muted py-1.5 px-3 text-xs font-bold text-brand-800 focus:outline-none focus:ring-2 focus:ring-accent-100 transition shadow-2xs">
+                            <option value="todos" th:selected="${estadoFiltro == null || estadoFiltro == 'todos'}">Todas las solicitudes</option>
+                            <option value="Pendiente" th:selected="${estadoFiltro == 'Pendiente'}">Pendientes</option>
+                            <option value="Resuelto" th:selected="${estadoFiltro == 'Resuelto'}">Resueltas</option>
                         </select>
                     </div>
                 </div>
@@ -275,6 +280,11 @@
                         </tbody>
                     </table>
                 </div>
+                <div th:replace="~{components/tables/pagination :: pagination(
+                    page=${solicitudesAdminPage},
+                    baseUrl='/certificados',
+                    extraParams='&vista=admin&estado=' + (${estadoFiltro ?: 'todos'})
+                )}"></div>
             </div>
         </div>
 

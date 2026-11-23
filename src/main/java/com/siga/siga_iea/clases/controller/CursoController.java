@@ -363,7 +363,10 @@ public class CursoController {
     }
 
     @GetMapping({"/clases", "/cursos"})
-    public String index(Model model) {
+    public String index(
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") int size,
+            Model model) {
         model.addAttribute("title", "Gestión de Cursos – IEACI");
         model.addAttribute("activePage", "clases");
 
@@ -428,9 +431,23 @@ public class CursoController {
             cursosList.add(map);
         }
 
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int totalCursos = cursosList.size();
+        int totalPages = totalCursos == 0 ? 1 : (int) Math.ceil((double) totalCursos / safeSize);
+        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+        int fromIdx = safePage * safeSize;
+        int toIdx = Math.min(fromIdx + safeSize, totalCursos);
+        List<Map<String, Object>> paginaCursos = fromIdx < totalCursos
+                ? cursosList.subList(fromIdx, toIdx)
+                : Collections.emptyList();
+        org.springframework.data.domain.Page<Map<String, Object>> cursosPage = new org.springframework.data.domain.PageImpl<>(
+                paginaCursos, org.springframework.data.domain.PageRequest.of(safePage, safeSize), totalCursos);
+
         model.addAttribute("esSoloEstudiante", soloEstudiante);
 
-        model.addAttribute("cursosList", cursosList);
+        model.addAttribute("cursosList", paginaCursos);
+        model.addAttribute("cursosPage", cursosPage);
+        model.addAttribute("totalCursos", totalCursos);
         model.addAttribute("docentesList", personalService.listarDocentes());
         model.addAttribute("materiasList", cursoService.listarMateriasActivas());
         model.addAttribute("salonesList", cursoService.listarSalonesActivos());
