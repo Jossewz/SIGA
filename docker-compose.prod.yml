@@ -21,7 +21,8 @@ services:
 
   # Almacenamiento de Archivos S3 (MinIO)
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: cleanstart/minio:latest
+    user: "0:0"
     container_name: siga-prod-minio
     restart: always
     environment:
