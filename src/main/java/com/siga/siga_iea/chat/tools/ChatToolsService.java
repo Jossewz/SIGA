@@ -211,6 +211,38 @@ public class ChatToolsService {
         return new ToolExecutionResult("consultarMisCursos", true, "Cursos asignados al docente", datos);
     }
 
+    public ToolExecutionResult consultarMiHorarioDocenteHoy() {
+        verificarLimitePeticiones();
+        Docente docente = userContextService.getDocenteAutenticado()
+                .orElseThrow(() -> new AccessDeniedException("Se requiere rol docente con cuenta activa."));
+
+        DayOfWeek dia = LocalDate.now().getDayOfWeek();
+        String diaEspanol = traducirDiaSemana(dia);
+
+        List<Horario> horarios = horarioRepository.findByDocenteId(docente.getId());
+        List<Map<String, Object>> bloquesHoy = horarios.stream()
+                .filter(h -> h.getDiaSemana() != null && h.getDiaSemana().equalsIgnoreCase(diaEspanol))
+                .sorted(Comparator.comparing(Horario::getHoraInicio))
+                .map(h -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("horaInicio", h.getHoraInicio() != null ? h.getHoraInicio().toString() : "--:--");
+                    map.put("horaFin", h.getHoraFin() != null ? h.getHoraFin().toString() : "--:--");
+                    map.put("materia", h.getMateria() != null ? h.getMateria().getNombre() : "Clase");
+                    map.put("curso", h.getCurso() != null ? h.getCurso().getNombre() : "Curso");
+                    map.put("salon", h.getSalonNombre());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> datos = new LinkedHashMap<>();
+        datos.put("docente", docente.getNombres() + " " + docente.getApellidos());
+        datos.put("dia", diaEspanol);
+        datos.put("bloques", bloquesHoy);
+
+        registrarAuditoria("consultarMiHorarioDocenteHoy", bloquesHoy.size());
+        return new ToolExecutionResult("consultarMiHorarioDocenteHoy", true, "Horario de hoy del docente", datos);
+    }
+
     public ToolExecutionResult consultarEstudiantesEnRiesgo(UUID cursoId) {
         verificarLimitePeticiones();
         Docente docente = userContextService.getDocenteAutenticado()

@@ -350,4 +350,90 @@ class ChatAutorizacionTest {
         assertTrue(response.respuesta().contains("Faltas Tipo II"));
         assertTrue(response.proveedor().contains("Interno") || response.proveedor().contains("On-Premise"));
     }
+
+    @Test
+    @DisplayName("Manual de Convivencia Ampliado: responde derechos, excusas médicas, estímulos, Gobierno Escolar y PRAE sin redundar en faltas")
+    void testManualAmpliadoCoberturaTemas() {
+        List<ArticuloNormativo> derechos = manualConvivenciaService.buscar("¿Cuáles son mis derechos como estudiante?");
+        assertFalse(derechos.isEmpty());
+        assertEquals("MANUAL-CAP2-DERECHOS", derechos.get(0).codigo());
+
+        List<ArticuloNormativo> excusa = manualConvivenciaService.buscar("¿Cómo justifico una excusa médica por incapacidad?");
+        assertFalse(excusa.isEmpty());
+        assertEquals("MANUAL-ASISTENCIA-EXCUSAS", excusa.get(0).codigo());
+
+        List<ArticuloNormativo> estimulos = manualConvivenciaService.buscar("¿Qué estímulos y reconocimientos existen?");
+        assertFalse(estimulos.isEmpty());
+        assertEquals("MANUAL-CAP4-ESTIMULOS", estimulos.get(0).codigo());
+
+        List<ArticuloNormativo> gobierno = manualConvivenciaService.buscar("¿Quién es el personero y qué es el gobierno escolar?");
+        assertFalse(gobierno.isEmpty());
+        assertEquals("MANUAL-CAP9-GOBIERNO-ESCOLAR", gobierno.get(0).codigo());
+
+        List<ArticuloNormativo> prae = manualConvivenciaService.buscar("¿Qué actividades hace el PRAE ambiental?");
+        assertFalse(prae.isEmpty());
+        assertEquals("IEACI-PRAE-AMBIENTAL", prae.get(0).codigo());
+    }
+
+    @Test
+    @DisplayName("Mangle no confunde faltas disciplinarias Tipo I con resumen de asistencia y no repite Ley 1581 en respuestas normales")
+    void testSinRedundanciaLey1581NiFaltasEnAsistencia() {
+        when(userContextService.getRolAutenticado()).thenReturn(RolEnum.ESTUDIANTE);
+
+        ChatMessageResponse respFalta = orchestratorService.procesarMensaje(
+                new ChatMessageRequest("¿Qué es una falta tipo I?", "ESTUDIANTE")
+        );
+        assertFalse(respFalta.herramientasInvocadas().contains("consultarMiResumenAsistencia"));
+        assertFalse(respFalta.respuesta().contains("Ley 1581"));
+        assertFalse(respFalta.proveedor().contains("Ley 1581"));
+
+        when(toolsService.consultarMiResumenAsistencia()).thenReturn(new ToolExecutionResult(
+                "consultarMiResumenAsistencia",
+                true,
+                "Resumen",
+                java.util.Map.of("asistenciasPresente", 6, "retrasos", 1, "fallasJustificadas", 0, "fallasInjustificadas", 2)
+        ));
+        ChatMessageResponse respAsistencia = orchestratorService.procesarMensaje(
+                new ChatMessageRequest("¿Cuántas fallas tengo en mis asistencias?", "ESTUDIANTE")
+        );
+        assertTrue(respAsistencia.herramientasInvocadas().contains("consultarMiResumenAsistencia"));
+        assertTrue(respAsistencia.respuesta().contains("Presentes: **6**"));
+        assertFalse(respAsistencia.respuesta().contains("Ley 1581"));
+        assertTrue(respAsistencia.referenciasNormativas().isEmpty(),
+                "Una consulta operacional pura no debe mezclar artículos normativos ajenos");
+    }
+
+    @Test
+    @DisplayName("Consulta directa de horario de hoy responde únicamente el horario personalizado sin volcar Manual de Convivencia")
+    void testConsultaHorarioRespondeSoloHorarioPersonalizado() {
+        Estudiante est = new Estudiante();
+        est.setNombres("Eduardo Andrés");
+        when(userContextService.getRolAutenticado()).thenReturn(RolEnum.ESTUDIANTE);
+        when(userContextService.getEstudianteAutenticado()).thenReturn(Optional.of(est));
+        when(toolsService.consultarMiHorarioHoy()).thenReturn(new ToolExecutionResult(
+                "consultarMiHorarioHoy",
+                true,
+                "Horario de hoy",
+                java.util.Map.of(
+                        "curso", "9-02",
+                        "dia", "Lunes",
+                        "bloques", List.of(java.util.Map.of(
+                                "horaInicio", "07:00",
+                                "horaFin", "08:00",
+                                "materia", "Inglés Técnico",
+                                "salon", "Aula 101"
+                        ))
+                )
+        ));
+
+        ChatMessageResponse resp = orchestratorService.procesarMensaje(
+                new ChatMessageRequest("¿Qué clases tengo hoy en mi horario?", "ESTUDIANTE")
+        );
+
+        assertTrue(resp.herramientasInvocadas().contains("consultarMiHorarioHoy"));
+        assertTrue(resp.referenciasNormativas().isEmpty(), "No debe adjuntar artículos de Deberes/Uniforme al horario");
+        assertTrue(resp.respuesta().contains("Eduardo"));
+        assertTrue(resp.respuesta().contains("Inglés Técnico"));
+        assertFalse(resp.respuesta().contains("Orientación Normativa"));
+    }
 }

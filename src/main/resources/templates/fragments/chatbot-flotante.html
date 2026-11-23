@@ -8,6 +8,8 @@
      class="relative z-50"
      x-data="sigaChatbotWidget()"
      th:data-current-user="${currentUser != null ? currentUser.email : ''}"
+     th:data-user-name="${currentUserFirstName ?: ''}"
+     th:data-user-role="${currentRolCode ?: ''}"
      x-init="init()"
      @toggle-mangle.window="toggleFromShortcut()"
      @keydown.window="handleGlobalShortcut($event)">
@@ -332,9 +334,17 @@
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
                         ⏰ Mi horario hoy
                     </button>
-                    <button type="button" @click="enviarPreguntaRapida('¿Cuánto porcentaje de inasistencia causa reprobación según el SIEE?')"
+                    <button type="button" @click="enviarPreguntaRapida('¿Cuáles son mis derechos y deberes como estudiante?')"
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
-                        📅 Inasistencia SIEE
+                        📜 Derechos y deberes
+                    </button>
+                    <button type="button" @click="enviarPreguntaRapida('¿Cómo justifico una inasistencia o excusa médica?')"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
+                        🩺 Excusas
+                    </button>
+                    <button type="button" @click="enviarPreguntaRapida('¿Qué es el PRAE ambiental del colegio?')"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
+                        🌱 PRAE
                     </button>
                 </th:block>
 
@@ -344,13 +354,17 @@
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
                         👥 Mis cursos
                     </button>
-                    <button type="button" @click="enviarPreguntaRapida('¿Qué procedimiento aplica ante una falta disciplinaria tipo II?')"
+                    <button type="button" @click="enviarPreguntaRapida('¿Cuál es la escala valorativa institucional del SIEACI?')"
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
-                        ⚖️ Faltas Tipo II
+                        🎯 Escala SIEACI
                     </button>
-                    <button type="button" @click="enviarPreguntaRapida('¿Cuál es la escala valorativa institucional del SIEE?')"
+                    <button type="button" @click="enviarPreguntaRapida('¿Cómo funciona la Ruta de Atención Integral de Convivencia?')"
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
-                        🎯 Escala SIEE
+                        🧭 Ruta de atención
+                    </button>
+                    <button type="button" @click="enviarPreguntaRapida('¿Qué estímulos y reconocimientos existen para estudiantes?')"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
+                        🏆 Estímulos
                     </button>
                 </th:block>
 
@@ -360,19 +374,35 @@
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
                         📈 Estadísticas IEACI
                     </button>
-                    <button type="button" @click="enviarPreguntaRapida('¿Cuáles son las faltas disciplinarias Tipo I en el Manual?')"
+                    <button type="button" @click="enviarPreguntaRapida('¿Cómo se conforma el Gobierno Escolar y el Comité de Convivencia?')"
                             class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
-                        📘 Faltas Tipo I
+                        🏛️ Gobierno Escolar
+                    </button>
+                    <button type="button" @click="enviarPreguntaRapida('¿Cuál es el conducto regular para reclamaciones académicas?')"
+                            class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 font-medium shrink-0 transition shadow-2xs">
+                        ⚖️ Conducto regular
                     </button>
                 </th:block>
             </div>
 
-            <!-- ─── AVISO DE PRIVACIDAD INSTITUCIONAL (LEY 1581 DE 2012) ─── -->
-            <div class="px-3.5 py-1.5 bg-amber-50/90 border-t border-amber-200/80 text-[11px] font-semibold text-amber-900 flex items-center gap-1.5">
-                <svg class="size-3.5 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                </svg>
-                <span>Aviso Ley 1581: No escribas nombres, documentos ni datos de estudiantes.</span>
+            <!-- ─── AVISO BREVE TEMPORAL DE PRIVACIDAD (SE OCULTA TRAS UNOS SEGUNDOS) ─── -->
+            <div x-show="showPrivacyNotice"
+                 x-cloak
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-300"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="px-3.5 py-1.5 bg-amber-50/90 border-t border-amber-200/80 text-[11px] font-semibold text-amber-900 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                    <svg class="size-3.5 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                    <span>Evita escribir datos personales sensibles (teléfonos, documentos o contraseñas).</span>
+                </div>
+                <button type="button" @click="dismissPrivacyNotice()" aria-label="Cerrar aviso"
+                        class="text-amber-700 hover:text-amber-950 font-black text-xs px-1 cursor-pointer shrink-0">×</button>
             </div>
 
             <!-- ─── BARRA DE ENTRADA Y ENVÍO (INPUT MODERNO) ─── -->
@@ -420,12 +450,14 @@
         function sigaChatbotWidget() {
             const GREETING_HIDE_MS = 5000;
             const FAB_HIDE_MS = 12000;
+            const PRIVACY_HIDE_MS = 5500;
 
             return {
                 isOpen: false,
                 isFabVisible: true,
                 showGreetingBubble: true,
                 showHideHint: false,
+                showPrivacyNotice: false,
                 showSuggestions: true,
                 inputMessage: '',
                 isLoading: false,
@@ -433,6 +465,7 @@
                 greetingTimer: null,
                 fabHideTimer: null,
                 hintTimer: null,
+                privacyTimer: null,
 
                 init() {
                     // Cargar estado de conversación desde sessionStorage para no perder mensajes al navegar
@@ -450,6 +483,7 @@
                             sessionStorage.removeItem('siga_mangle_fab_hidden');
                             sessionStorage.removeItem('siga_mangle_greeting_dismissed');
                             sessionStorage.removeItem('siga_mangle_hide_toast_shown');
+                            sessionStorage.removeItem('siga_mangle_privacy_seen');
                         }
                         if (currentUserEmail) {
                             sessionStorage.setItem('siga_mangle_chat_user', currentUserEmail);
@@ -466,6 +500,7 @@
                                     sessionStorage.removeItem('siga_mangle_fab_hidden');
                                     sessionStorage.removeItem('siga_mangle_greeting_dismissed');
                                     sessionStorage.removeItem('siga_mangle_hide_toast_shown');
+                                    sessionStorage.removeItem('siga_mangle_privacy_seen');
                                 });
                             }
                         });
@@ -486,6 +521,7 @@
                             this.isOpen = true;
                             this.isFabVisible = true;
                             this.showGreetingBubble = false;
+                            this.triggerPrivacyNotice();
                             this.$nextTick(() => this.scrollToBottom());
                         } else if (wasFabHidden) {
                             this.isFabVisible = false;
@@ -498,6 +534,26 @@
                     } catch (e) {
                         this.inicializarBienvenida();
                     }
+                },
+
+                triggerPrivacyNotice() {
+                    try {
+                        if (sessionStorage.getItem('siga_mangle_privacy_seen') === 'true') {
+                            return;
+                        }
+                        sessionStorage.setItem('siga_mangle_privacy_seen', 'true');
+                    } catch (e) {}
+                    this.showPrivacyNotice = true;
+                    if (this.privacyTimer) clearTimeout(this.privacyTimer);
+                    this.privacyTimer = setTimeout(() => {
+                        this.showPrivacyNotice = false;
+                    }, PRIVACY_HIDE_MS);
+                },
+
+                dismissPrivacyNotice() {
+                    this.showPrivacyNotice = false;
+                    if (this.privacyTimer) clearTimeout(this.privacyTimer);
+                    try { sessionStorage.setItem('siga_mangle_privacy_seen', 'true'); } catch (e) {}
                 },
 
                 scheduleGreetingHide() {
@@ -560,10 +616,27 @@
                 },
 
                 inicializarBienvenida() {
+                    const container = document.getElementById('siga-chatbot-container') || this.$el;
+                    const userName = (container ? (container.getAttribute('data-user-name') || '') : '').trim();
+                    const userRole = (container ? (container.getAttribute('data-user-role') || '') : '').trim().toUpperCase();
+                    let saludo = '¡Hola! 🌿';
+                    if (userName) {
+                        saludo = userRole === 'DOCENTE'
+                            ? `¡Hola, Prof. ${userName}! 🌿`
+                            : `¡Hola, ${userName}! 🌿`;
+                    }
+                    let enfoque = 'Puedo ayudarte con derechos, deberes, uniforme, excusas médicas, estímulos, Gobierno Escolar, evaluación (SIEACI) o PRAE.';
+                    if (userRole === 'ESTUDIANTE') {
+                        enfoque = 'Puedes preguntarme directamente por tus notas, tu horario de hoy, tus asistencias o cualquier duda del Manual de Convivencia, SIEACI y PRAE.';
+                    } else if (userRole === 'DOCENTE') {
+                        enfoque = 'Puedes consultarme tu horario de clases de hoy, tus grupos asignados, criterios del SIEACI o procedimientos de convivencia.';
+                    } else if (userRole === 'ADMIN' || userRole === 'PERSONAL_ADMINISTRATIVO') {
+                        enfoque = 'Puedes consultarme estadísticas institucionales, búsqueda rápida de estudiantes o lineamientos del Manual de Convivencia y Gobierno Escolar.';
+                    }
                     this.messages = [
                         {
                             sender: 'bot',
-                            text: '¡Hola! 🌿 Soy Mangle, tu asistente virtual de la Institución Educativa Ambientalista de Cartagena de Indias.\n\n¿En qué puedo orientarte hoy? Puedes consultarme sobre el Manual de Convivencia, el SIEE, tus calificaciones, horarios o asistencias.',
+                            text: `${saludo} Soy **Mangle**, tu asistente virtual de la IEACI.\n\n${enfoque}`,
                             referencias: [],
                             herramientas: [],
                             latencia: null,
@@ -580,6 +653,7 @@
                         this.isFabVisible = true;
                         this.showGreetingBubble = false;
                         this.showHideHint = false;
+                        this.triggerPrivacyNotice();
                         sessionStorage.setItem('siga_chat_open', 'true');
                         this.$nextTick(() => {
                             this.scrollToBottom();

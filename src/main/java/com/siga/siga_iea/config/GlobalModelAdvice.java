@@ -73,6 +73,32 @@ public class GlobalModelAdvice {
         return userContextService.getUsuarioAutenticado().orElse(null);
     }
 
+    @ModelAttribute("currentUserFirstName")
+    public String populateCurrentUserFirstName() {
+        if (userContextService.getAuthentication().isEmpty()) {
+            return "";
+        }
+        return userContextService.getEstudianteAutenticado()
+                .map(e -> extraerPrimerNombre(e.getNombres()))
+                .filter(s -> !s.isBlank())
+                .or(() -> userContextService.getDocenteAutenticado()
+                        .map(d -> extraerPrimerNombre(d.getNombres()))
+                        .filter(s -> !s.isBlank()))
+                .orElseGet(() -> userContextService.getUsuarioAutenticado()
+                        .map(Usuario::getEmail)
+                        .map(em -> em.contains("@") ? em.substring(0, em.indexOf('@')) : em)
+                        .map(s -> s.contains(".") ? s.substring(0, s.indexOf('.')) : s)
+                        .map(s -> s.isEmpty() ? "" : Character.toUpperCase(s.charAt(0)) + s.substring(1))
+                        .orElse(""));
+    }
+
+    private String extraerPrimerNombre(String nombres) {
+        if (nombres == null || nombres.isBlank()) {
+            return "";
+        }
+        return nombres.trim().split("\\s+")[0];
+    }
+
     @ModelAttribute("currentUserPhotoUrl")
     public String populateCurrentUserPhotoUrl() {
         if (perfilFotoService == null) {

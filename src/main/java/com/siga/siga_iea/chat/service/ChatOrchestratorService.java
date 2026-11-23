@@ -136,13 +136,21 @@ public class ChatOrchestratorService {
         String rol = userContextService.getRolAutenticado().name();
 
         List<String> herramientasInvocadas = new ArrayList<>();
+        List<ToolExecutionResult> resultadosHerramientas = new ArrayList<>();
         List<String> referenciasNormativas = new ArrayList<>();
         StringBuilder contextoDatos = new StringBuilder();
 
-        // 1. Búsqueda normativa en Manual de Convivencia
-        List<ArticuloNormativo> normativas = manualConvivenciaService.buscar(mensaje);
+        // 1. Detección y ejecución de herramientas operacionales según rol (prioridad directa)
+        ejecutarHerramientasPorIntencion(mensaje, rol, herramientasInvocadas, resultadosHerramientas, contextoDatos);
+
+        // 2. Búsqueda normativa solo cuando la consulta no es puramente operacional (o si pide norma explícita)
+        boolean tieneRestriccionPrivacidad = contextoDatos.toString().contains("AVISO DE PRIVACIDAD:");
+        boolean esConsultaNormativa = herramientasInvocadas.isEmpty() || esPreguntaNormativaExplicita(mensaje);
+        List<ArticuloNormativo> normativas = (!tieneRestriccionPrivacidad && esConsultaNormativa)
+                ? manualConvivenciaService.buscar(mensaje)
+                : Collections.emptyList();
         if (!normativas.isEmpty()) {
-            contextoDatos.append("NORMATIVA APLICABLE (Manual de Convivencia IEACI):\n");
+            contextoDatos.append("NORMATIVA APLICABLE (Manual de Convivencia / SIEACI IEACI):\n");
             for (ArticuloNormativo art : normativas) {
                 referenciasNormativas.add(art.codigo() + " - " + art.titulo());
                 contextoDatos.append("- [").append(art.codigo()).append("] ").append(art.titulo())
@@ -151,13 +159,10 @@ public class ChatOrchestratorService {
             contextoDatos.append("\n");
         }
 
-        // 2. Detección y ejecución de herramientas según rol
-        ejecutarHerramientasPorIntencion(mensaje, rol, herramientasInvocadas, contextoDatos);
-
         // 3. Cascada de Inferencia con Frontera de Confianza (Lista Blanca / Local por Defecto)
         boolean puedeSalir = puedeSalirANube(mensaje, herramientasInvocadas, normativas);
         Optional<String> respuestaLlm = Optional.empty();
-        String proveedor = "Motor Determinista Seguro (On-Premise)";
+        String proveedor = "Motor Institucional Seguro (On-Premise)";
 
         // Nivel 1: Groq Cloud (Únicamente si cumple TODAS las condiciones de la lista de permitidos)
         if (puedeSalir && groqApiKey != null && !groqApiKey.isBlank()) {
@@ -184,10 +189,10 @@ public class ChatOrchestratorService {
             procesadoLocalmente = true;
         } else {
             // Nivel 3: Fallback determinista seguro estructurado en Java (Garantía Zero-Failure)
-            respuestaFinal = generarRespuestaFallback(mensaje, rol, normativas, contextoDatos.toString());
+            respuestaFinal = generarRespuestaFallback(mensaje, rol, normativas, resultadosHerramientas, contextoDatos.toString());
             procesadoLocalmente = false;
-            proveedor = !puedeSalir 
-                    ? "Motor Institucional Seguro (On-Premise - Ley 1581)" 
+            proveedor = !puedeSalir
+                    ? "Motor Institucional Seguro (On-Premise)"
                     : "Motor Normativo Interno (Offline)";
         }
 
@@ -203,15 +208,17 @@ public class ChatOrchestratorService {
         );
     }
 
-    private void ejecutarHerramientasPorIntencion(String mensaje, String rol, 
-                                                  List<String> herramientasInvocadas, 
+    private void ejecutarHerramientasPorIntencion(String mensaje, String rol,
+                                                  List<String> herramientasInvocadas,
+                                                  List<ToolExecutionResult> resultadosHerramientas,
                                                   StringBuilder contexto) {
         String query = mensaje.toLowerCase();
 
         if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
-            if (query.contains("nota") || query.contains("calificacion") || query.contains("periodo")) {
+            if (query.contains("nota") || query.contains("calificacion") || query.contains("boletin") || query.contains("promedio")) {
                 boolean esConsultaPropia = query.contains("mis notas") || query.contains("mi nota")
                         || query.contains("mis calificaciones") || query.contains("mi calificacion")
+                        || query.contains("mi promedio") || query.contains("mi boletin")
                         || query.contains("de mi") || query.contains("de mis");
                 boolean consultaTercero = (query.contains("nota de ") || query.contains("notas de ")
                         || query.contains("calificacion de ") || query.contains("calificaciones de "))
@@ -223,35 +230,63 @@ public class ChatOrchestratorService {
                     try {
                         ToolExecutionResult res = toolsService.consultarMisNotas();
                         herramientasInvocadas.add(res.nombreHerramienta());
+                        resultadosHerramientas.add(res);
                         contexto.append("DATOS DE TUS CALIFICACIONES:\n").append(res.datos()).append("\n\n");
                     } catch (Exception e) {
                         log.warn("Error ejecutando consultarMisNotas: {}", e.getMessage());
                     }
                 }
             }
-            if (query.contains("horario") || query.contains("clase hoy") || query.contains("salon")) {
+            if (query.contains("horario") || query.contains("clase hoy") || query.contains("clases hoy")
+                    || query.contains("tengo hoy") || query.contains("clases tengo")) {
                 try {
                     ToolExecutionResult res = toolsService.consultarMiHorarioHoy();
                     herramientasInvocadas.add(res.nombreHerramienta());
+                    resultadosHerramientas.add(res);
                     contexto.append("DATOS DE TU HORARIO DE HOY:\n").append(res.datos()).append("\n\n");
                 } catch (Exception e) {
                     log.warn("Error ejecutando consultarMiHorarioHoy: {}", e.getMessage());
                 }
             }
-            if (query.contains("asistencia") || query.contains("falla") || query.contains("falta")) {
+            boolean esPreguntaDisciplinaria = query.contains("tipo i") || query.contains("tipo 1")
+                    || query.contains("tipo ii") || query.contains("tipo 2")
+                    || query.contains("tipo iii") || query.contains("tipo 3")
+                    || query.contains("falta leve") || query.contains("falta grave") || query.contains("falta gravisima");
+            boolean pideMiAsistencia = !esPreguntaDisciplinaria && (query.contains("asistencia")
+                    || query.contains("inasistencia")
+                    || query.contains("retraso")
+                    || query.contains("llegada tarde")
+                    || query.contains("mis faltas")
+                    || query.contains("mis fallas")
+                    || query.contains("cuantas faltas")
+                    || query.contains("cuantas fallas"));
+            if (pideMiAsistencia) {
                 try {
                     ToolExecutionResult res = toolsService.consultarMiResumenAsistencia();
                     herramientasInvocadas.add(res.nombreHerramienta());
+                    resultadosHerramientas.add(res);
                     contexto.append("DATOS DE TU ASISTENCIA:\n").append(res.datos()).append("\n\n");
                 } catch (Exception e) {
                     log.warn("Error ejecutando consultarMiResumenAsistencia: {}", e.getMessage());
                 }
             }
         } else if ("DOCENTE".equalsIgnoreCase(rol)) {
-            if (query.contains("curso") || query.contains("grupo") || query.contains("mis clases")) {
+            if (query.contains("horario") || query.contains("clase hoy") || query.contains("clases hoy")
+                    || query.contains("tengo hoy") || query.contains("clases tengo") || query.contains("agenda")) {
+                try {
+                    ToolExecutionResult res = toolsService.consultarMiHorarioDocenteHoy();
+                    herramientasInvocadas.add(res.nombreHerramienta());
+                    resultadosHerramientas.add(res);
+                    contexto.append("DATOS DE TU HORARIO DOCENTE DE HOY:\n").append(res.datos()).append("\n\n");
+                } catch (Exception e) {
+                    log.warn("Error ejecutando consultarMiHorarioDocenteHoy: {}", e.getMessage());
+                }
+            }
+            if (query.contains("curso") || query.contains("grupo")) {
                 try {
                     ToolExecutionResult res = toolsService.consultarMisCursos();
                     herramientasInvocadas.add(res.nombreHerramienta());
+                    resultadosHerramientas.add(res);
                     contexto.append("DATOS DE TUS CURSOS:\n").append(res.datos()).append("\n\n");
                 } catch (Exception e) {
                     log.warn("Error ejecutando consultarMisCursos: {}", e.getMessage());
@@ -262,6 +297,7 @@ public class ChatOrchestratorService {
                 try {
                     ToolExecutionResult res = toolsService.consultarEstadisticasGenerales();
                     herramientasInvocadas.add(res.nombreHerramienta());
+                    resultadosHerramientas.add(res);
                     contexto.append("ESTADÍSTICAS INSTITUCIONALES:\n").append(res.datos()).append("\n\n");
                 } catch (Exception e) {
                     log.warn("Error ejecutando consultarEstadisticasGenerales: {}", e.getMessage());
@@ -273,6 +309,7 @@ public class ChatOrchestratorService {
                     if (!criterio.isBlank()) {
                         ToolExecutionResult res = toolsService.buscarEstudiante(criterio);
                         herramientasInvocadas.add(res.nombreHerramienta());
+                        resultadosHerramientas.add(res);
                         contexto.append("RESULTADOS DE BÚSQUEDA DE ESTUDIANTE:\n").append(res.datos()).append("\n\n");
                     }
                 } catch (Exception e) {
@@ -363,51 +400,171 @@ public class ChatOrchestratorService {
         return Optional.empty();
     }
 
-    private String generarRespuestaFallback(String mensaje, String rol, 
-                                             List<ArticuloNormativo> normativas, 
-                                             String contexto) {
-        StringBuilder sb = new StringBuilder();
+    private boolean esPreguntaNormativaExplicita(String mensaje) {
+        if (mensaje == null) return false;
+        String q = mensaje.toLowerCase();
+        return q.contains("manual") || q.contains("siee") || q.contains("sieaci")
+                || q.contains("reglamento") || q.contains("articulo") || q.contains("artículo")
+                || q.contains("perder el ano") || q.contains("perder el año")
+                || q.contains("reprobar") || q.contains("reprobacion") || q.contains("reprobación")
+                || q.contains("porcentaje") || q.contains("conducto regular");
+    }
 
-        if (!normativas.isEmpty()) {
-            sb.append("📋 **Orientación Normativa (Manual de Convivencia IEACI)**\n\n");
-            for (ArticuloNormativo art : normativas) {
-                sb.append("• **").append(art.titulo()).append("** (Ref: `").append(art.codigo()).append("`):\n");
-                sb.append("  ").append(art.contenido()).append("\n\n");
+    private String obtenerPrimerNombreLocal(String rol) {
+        try {
+            if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
+                return userContextService.getEstudianteAutenticado()
+                        .map(e -> e.getNombres())
+                        .filter(n -> n != null && !n.isBlank())
+                        .map(n -> n.trim().split("\\s+")[0])
+                        .orElse("");
             }
+            if ("DOCENTE".equalsIgnoreCase(rol)) {
+                return userContextService.getDocenteAutenticado()
+                        .map(d -> d.getNombres())
+                        .filter(n -> n != null && !n.isBlank())
+                        .map(n -> n.trim().split("\\s+")[0])
+                        .orElse("");
+            }
+        } catch (Exception ignored) {
         }
+        return "";
+    }
+
+    @SuppressWarnings("unchecked")
+    private String generarRespuestaFallback(String mensaje, String rol,
+                                            List<ArticuloNormativo> normativas,
+                                            List<ToolExecutionResult> resultadosHerramientas,
+                                            String contexto) {
+        StringBuilder sb = new StringBuilder();
+        String nombre = obtenerPrimerNombreLocal(rol);
+        String sufijoNombre = nombre.isBlank() ? "" : ", " + nombre;
 
         if (contexto.contains("AVISO DE PRIVACIDAD:")) {
             sb.append("🔒 **Restricción de Privacidad y Protección de Datos**\n");
             sb.append("Por motivos de confidencialidad institucional (Ley 1581 de 2012), únicamente puedes acceder a tus propias calificaciones. No está autorizado consultar las notas de otros estudiantes.\n\n");
-        } else if (contexto.contains("DATOS DE TUS CALIFICACIONES")) {
-            sb.append("📊 **Resumen de Calificaciones Registradas**\n");
-            sb.append("Se consultó tu historial académico activo. Puedes consultar el detalle completo por materia en el módulo de calificaciones.\n\n");
-        } else if (contexto.contains("DATOS DE TU HORARIO DE HOY")) {
-            sb.append("⏰ **Horario de Clases para Hoy**\n");
-            sb.append("Tu curso cuenta con franjas lectivas programadas para el día de hoy. Recuerda consultar tu salón asignado.\n\n");
-        } else if (contexto.contains("DATOS DE TU ASISTENCIA")) {
-            sb.append("📅 **Estado de Asistencia Institucional**\n");
-            sb.append("Recuerda que según el SIEACI (Ítem 5.6.1), una inasistencia injustificada igual o superior al 25% de las actividades académicas es causal de reprobación del grado.\n\n");
-        } else if (contexto.contains("ESTADÍSTICAS INSTITUCIONALES")) {
-            sb.append("🏛️ **Panel Directivo IEACI**\n");
-            sb.append("Información institucional consolidada para el año lectivo en curso.\n\n");
-        } else if (contexto.contains("RESULTADOS DE BÚSQUEDA DE ESTUDIANTE")) {
-            sb.append("🔍 **Búsqueda Administrativa de Estudiantes**\n");
-            sb.append("Se identificaron registros coincidentes en la base de datos institucional (acotado a 5 resultados para protección de datos). Consulta el expediente completo en el módulo de Estudiantes.\n\n");
+            return sb.toString().trim();
+        }
+
+        if (resultadosHerramientas != null && !resultadosHerramientas.isEmpty()) {
+            for (ToolExecutionResult res : resultadosHerramientas) {
+                String tool = res.nombreHerramienta();
+                Map<String, Object> d = res.datos();
+                if ("consultarMisNotas".equals(tool)) {
+                    sb.append("📊 **Tus calificaciones actuales").append(sufijoNombre).append("**\n");
+                    List<Map<String, Object>> notas = (List<Map<String, Object>>) d.get("calificaciones");
+                    if (notas == null || notas.isEmpty()) {
+                        sb.append("Aún no tienes calificaciones registradas en este momento. Puedes revisar tu boletín acumulado en **Calificaciones**.\n\n");
+                    } else {
+                        Map<String, List<Double>> porMateria = new LinkedHashMap<>();
+                        for (Map<String, Object> item : notas) {
+                            String mat = String.valueOf(item.getOrDefault("materia", "Asignatura"));
+                            Object notaObj = item.get("nota");
+                            if (notaObj instanceof Number num) {
+                                porMateria.computeIfAbsent(mat, k -> new ArrayList<>()).add(num.doubleValue());
+                            } else {
+                                porMateria.computeIfAbsent(mat, k -> new ArrayList<>());
+                            }
+                        }
+                        porMateria.forEach((mat, vals) -> {
+                            if (vals.isEmpty()) {
+                                sb.append("• **").append(mat).append("**: Sin nota calificada aún\n");
+                            } else {
+                                double prom = vals.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+                                sb.append(String.format(Locale.US, "• **%s**: promedio **%.2f** (%d eval.)%n", mat, prom, vals.size()));
+                            }
+                        });
+                        sb.append("\n");
+                    }
+                } else if ("consultarMiHorarioHoy".equals(tool)) {
+                    String cursoNom = String.valueOf(d.getOrDefault("curso", "")).trim();
+                    String infoCurso = cursoNom.isBlank() ? "" : " · Curso " + cursoNom;
+                    sb.append("⏰ **Tu horario de clases hoy").append(sufijoNombre).append(" (")
+                            .append(d.getOrDefault("dia", "Hoy")).append(infoCurso).append(")**\n");
+                    List<Map<String, Object>> bloques = (List<Map<String, Object>>) d.get("bloques");
+                    if (bloques == null || bloques.isEmpty()) {
+                        sb.append("Hoy no tienes bloques programados en tu curso. Puedes revisar tu semana completa en **Cursos**.\n\n");
+                    } else {
+                        for (Map<String, Object> b : bloques) {
+                            sb.append("• **").append(b.get("horaInicio")).append(" - ").append(b.get("horaFin")).append("**: ")
+                                    .append(b.get("materia")).append(" (").append(b.get("salon")).append(")\n");
+                        }
+                        sb.append("\n");
+                    }
+                } else if ("consultarMiHorarioDocenteHoy".equals(tool)) {
+                    String prefijo = nombre.isBlank() ? "" : ", Prof. " + nombre;
+                    sb.append("⏰ **Tu horario docente de hoy").append(prefijo).append(" (")
+                            .append(d.getOrDefault("dia", "Hoy")).append(")**\n");
+                    List<Map<String, Object>> bloques = (List<Map<String, Object>>) d.get("bloques");
+                    if (bloques == null || bloques.isEmpty()) {
+                        sb.append("Hoy no tienes bloques de clase asignados. Puedes revisar tu agenda semanal en **Mi Jornada**.\n\n");
+                    } else {
+                        for (Map<String, Object> b : bloques) {
+                            sb.append("• **").append(b.get("horaInicio")).append(" - ").append(b.get("horaFin")).append("**: ")
+                                    .append(b.get("materia")).append(" — Grupo ").append(b.get("curso"))
+                                    .append(" (").append(b.get("salon")).append(")\n");
+                        }
+                        sb.append("\n");
+                    }
+                } else if ("consultarMiResumenAsistencia".equals(tool)) {
+                    sb.append("📅 **Tu resumen de asistencia").append(sufijoNombre).append("**\n");
+                    sb.append("• Presentes: **").append(d.getOrDefault("asistenciasPresente", 0)).append("**\n");
+                    sb.append("• Llegadas tarde: **").append(d.getOrDefault("retrasos", 0)).append("**\n");
+                    sb.append("• Excusadas: **").append(d.getOrDefault("fallasJustificadas", 0)).append("**\n");
+                    sb.append("• Injustificadas: **").append(d.getOrDefault("fallasInjustificadas", 0)).append("**\n\n");
+                } else if ("consultarMisCursos".equals(tool)) {
+                    String prefijo = nombre.isBlank() ? "" : ", Prof. " + nombre;
+                    sb.append("👥 **Tus cursos como director de grupo").append(prefijo).append("**\n");
+                    List<Map<String, Object>> cursos = (List<Map<String, Object>>) d.get("cursos");
+                    if (cursos == null || cursos.isEmpty()) {
+                        sb.append("No tienes grupos de dirección asignados actualmente. Revisa tus asignaturas en **Cursos y Planillas**.\n\n");
+                    } else {
+                        for (Map<String, Object> c : cursos) {
+                            sb.append("• **").append(c.get("nombre")).append("** (Grado ").append(c.get("grado"))
+                                    .append(", Jornada ").append(c.get("jornada")).append(")\n");
+                        }
+                        sb.append("\n");
+                    }
+                } else if ("consultarEstadisticasGenerales".equals(tool)) {
+                    sb.append("🏛️ **Panel Directivo IEACI**\n");
+                    sb.append("• Estudiantes matriculados: **").append(d.getOrDefault("totalEstudiantesMatriculados", 0)).append("**\n");
+                    sb.append("• Docentes activos: **").append(d.getOrDefault("totalDocentesActivos", 0)).append("**\n");
+                    sb.append("• Cursos activos: **").append(d.getOrDefault("totalCursosActivos", 0)).append("**\n\n");
+                } else if ("buscarEstudiante".equals(tool)) {
+                    sb.append("🔍 **Búsqueda Administrativa de Estudiantes**\n");
+                    sb.append("Coincidencias encontradas: **").append(d.getOrDefault("totalEncontrados", 0))
+                            .append("** (consulta el expediente completo en el módulo **Estudiantes**).\n\n");
+                }
+            }
+        }
+
+        if (!normativas.isEmpty()) {
+            if (normativas.size() == 1) {
+                ArticuloNormativo art = normativas.get(0);
+                sb.append("📋 **").append(art.titulo()).append("** (`").append(art.codigo()).append("`)\n");
+                sb.append(art.contenido()).append("\n\n");
+            } else {
+                sb.append("📋 **Orientación Institucional (IEACI)**\n\n");
+                for (ArticuloNormativo art : normativas) {
+                    sb.append("• **").append(art.titulo()).append("** (`").append(art.codigo()).append("`):\n");
+                    sb.append("  ").append(art.contenido()).append("\n\n");
+                }
+            }
         }
 
         if (sb.isEmpty()) {
-            sb.append("👋 Hola. Soy Mangle, el Asistente Institucional del SIGA - IEACI.\n\n");
-            sb.append("Actualmente tu rol autenticado es **").append(rol).append("**.\n\n");
-            sb.append("Puedo orientarte sobre:\n");
-            sb.append("1. **Manual de Convivencia y SIEE**: Faltas Tipo I, II y III, escalas valorativas y debido proceso.\n");
+            sb.append("🌿 ¡Hola").append(sufijoNombre).append("! Soy **Mangle**, tu asistente de la IEACI.\n\n");
             if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
-                sb.append("2. **Consultas Académicas**: Tus calificaciones, horario de hoy y resumen de asistencias.\n");
+                sb.append("Puedes preguntarme directamente por:\n");
+                sb.append("• **Tus datos**: tus notas por asignatura, horario de clases hoy o asistencias.\n");
             } else if ("DOCENTE".equalsIgnoreCase(rol)) {
-                sb.append("2. **Gestión Docente**: Cursos asignados, dirección de grupo y seguimiento de jornada.\n");
+                sb.append("Puedes preguntarme directamente por:\n");
+                sb.append("• **Tu gestión docente**: tus clases de hoy, grupos asignados o dirección de grupo.\n");
             } else {
-                sb.append("2. **Gestión Directiva**: Estadísticas generales de matrícula y sedes institucionales.\n");
+                sb.append("Puedes preguntarme directamente por:\n");
+                sb.append("• **Gestión directiva**: estadísticas institucionales o búsqueda rápida de estudiantes.\n");
             }
+            sb.append("• **Normativa IEACI**: derechos, deberes, uniforme, excusas médicas, estímulos, Gobierno Escolar, evaluación (SIEACI) y PRAE.\n");
         }
 
         return sb.toString().trim();
