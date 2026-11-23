@@ -41,7 +41,7 @@
                             <i data-lucide="list-ordered" class="size-3.5 stroke-[2.5]"></i>
                             <span>Agenda</span>
                         </button>
-                        <button type="button" id="btn-vista-modelo-io" onclick="cambiarVistaHorario('modelo-io')"
+                        <button th:if="${puedeAdministrarCursos}" type="button" id="btn-vista-modelo-io" onclick="cambiarVistaHorario('modelo-io')"
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-text-secondary hover:text-sidebar cursor-pointer whitespace-nowrap"
                                 title="Ver recomendación y optimizar el horario del curso">
                             <i data-lucide="bar-chart-3" class="size-3.5 stroke-[2.5]"></i>
@@ -50,7 +50,7 @@
                     </div>
 
                     <!-- Botón + Nueva Clase -->
-                    <button type="button" onclick="abrirModalCrearClase()" 
+                    <button th:if="${puedeAdministrarCursos}" type="button" onclick="abrirModalCrearClase()" 
                             class="inline-flex items-center gap-1.5 rounded-xl bg-sidebar px-3.5 py-2 text-xs font-black text-white shadow-md hover:brightness-97 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0">
                         <i data-lucide="plus" class="size-4 stroke-[2.5]"></i>
                         <span>Programar Clase</span>
@@ -92,7 +92,7 @@
                             <div class="dia-cards p-2.5 flex flex-col gap-2 min-h-[340px]" id="cards-Lunes">
                                 <!-- Clases inyectadas por JS -->
                             </div>
-                            <button type="button" onclick="abrirModalCrearClase('Lunes')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                            <button th:if="${puedeAdministrarCursos}" type="button" onclick="abrirModalCrearClase('Lunes')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                                 <i data-lucide="plus" class="size-3.5 stroke-[2.5]"></i>
                                 <span>Añadir clase</span>
                             </button>
@@ -108,7 +108,7 @@
                                 <span class="dia-count text-[10px] font-extrabold text-sidebar/80 bg-white px-2 py-0.5 rounded-full border border-[#c4eec0]">0</span>
                             </div>
                             <div class="dia-cards p-2.5 flex flex-col gap-2 min-h-[340px]" id="cards-Martes"></div>
-                            <button type="button" onclick="abrirModalCrearClase('Martes')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                            <button th:if="${puedeAdministrarCursos}" type="button" onclick="abrirModalCrearClase('Martes')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                                 <i data-lucide="plus" class="size-3.5 stroke-[2.5]"></i>
                                 <span>Añadir clase</span>
                             </button>
@@ -124,7 +124,7 @@
                                 <span class="dia-count text-[10px] font-extrabold text-sidebar/80 bg-white px-2 py-0.5 rounded-full border border-[#c4eec0]">0</span>
                             </div>
                             <div class="dia-cards p-2.5 flex flex-col gap-2 min-h-[340px]" id="cards-Miércoles"></div>
-                            <button type="button" onclick="abrirModalCrearClase('Miércoles')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                            <button th:if="${puedeAdministrarCursos}" type="button" onclick="abrirModalCrearClase('Miércoles')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                                 <i data-lucide="plus" class="size-3.5 stroke-[2.5]"></i>
                                 <span>Añadir clase</span>
                             </button>
@@ -140,7 +140,7 @@
                                 <span class="dia-count text-[10px] font-extrabold text-sidebar/80 bg-white px-2 py-0.5 rounded-full border border-[#c4eec0]">0</span>
                             </div>
                             <div class="dia-cards p-2.5 flex flex-col gap-2 min-h-[340px]" id="cards-Jueves"></div>
-                            <button type="button" onclick="abrirModalCrearClase('Jueves')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                            <button th:if="${puedeAdministrarCursos}" type="button" onclick="abrirModalCrearClase('Jueves')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                                 <i data-lucide="plus" class="size-3.5 stroke-[2.5]"></i>
                                 <span>Añadir clase</span>
                             </button>
@@ -156,7 +156,7 @@
                                 <span class="dia-count text-[10px] font-extrabold text-sidebar/80 bg-white px-2 py-0.5 rounded-full border border-[#c4eec0]">0</span>
                             </div>
                             <div class="dia-cards p-2.5 flex flex-col gap-2 min-h-[340px]" id="cards-Viernes"></div>
-                            <button type="button" onclick="abrirModalCrearClase('Viernes')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                            <button th:if="${puedeAdministrarCursos}" type="button" onclick="abrirModalCrearClase('Viernes')" class="m-2 p-2 border border-dashed border-[#c4eec0] hover:border-sidebar bg-white hover:bg-[#eafbe4]/50 rounded-xl text-center text-[11px] font-black text-sidebar transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                                 <i data-lucide="plus" class="size-3.5 stroke-[2.5]"></i>
                                 <span>Añadir clase</span>
                             </button>
@@ -195,7 +195,7 @@
                 </div>
 
                 <div class="flex items-center gap-2.5">
-                    <button type="button" onclick="confirmarLimpiarHorario()"
+                    <button th:if="${puedeAdministrarCursos}" type="button" onclick="confirmarLimpiarHorario()"
                             class="px-3.5 py-2 text-xs font-black text-alert-red hover:bg-red-50 rounded-xl border border-transparent hover:border-red-200 transition-all cursor-pointer">
                         <i data-lucide="trash-2" class="size-3.5 inline mr-1 stroke-2"></i>
                         <span>Limpiar Todo</span>
@@ -212,7 +212,7 @@
         <!-- ============================================================== -->
         <!-- DIALOGO INTERNO: PROGRAMAR / EDITAR CLASE (HORAS TOTALMENTE FLEXIBLES) -->
         <!-- ============================================================== -->
-        <div id="modal-form-clase"
+        <div th:if="${puedeAdministrarCursos}" id="modal-form-clase"
              onclick="if (event.target === this) cerrarModalFormClase()"
              class="hidden w-full h-full flex items-center justify-center">
             <div class="bg-white rounded-2xl border border-[#c4eec0] shadow-2xl max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" id="dialog-form-clase">

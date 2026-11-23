@@ -37,7 +37,7 @@
                     </span>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2" th:if="${puedeAdministrarCursos}">
                     <button type="button" onclick="openCursoModal()"
                             class="inline-flex items-center gap-2 rounded-control bg-sidebar px-4 py-2 text-xs font-bold text-white shadow-xs hover:brightness-110 transition cursor-pointer shrink-0">
                         <i data-lucide="plus-circle" class="size-4 stroke-[2.2]"></i>
@@ -69,14 +69,16 @@
                         <!-- Filas de Cursos -->
                         <tr th:each="c : ${cursosList}" 
                             class="transition-colors cursor-pointer group curso-tr"
+                            th:data-id="${c.id}"
                             th:data-codigo="${c.codigoCurso}"
+                            th:data-jornada="${c.jornada}"
                             onclick="handleRowClick(this, event)">
                             
                             <!-- Grado -->
                             <td class="py-3 px-4 pl-6 font-black text-sidebar text-sm">
                                 <div class="flex items-center gap-2">
                                     <span th:text="${c.grado}">11°</span>
-                                    <span class="text-[10px] font-bold text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                                    <span th:if="${!esEstudiante}" class="text-[10px] font-bold text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                                         <i data-lucide="external-link" class="size-3 stroke-2"></i> Abrir
                                     </span>
                                 </div>
@@ -116,13 +118,13 @@
                             <!-- Acciones -->
                             <td class="py-3 px-4 pr-6 text-right">
                                 <div class="flex justify-end items-center gap-1.5">
-                                    <button type="button" 
+                                    <button th:if="${!esEstudiante}" type="button" 
                                             th:data-codigo="${c.codigoCurso}"
                                             onclick="handleGestionBtn(this, event)"
                                             class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar cursor-pointer" title="Gestionar Notas y Asistencia">
                                         <i data-lucide="clipboard-list" class="size-4 stroke-2"></i>
                                     </button>
-                                    <button type="button" 
+                                    <button th:if="${puedeAdministrarCursos}" type="button" 
                                             th:data-id="${c.id}"
                                             th:data-codigo="${c.codigoCurso}"
                                             th:data-grado="${c.grado}"
@@ -133,12 +135,21 @@
                                             class="p-1.5 hover:bg-surface-sunken rounded-control transition text-brand-600 hover:text-sidebar cursor-pointer" title="Editar Parámetros">
                                         <i data-lucide="edit" class="size-4 stroke-2"></i>
                                     </button>
-                                    <form th:action="@{/clases/eliminar}" method="post" class="inline" onsubmit="event.stopPropagation(); return confirm('¿Está seguro de eliminar este curso?');">
+                                    <form th:if="${puedeAdministrarCursos}" th:action="@{/clases/eliminar}" method="post" class="inline" onsubmit="event.stopPropagation(); return confirm('¿Está seguro de eliminar este curso?');">
                                         <input type="hidden" name="cursoId" th:value="${c.id}" />
                                         <button type="submit" onclick="event.stopPropagation();" class="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-alert-red cursor-pointer" title="Eliminar curso">
                                             <i data-lucide="trash-2" class="size-4 stroke-[2]"></i>
                                         </button>
                                     </form>
+                                    <button th:if="${esEstudiante}" type="button"
+                                            th:data-id="${c.id}"
+                                            th:data-codigo="${c.codigoCurso}"
+                                            th:data-jornada="${c.jornada}"
+                                            onclick="handleHorarioBtn(this, event)"
+                                            class="px-2.5 py-1.5 bg-surface-sunken hover:bg-pill-green border border-border rounded-control transition text-sidebar text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer" title="Ver horario del curso">
+                                        <i data-lucide="calendar-days" class="size-3.5 stroke-2"></i>
+                                        <span>Ver horario</span>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -149,7 +160,9 @@
     </div>
 
     <!-- Fragmentos Modales -->
-    <div th:replace="~{clases/fragments/modal-curso :: modalCurso}"></div>
+    <th:block th:if="${puedeAdministrarCursos}">
+        <div th:replace="~{clases/fragments/modal-curso :: modalCurso}"></div>
+    </th:block>
     <div th:replace="~{clases/fragments/modal-horario :: modalHorario}"></div>
 
     <!-- Script del listado de cursos -->
@@ -158,6 +171,8 @@
         window.docentesGlobales = /*[[${docentesList}]]*/ [];
         window.salonesGlobales = /*[[${salonesList}]]*/ [];
         window.bloquesGlobales = /*[[${bloquesList}]]*/ [];
+        window.puedeAdministrarCursos = /*[[${puedeAdministrarCursos}]]*/ false;
+        window.esSoloEstudiante = /*[[${esEstudiante}]]*/ false;
     </script>
     <script th:src="@{/js/clases.js(v='4.6')}"></script>
 </th:block>

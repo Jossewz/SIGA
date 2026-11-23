@@ -12,8 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.*;
 
 /**
@@ -28,16 +31,50 @@ public class CursoGestionAppService {
     private final CalificacionesService calificacionesService;
     private final AsistenciaService asistenciaService;
     private final com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService;
+    private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CursoGestionAppService(CursoService cursoService,
                                   CalificacionesService calificacionesService,
                                   AsistenciaService asistenciaService,
                                   @org.springframework.beans.factory.annotation.Autowired(required = false)
-                                  com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService) {
+                                  com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService,
+                                  @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                  Clock clock) {
         this.cursoService = cursoService;
         this.calificacionesService = calificacionesService;
         this.asistenciaService = asistenciaService;
         this.periodoConfigService = periodoConfigService;
+        this.clock = clock != null ? clock : Clock.system(ZoneId.of("America/Bogota"));
+    }
+
+    public CursoGestionAppService(CursoService cursoService,
+                                  CalificacionesService calificacionesService,
+                                  AsistenciaService asistenciaService,
+                                  com.siga.siga_iea.configuracion.service.PeriodoConfigService periodoConfigService) {
+        this(cursoService, calificacionesService, asistenciaService, periodoConfigService, null);
+    }
+
+    private static Horario seleccionarHorarioPorHora(List<Horario> poolHorarios, LocalTime ahora) {
+        if (poolHorarios == null || poolHorarios.isEmpty()) {
+            return null;
+        }
+        // 1. Bloque actualmente en curso según la hora del reloj institucional
+        for (Horario h : poolHorarios) {
+            if (h.getHoraInicio() != null && h.getHoraFin() != null
+                    && !ahora.isBefore(h.getHoraInicio())
+                    && ahora.isBefore(h.getHoraFin())) {
+                return h;
+            }
+        }
+        // 2. Próximo bloque programado del día
+        for (Horario h : poolHorarios) {
+            if (h.getHoraInicio() != null && h.getHoraInicio().isAfter(ahora)) {
+                return h;
+            }
+        }
+        // 3. Si todas las clases del día ya finalizaron, mostrar la última clase del día
+        return poolHorarios.get(poolHorarios.size() - 1);
     }
 
     public static String obtenerNombreDiaEspanol(DayOfWeek dow) {
@@ -107,7 +144,7 @@ public class CursoGestionAppService {
         }
         detalleDTO.setHorariosData(horariosData);
 
-        LocalDate hoy = LocalDate.now();
+        LocalDate hoy = LocalDate.now(clock);
         CursoTablaNotasDTO tablaDTO = prepararTablaNotas(c.getId(), null, null, 1, hoy, docenteLogueadoOpt, esAdmin);
         detalleDTO.setTablaNotasDTO(tablaDTO);
         detalleDTO.setHorarioBannerTexto(tablaDTO.getHorarioBannerTexto());
@@ -174,10 +211,16 @@ public class CursoGestionAppService {
 
         final UUID targetMateriaId = materiaId;
         final String targetMateriaNombre = materiaNombre;
-        List<Horario> poolHorarios = horariosDelDia;
+        Comparator<Horario> ordenCronologico = Comparator.comparing(
+                Horario::getHoraInicio,
+                Comparator.nullsLast(Comparator.naturalOrder())
+        );
+        List<Horario> poolHorarios = horariosDelDia.stream()
+                .sorted(ordenCronologico)
+                .toList();
         if (!esAdmin && docenteLogueadoOpt.isPresent()) {
             Docente miDocente = docenteLogueadoOpt.get();
-            poolHorarios = horariosDelDia.stream()
+            poolHorarios = poolHorarios.stream()
                     .filter(h -> h.getDocente() != null && (
                             h.getDocente().getId().equals(miDocente.getId()) ||
                             (h.getDocente().getNumeroDocumento() != null && h.getDocente().getNumeroDocumento().equalsIgnoreCase(miDocente.getNumeroDocumento()))
@@ -196,7 +239,10 @@ public class CursoGestionAppService {
                     .findFirst();
         }
 
-        Horario hSeleccionado = horarioMatch.orElse(!poolHorarios.isEmpty() ? poolHorarios.get(0) : null);
+        LocalTime ahora = LocalTime.now(clock);
+        Horario hSeleccionado = horarioMatch.isPresent()
+                ? horarioMatch.get()
+                : seleccionarHorarioPorHora(poolHorarios, ahora);
 
         if (hSeleccionado == null) {
             dto.setTieneHorarioHoy(false);
@@ -224,7 +270,13 @@ public class CursoGestionAppService {
         dto.setTieneHorarioHoy(true);
         String horaStr = (hSeleccionado.getHoraInicio() != null ? hSeleccionado.getHoraInicio().toString() : "07:00") + " - " + (hSeleccionado.getHoraFin() != null ? hSeleccionado.getHoraFin().toString() : "08:30");
         String docStr = (hSeleccionado.getDocente() != null) ? " • Docente: " + hSeleccionado.getDocente().getNombreCompleto() : "";
-        dto.setHorarioBannerTexto("Horario: " + horaStr + docStr);
+        boolean enCursoAhora = fecha.equals(LocalDate.now(clock))
+                && hSeleccionado.getHoraInicio() != null
+                && hSeleccionado.getHoraFin() != null
+                && !ahora.isBefore(hSeleccionado.getHoraInicio())
+                && ahora.isBefore(hSeleccionado.getHoraFin());
+        String prefijoHorario = enCursoAhora ? "En curso ahora • Horario: " : "Horario: ";
+        dto.setHorarioBannerTexto(prefijoHorario + horaStr + docStr);
 
         String anioActivo = resolverAnioActivo();
         CursoMateria cm = (selectedMateriaId != null)

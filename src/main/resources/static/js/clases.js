@@ -8,6 +8,12 @@ window.jornadaActualCurso = 'Mañana';
 
 function handleRowClick(tr, event) {
     if (event.target.closest('button') || event.target.closest('form')) return;
+    if (window.esSoloEstudiante) {
+        if (tr.dataset.id) {
+            openHorarioModal(tr.dataset.id, tr.dataset.codigo, tr.dataset.jornada);
+        }
+        return;
+    }
     window.location.href = '/clases/gestion?codigo=' + encodeURIComponent(tr.dataset.codigo);
 }
 
@@ -244,17 +250,13 @@ function renderVistaSemanalGoogleCalendar() {
         clasesDelDia.forEach(c => {
             const card = document.createElement('div');
             const color = c.color || '#0d4117';
-            card.className = "group relative bg-white border border-[#c4eec0] hover:border-sidebar/60 rounded-xl p-2.5 shadow-2xs hover:shadow-md transition-all flex flex-col gap-1.5 cursor-pointer";
+            const puedeEditar = Boolean(window.puedeAdministrarCursos);
+            card.className = "group relative bg-white border border-[#c4eec0] hover:border-sidebar/60 rounded-xl p-2.5 shadow-2xs hover:shadow-md transition-all flex flex-col gap-1.5 " + (puedeEditar ? "cursor-pointer" : "");
             card.style.borderLeftWidth = "4px";
             card.style.borderLeftColor = color;
 
             const horaFormat = `${formatearHora12(c.horaInicio)} - ${formatearHora12(c.horaFin)}`;
-
-            card.innerHTML = `
-                <div class="flex items-start justify-between gap-1">
-                    <span class="text-[12px] font-black text-sidebar leading-tight line-clamp-2">
-                        ${c.materiaNombre || 'Sin Asignatura'}
-                    </span>
+            const accionesHtml = puedeEditar ? `
                     <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
                         <button type="button" onclick="event.stopPropagation(); abrirModalEditarClase('${c.id}')"
                                 class="p-1 hover:bg-[#eafbe4] text-sidebar rounded-md transition-colors" title="Editar horario">
@@ -264,7 +266,14 @@ function renderVistaSemanalGoogleCalendar() {
                                 class="p-1 hover:bg-red-50 text-alert-red rounded-md transition-colors" title="Eliminar clase">
                             <i data-lucide="trash-2" class="size-3 stroke-[2.2]"></i>
                         </button>
-                    </div>
+                    </div>` : '';
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between gap-1">
+                    <span class="text-[12px] font-black text-sidebar leading-tight line-clamp-2">
+                        ${c.materiaNombre || 'Sin Asignatura'}
+                    </span>
+                    ${accionesHtml}
                 </div>
 
                 <div class="flex items-center gap-1.5 text-[10px] font-bold text-text-secondary">
@@ -283,7 +292,9 @@ function renderVistaSemanalGoogleCalendar() {
                 </div>
             `;
 
-            card.onclick = () => abrirModalEditarClase(c.id);
+            if (puedeEditar) {
+                card.onclick = () => abrirModalEditarClase(c.id);
+            }
             colContainer.appendChild(card);
         });
     });
@@ -299,12 +310,12 @@ function renderVistaAgendaSEGI() {
 
     const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
-    if (window.horariosActuales.length === 0) {
+        if (window.horariosActuales.length === 0) {
         container.innerHTML = `
             <div class="p-12 text-center text-text-secondary font-bold text-xs bg-[#f7fcf6] border border-[#c4eec0] rounded-2xl">
                 <i data-lucide="calendar-x" class="size-8 mx-auto text-[#a5cca0] mb-2"></i>
                 <p class="text-sidebar font-black text-sm mb-1">No hay clases programadas</p>
-                <p>Haga clic en "+ Programar Clase" para comenzar a estructurar el horario del curso.</p>
+                <p>${window.puedeAdministrarCursos ? 'Haga clic en "+ Programar Clase" para comenzar a estructurar el horario del curso.' : 'Este curso aún no tiene clases programadas en el horario.'}</p>
             </div>
         `;
         return;
@@ -323,9 +334,22 @@ function renderVistaAgendaSEGI() {
         bloqueDia.className = "bg-white border border-[#c4eec0] rounded-2xl overflow-hidden shadow-2xs";
 
         let tarjetasHtml = '';
+        const puedeEditar = Boolean(window.puedeAdministrarCursos);
         clasesDelDia.forEach(c => {
             const color = c.color || '#0d4117';
             const horaFormat = `${formatearHora12(c.horaInicio)} — ${formatearHora12(c.horaFin)}`;
+            const botonesAgenda = puedeEditar ? `
+                    <div class="flex items-center gap-1.5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onclick="abrirModalEditarClase('${c.id}')"
+                                class="px-3 py-1.5 rounded-lg border border-[#c4eec0] bg-white hover:bg-[#eafbe4] text-sidebar text-xs font-bold transition-all flex items-center gap-1">
+                            <i data-lucide="pencil" class="size-3 stroke-[2.2]"></i>
+                            <span>Editar</span>
+                        </button>
+                        <button type="button" onclick="eliminarClaseItem('${c.id}')"
+                                class="px-2.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-alert-red text-xs font-bold transition-all" title="Eliminar clase">
+                            <i data-lucide="trash-2" class="size-3.5 stroke-[2.2]"></i>
+                        </button>
+                    </div>` : '';
 
             tarjetasHtml += `
                 <div class="flex items-center justify-between p-3.5 hover:bg-[#f7fcf6] transition-colors border-b last:border-b-0 border-[#c4eec0]/40 group">
@@ -351,18 +375,7 @@ function renderVistaAgendaSEGI() {
                             </div>
                         </div>
                     </div>
-
-                    <div class="flex items-center gap-1.5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <button type="button" onclick="abrirModalEditarClase('${c.id}')"
-                                class="px-3 py-1.5 rounded-lg border border-[#c4eec0] bg-white hover:bg-[#eafbe4] text-sidebar text-xs font-bold transition-all flex items-center gap-1">
-                            <i data-lucide="pencil" class="size-3 stroke-[2.2]"></i>
-                            <span>Editar</span>
-                        </button>
-                        <button type="button" onclick="eliminarClaseItem('${c.id}')"
-                                class="px-2.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-alert-red text-xs font-bold transition-all" title="Eliminar clase">
-                            <i data-lucide="trash-2" class="size-3.5 stroke-[2.2]"></i>
-                        </button>
-                    </div>
+                    ${botonesAgenda}
                 </div>
             `;
         });
@@ -564,20 +577,25 @@ async function guardarClaseItem(event) {
     const salonSelect = document.getElementById('fc-salon')?.value;
     const salon = (salonCustom && salonCustom.trim()) ? salonCustom.trim() : (salonSelect || 'Aula 101');
 
+    const mostrarAlerta = (msg, tipo = 'error') => {
+        if (typeof window.sigaAlert === 'function') window.sigaAlert(msg, tipo);
+        else alert(msg);
+    };
+
     if (!cursoId) {
-        alert('Error: No se ha identificado el curso.');
+        mostrarAlerta('Error: No se ha identificado el curso.');
         return;
     }
     if (!materiaId) {
-        alert('Por favor seleccione una materia.');
+        mostrarAlerta('Por favor seleccione una materia.', 'warning');
         return;
     }
     if (!horaInicio || !horaFin) {
-        alert('Por favor especifique la hora de inicio y de fin.');
+        mostrarAlerta('Por favor especifique la hora de inicio y de fin.', 'warning');
         return;
     }
     if (horaInicio >= horaFin) {
-        alert('La hora de inicio debe ser anterior a la hora de fin.');
+        mostrarAlerta('La hora de inicio debe ser anterior a la hora de fin.', 'warning');
         return;
     }
 
@@ -631,7 +649,8 @@ async function guardarClaseItem(event) {
             tableBtn.querySelector('span').innerText = 'Asignado';
         }
     } catch (err) {
-        alert('Error al guardar la clase: ' + err.message);
+        const msg = 'Error al guardar la clase: ' + err.message;
+        if (typeof window.sigaAlert === 'function') window.sigaAlert(msg, 'error'); else alert(msg);
     } finally {
         if (submitBtn) submitBtn.disabled = false;
     }
@@ -675,7 +694,8 @@ async function eliminarClaseItem(horarioId) {
             }
         }
     } catch (err) {
-        alert('Error al eliminar la clase: ' + err.message);
+        const msg = 'Error al eliminar la clase: ' + err.message;
+        if (typeof window.sigaAlert === 'function') window.sigaAlert(msg, 'error'); else alert(msg);
     }
 }
 
@@ -717,7 +737,8 @@ async function confirmarLimpiarHorario() {
             tableBtn.querySelector('span').innerText = 'Sin Horario';
         }
     } catch (err) {
-        alert('Error al limpiar el horario: ' + err.message);
+        const msg = 'Error al limpiar el horario: ' + err.message;
+        if (typeof window.sigaAlert === 'function') window.sigaAlert(msg, 'error'); else alert(msg);
     }
 }
 

@@ -83,6 +83,13 @@
         <!-- Out-Of-Band Swap para el Nombre del Día de la Semana -->
         <span id="dia-nombre" hx-swap-oob="true" th:text="${diaSemana != null ? diaSemana : 'Lunes'}">Lunes</span>
 
+        <!-- Out-Of-Band Swap para la Asignatura Estática del Docente (sincronizada por horario) -->
+        <th:block th:unless="${esAdmin}">
+            <span id="texto-materia-estatica" hx-swap-oob="true"
+                  th:text="${materiaNombre != null && !materiaNombre.isEmpty() ? materiaNombre : 'Sin Asignación'}">Asignatura</span>
+            <input type="hidden" id="select-materia" name="materiaNombre" hx-swap-oob="true" th:value="${materiaNombre}" />
+        </th:block>
+
         <!-- Out-Of-Band Swap para el Banner de Estado del Horario -->
         <div id="status-horario-banner" hx-swap-oob="true"
              class="px-4 py-2.5 rounded-lg text-[11px] font-bold flex items-center gap-2 shrink-0 border"

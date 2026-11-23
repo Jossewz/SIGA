@@ -124,7 +124,6 @@ public class CursoService {
     public Curso crearCurso(String grado, String grupo, String jornada, Integer cupos, UUID directorId, String anoLectivo) {
         Curso c = new Curso();
         c.setGrado(grado);
-        c.setGrupo(grupo != null && !grupo.isBlank() ? grupo : "01");
         c.setJornada(jornada != null ? jornada : "Mañana");
         c.setCuposMaximos(cupos != null ? cupos : 35);
 
@@ -144,6 +143,33 @@ public class CursoService {
                     ? anoLectivo
                     : String.valueOf(com.siga.siga_iea.configuracion.service.PeriodoConfigService.anioCalendarioActual()));
         }
+
+        String anioEfectivo = c.getAnoLectivo();
+        String gradoNormalizado = c.getGrado();
+        String grupoFinal;
+        if (grupo != null && !grupo.isBlank()) {
+            grupoFinal = grupo.trim();
+            if (cursoRepository.findByGradoAndGrupoAndAnoLectivo(gradoNormalizado, grupoFinal, anioEfectivo).isPresent()) {
+                throw new IllegalArgumentException("Ya existe un curso " + gradoNormalizado + " - " + grupoFinal + " en el año lectivo " + anioEfectivo + ".");
+            }
+        } else {
+            int maxGrupo = 0;
+            for (Curso existente : cursoRepository.findByAnoLectivo(anioEfectivo)) {
+                if (gradoNormalizado.equalsIgnoreCase(existente.getGrado()) && existente.getGrupo() != null) {
+                    try {
+                        int n = Integer.parseInt(existente.getGrupo().trim());
+                        if (n > maxGrupo) maxGrupo = n;
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+            int siguiente = maxGrupo + 1;
+            grupoFinal = String.format("%02d", siguiente);
+            while (cursoRepository.findByGradoAndGrupoAndAnoLectivo(gradoNormalizado, grupoFinal, anioEfectivo).isPresent()) {
+                siguiente++;
+                grupoFinal = String.format("%02d", siguiente);
+            }
+        }
+        c.setGrupo(grupoFinal);
 
         if (directorId != null) {
             docenteRepository.findById(directorId).ifPresent(c::setDirector);

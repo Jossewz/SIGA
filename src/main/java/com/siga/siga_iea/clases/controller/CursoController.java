@@ -372,9 +372,26 @@ public class CursoController {
         if (cursosDB.isEmpty()) {
             cursosDB = cursoService.listarTodosLosCursos();
         }
+
+        boolean soloEstudiante = currentUserContextService.esEstudiante()
+                && !currentUserContextService.esAdminOAdministrativo()
+                && !currentUserContextService.esDocente();
+        UUID estudianteAutenticadoId = soloEstudiante
+                ? currentUserContextService.getEstudianteAutenticado().map(com.siga.siga_iea.usuarios.entity.Estudiante::getId).orElse(null)
+                : null;
+
         List<Map<String, Object>> cursosList = new ArrayList<>();
 
         for (Curso c : cursosDB) {
+            List<CursoEstudiante> estudiantes = cursoService.listarEstudiantesDeCurso(c.getId());
+            if (soloEstudiante) {
+                boolean matriculadoEnCurso = estudianteAutenticadoId != null && estudiantes.stream()
+                        .anyMatch(ce -> ce.getEstudiante() != null && estudianteAutenticadoId.equals(ce.getEstudiante().getId()));
+                if (!matriculadoEnCurso) {
+                    continue;
+                }
+            }
+
             Map<String, Object> map = new HashMap<>();
             map.put("id", c.getId().toString());
             map.put("grado", c.getGrado());
@@ -383,8 +400,6 @@ public class CursoController {
             map.put("director", c.getDirector() != null ? c.getDirector().getNombreCompleto() : "Sin asignar");
             map.put("directorId", c.getDirector() != null ? c.getDirector().getId().toString() : "");
             map.put("cuposMaximos", c.getCuposMaximos());
-
-            List<CursoEstudiante> estudiantes = cursoService.listarEstudiantesDeCurso(c.getId());
             map.put("estudiantes", estudiantes.size());
 
             List<Horario> horarios = cursoService.listarHorariosDeCurso(c.getId());
@@ -394,6 +409,8 @@ public class CursoController {
             map.put("jornada", c.getJornada());
             cursosList.add(map);
         }
+
+        model.addAttribute("esSoloEstudiante", soloEstudiante);
 
         model.addAttribute("cursosList", cursosList);
         model.addAttribute("docentesList", personalService.listarDocentes());
@@ -436,6 +453,9 @@ public class CursoController {
 
     @GetMapping("/clases/gestion")
     public String gestionDetail(@RequestParam(name = "codigo", defaultValue = "11-01") String codigo, Model model) {
+        if (!currentUserContextService.esDocente() && !currentUserContextService.esAdminOAdministrativo()) {
+            return "redirect:/?sinAcceso=CURSOS_GESTION";
+        }
         model.addAttribute("title", "Gestión de Curso " + codigo + " – IEACI");
         model.addAttribute("activePage", "clases");
 

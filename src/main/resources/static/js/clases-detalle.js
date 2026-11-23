@@ -35,13 +35,48 @@ document.addEventListener('DOMContentLoaded', () => {
     recargarTablaNotas();
 });
 
+function timeStrToMinutes(hhmm) {
+    if (!hhmm) return null;
+    const m = String(hhmm).trim().match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function seleccionarHorarioDocentePorHora(materiasDocenteDia) {
+    if (!Array.isArray(materiasDocenteDia) || materiasDocenteDia.length === 0) return null;
+    const ordenada = [...materiasDocenteDia].sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+    const ahora = new Date();
+    const minAhora = ahora.getHours() * 60 + ahora.getMinutes();
+
+    for (const h of ordenada) {
+        const partes = (h.hora || '').split('-');
+        const ini = timeStrToMinutes(partes[0]);
+        const fin = timeStrToMinutes(partes[1]);
+        if (ini !== null && fin !== null && minAhora >= ini && minAhora < fin) {
+            return h;
+        }
+    }
+    for (const h of ordenada) {
+        const partes = (h.hora || '').split('-');
+        const ini = timeStrToMinutes(partes[0]);
+        if (ini !== null && ini > minAhora) {
+            return h;
+        }
+    }
+    return ordenada[ordenada.length - 1];
+}
+
 function actualizarMateriaPorFecha(recargar = true) {
     const fechaInput = document.getElementById('fecha-evaluacion');
     if (!fechaInput || !fechaInput.value) return;
 
     const todayStr = getHoyFechaLocalStr();
     if (fechaInput.value > todayStr) {
-        alert('No es posible gestionar clases en fechas futuras. Se reajustará al día de hoy.');
+        if (typeof window.sigaAlert === 'function') {
+            window.sigaAlert('No es posible gestionar clases en fechas futuras. Se reajustará al día de hoy.', 'warning');
+        } else {
+            alert('No es posible gestionar clases en fechas futuras. Se reajustará al día de hoy.');
+        }
         fechaInput.value = todayStr;
     }
 
@@ -84,9 +119,10 @@ function actualizarMateriaPorFecha(recargar = true) {
             (!window.docenteLogueadoNombre || (h.docente && h.docente.toLowerCase() === window.docenteLogueadoNombre.toLowerCase()))
         );
         const spanEstatico = document.getElementById('texto-materia-estatica');
-        if (materiasDocenteDia.length > 0) {
-            selectMateria.value = materiasDocenteDia[0].materia || '';
-            if (spanEstatico) spanEstatico.innerText = materiasDocenteDia[0].materia || 'Asignatura';
+        const bloqueSeleccionado = seleccionarHorarioDocentePorHora(materiasDocenteDia);
+        if (bloqueSeleccionado) {
+            selectMateria.value = bloqueSeleccionado.materia || '';
+            if (spanEstatico) spanEstatico.innerText = bloqueSeleccionado.materia || 'Asignatura';
         } else {
             selectMateria.value = '';
             if (spanEstatico) spanEstatico.innerText = 'Sin Asignación';
@@ -226,10 +262,12 @@ async function importarNotasExcel(input) {
             }
             if (window.lucide) lucide.createIcons();
         } else {
-            alert('No tienes permisos o ocurrió un error al importar las calificaciones.');
+            const msg = 'No tienes permisos o ocurrió un error al importar las calificaciones.';
+            if (typeof window.sigaAlert === 'function') window.sigaAlert(msg, 'error'); else alert(msg);
         }
     } catch (e) {
-        alert('Error de red al importar las calificaciones.');
+        const msg = 'Error de red al importar las calificaciones.';
+        if (typeof window.sigaAlert === 'function') window.sigaAlert(msg, 'error'); else alert(msg);
     } finally {
         input.value = '';
     }
