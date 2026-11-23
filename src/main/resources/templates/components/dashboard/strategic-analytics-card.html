@@ -13,10 +13,11 @@
             <div>
                 <div class="flex justify-between text-[11px] font-extrabold text-text-primary mb-1">
                     <span>Tasa de Deserción Escolar (Meta: &lt; 3%)</span>
-                    <span class="text-alert-red">0%</span>
+                    <span class="text-alert-red" th:text="${#numbers.formatDecimal(stats.tasaDesercion, 1, 1) + '%'}">0.0%</span>
                 </div>
                 <div class="w-full bg-surface-sunken h-2 rounded-full overflow-hidden">
-                    <div class="bg-alert-red h-full rounded-full" style="width: 0%"></div>
+                    <div class="bg-alert-red h-full rounded-full transition-all duration-500"
+                         th:style="'width: ' + ${stats.tasaDesercion > 100 ? 100 : stats.tasaDesercion} + '%'"></div>
                 </div>
             </div>
 
@@ -24,10 +25,11 @@
             <div>
                 <div class="flex justify-between text-[11px] font-extrabold text-text-primary mb-1">
                     <span>Tasa de Repitencia (Meta: &lt; 2%)</span>
-                    <span class="text-text-secondary">0%</span>
+                    <span class="text-text-secondary" th:text="${#numbers.formatDecimal(stats.tasaRepitencia, 1, 1) + '%'}">0.0%</span>
                 </div>
                 <div class="w-full bg-surface-sunken h-2 rounded-full overflow-hidden">
-                    <div class="bg-sidebar/70 h-full rounded-full" style="width: 0%"></div>
+                    <div class="bg-sidebar/70 h-full rounded-full transition-all duration-500"
+                         th:style="'width: ' + ${stats.tasaRepitencia > 100 ? 100 : stats.tasaRepitencia} + '%'"></div>
                 </div>
             </div>
 
@@ -35,15 +37,18 @@
             <div class="grid grid-cols-2 gap-x-4 gap-y-3.5 mt-2 pt-2 border-t border-border text-xs">
                 <div class="flex justify-between items-center py-1">
                     <span class="text-text-secondary font-bold">Aprobación</span>
-                    <span class="font-extrabold text-sidebar bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded">0%</span>
+                    <span class="font-extrabold text-sidebar bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded"
+                          th:text="${#numbers.formatDecimal(stats.tasaAprobacion, 1, 1) + '%'}">0.0%</span>
                 </div>
                 <div class="flex justify-between items-center py-1">
                     <span class="text-text-secondary font-bold">Reprobación</span>
-                    <span class="font-extrabold text-alert-red bg-pill-red border border-[#f5cece] px-2 py-0.5 rounded">0%</span>
+                    <span class="font-extrabold text-alert-red bg-pill-red border border-[#f5cece] px-2 py-0.5 rounded"
+                          th:text="${#numbers.formatDecimal(stats.tasaReprobacion, 1, 1) + '%'}">0.0%</span>
                 </div>
                 <div class="flex justify-between items-center py-1">
                     <span class="text-text-secondary font-bold">Graduación</span>
-                    <span class="font-extrabold text-sidebar bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded">0%</span>
+                    <span class="font-extrabold text-sidebar bg-pill-green border border-[#cbe5c7] px-2 py-0.5 rounded"
+                          th:text="${#numbers.formatDecimal(stats.tasaGraduacion, 1, 1) + '%'}">0.0%</span>
                 </div>
                 <div class="flex justify-between items-center py-1">
                     <span class="text-text-secondary font-bold">Matrículas</span>

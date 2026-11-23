@@ -71,4 +71,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
             @Param("estado") String estado,
             @Param("nivel") String nivel,
             Pageable pageable);
+
+    @Query("SELECT e.id FROM Estudiante e WHERE LOWER(COALESCE(e.estado, '')) IN ('retirado', 'inactivo')")
+    List<UUID> findIdsRetiradosOInactivos();
 }

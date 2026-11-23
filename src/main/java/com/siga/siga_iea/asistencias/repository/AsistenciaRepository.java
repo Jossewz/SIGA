@@ -47,4 +47,15 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, UUID> {
            "FROM Asistencia a " +
            "WHERE a.sesion.fecha = :fecha")
     List<Object[]> findResumenAsistenciaPorDia(@Param("fecha") LocalDate fecha);
+
+    @Query("SELECT MAX(a.sesion.fecha) FROM Asistencia a")
+    LocalDate findUltimaFechaAsistencia();
+
+    @Query("SELECT COUNT(a.id) FROM Asistencia a " +
+           "WHERE a.estado = 'AUSENTE' AND a.sesion.fecha >= :desde AND a.sesion.fecha <= :hasta")
+    long contarAusenciasEnRango(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
+
+    @Query("SELECT a.estudiante.id, COUNT(a.id) FROM Asistencia a " +
+           "WHERE a.estado = 'AUSENTE' GROUP BY a.estudiante.id")
+    List<Object[]> contarAusenciasPorEstudiante();
 }

@@ -30,6 +30,18 @@ public class DashboardStatsDTO {
     private long totalEstudiantesSecundaria;
     private long totalEstudiantesMedia;
 
+    // Indicadores de desempeño institucional y analítica estratégica
+    private double indiceAsistenciaPorcentaje;
+    private String indiceAsistenciaTexto = "0%";
+    private long inasistenciasSemana;
+    private String promedioGeneral = "0.0";
+    private long posibleDesercion;
+    private double tasaDesercion;
+    private double tasaRepitencia;
+    private double tasaAprobacion;
+    private double tasaReprobacion;
+    private double tasaGraduacion;
+
     public DashboardStatsDTO() {}
 
     public DashboardStatsDTO(long estudiantesActivos, long docentesActivos, String asistenciaHoy, long alertasSistema,
@@ -101,6 +113,16 @@ public class DashboardStatsDTO {
         private long totalEstudiantesPrimaria;
         private long totalEstudiantesSecundaria;
         private long totalEstudiantesMedia;
+        private double indiceAsistenciaPorcentaje;
+        private String indiceAsistenciaTexto = "0%";
+        private long inasistenciasSemana;
+        private String promedioGeneral = "0.0";
+        private long posibleDesercion;
+        private double tasaDesercion;
+        private double tasaRepitencia;
+        private double tasaAprobacion;
+        private double tasaReprobacion;
+        private double tasaGraduacion;
 
         public Builder estudiantesActivos(long val) { this.estudiantesActivos = val; return this; }
         public Builder docentesActivos(long val) { this.docentesActivos = val; return this; }
@@ -125,6 +147,16 @@ public class DashboardStatsDTO {
         public Builder totalEstudiantesPrimaria(long val) { this.totalEstudiantesPrimaria = val; return this; }
         public Builder totalEstudiantesSecundaria(long val) { this.totalEstudiantesSecundaria = val; return this; }
         public Builder totalEstudiantesMedia(long val) { this.totalEstudiantesMedia = val; return this; }
+        public Builder indiceAsistenciaPorcentaje(double val) { this.indiceAsistenciaPorcentaje = val; return this; }
+        public Builder indiceAsistenciaTexto(String val) { this.indiceAsistenciaTexto = val; return this; }
+        public Builder inasistenciasSemana(long val) { this.inasistenciasSemana = val; return this; }
+        public Builder promedioGeneral(String val) { this.promedioGeneral = val; return this; }
+        public Builder posibleDesercion(long val) { this.posibleDesercion = val; return this; }
+        public Builder tasaDesercion(double val) { this.tasaDesercion = val; return this; }
+        public Builder tasaRepitencia(double val) { this.tasaRepitencia = val; return this; }
+        public Builder tasaAprobacion(double val) { this.tasaAprobacion = val; return this; }
+        public Builder tasaReprobacion(double val) { this.tasaReprobacion = val; return this; }
+        public Builder tasaGraduacion(double val) { this.tasaGraduacion = val; return this; }
 
         public DashboardStatsDTO build() {
             DashboardStatsDTO dto = new DashboardStatsDTO(estudiantesActivos, docentesActivos, asistenciaHoy, alertasSistema,
@@ -133,6 +165,16 @@ public class DashboardStatsDTO {
                     porcentajePrimaria, porcentajeSecundaria, porcentajeMedia,
                     totalEstudiantesPrimaria, totalEstudiantesSecundaria, totalEstudiantesMedia);
             dto.setTotalActividadTimeline(totalActividadTimeline);
+            dto.setIndiceAsistenciaPorcentaje(indiceAsistenciaPorcentaje);
+            dto.setIndiceAsistenciaTexto(indiceAsistenciaTexto != null ? indiceAsistenciaTexto : "0%");
+            dto.setInasistenciasSemana(inasistenciasSemana);
+            dto.setPromedioGeneral(promedioGeneral != null ? promedioGeneral : "0.0");
+            dto.setPosibleDesercion(posibleDesercion);
+            dto.setTasaDesercion(tasaDesercion);
+            dto.setTasaRepitencia(tasaRepitencia);
+            dto.setTasaAprobacion(tasaAprobacion);
+            dto.setTasaReprobacion(tasaReprobacion);
+            dto.setTasaGraduacion(tasaGraduacion);
             return dto;
         }
     }
@@ -205,4 +247,34 @@ public class DashboardStatsDTO {
 
     public long getTotalEstudiantesMedia() { return totalEstudiantesMedia; }
     public void setTotalEstudiantesMedia(long totalEstudiantesMedia) { this.totalEstudiantesMedia = totalEstudiantesMedia; }
+
+    public double getIndiceAsistenciaPorcentaje() { return indiceAsistenciaPorcentaje; }
+    public void setIndiceAsistenciaPorcentaje(double indiceAsistenciaPorcentaje) { this.indiceAsistenciaPorcentaje = indiceAsistenciaPorcentaje; }
+
+    public String getIndiceAsistenciaTexto() { return indiceAsistenciaTexto; }
+    public void setIndiceAsistenciaTexto(String indiceAsistenciaTexto) { this.indiceAsistenciaTexto = indiceAsistenciaTexto; }
+
+    public long getInasistenciasSemana() { return inasistenciasSemana; }
+    public void setInasistenciasSemana(long inasistenciasSemana) { this.inasistenciasSemana = inasistenciasSemana; }
+
+    public String getPromedioGeneral() { return promedioGeneral; }
+    public void setPromedioGeneral(String promedioGeneral) { this.promedioGeneral = promedioGeneral; }
+
+    public long getPosibleDesercion() { return posibleDesercion; }
+    public void setPosibleDesercion(long posibleDesercion) { this.posibleDesercion = posibleDesercion; }
+
+    public double getTasaDesercion() { return tasaDesercion; }
+    public void setTasaDesercion(double tasaDesercion) { this.tasaDesercion = tasaDesercion; }
+
+    public double getTasaRepitencia() { return tasaRepitencia; }
+    public void setTasaRepitencia(double tasaRepitencia) { this.tasaRepitencia = tasaRepitencia; }
+
+    public double getTasaAprobacion() { return tasaAprobacion; }
+    public void setTasaAprobacion(double tasaAprobacion) { this.tasaAprobacion = tasaAprobacion; }
+
+    public double getTasaReprobacion() { return tasaReprobacion; }
+    public void setTasaReprobacion(double tasaReprobacion) { this.tasaReprobacion = tasaReprobacion; }
+
+    public double getTasaGraduacion() { return tasaGraduacion; }
+    public void setTasaGraduacion(double tasaGraduacion) { this.tasaGraduacion = tasaGraduacion; }
 }

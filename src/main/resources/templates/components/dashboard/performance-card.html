@@ -13,10 +13,12 @@
             <div>
                 <div class="flex justify-between items-center mb-1.5">
                     <span class="text-xs font-extrabold text-text-primary">Índice de Asistencia</span>
-                    <span class="text-xs font-black text-sidebar" th:text="${stats.asistenciaHoy}">0%</span>
+                    <span class="text-xs font-black text-sidebar"
+                          th:text="${stats.indiceAsistenciaTexto != null ? stats.indiceAsistenciaTexto : stats.asistenciaHoy}">0%</span>
                 </div>
                 <div class="w-full bg-surface-sunken h-2.5 rounded-full overflow-hidden">
-                    <div class="bg-sidebar h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="bg-sidebar h-full rounded-full transition-all duration-500"
+                         th:style="'width: ' + ${stats.indiceAsistenciaPorcentaje} + '%'"></div>
                 </div>
             </div>
 
@@ -24,11 +26,14 @@
             <div class="grid grid-cols-2 gap-4 mt-1">
                 <div class="p-3 bg-surface-sunken border border-border rounded-lg">
                     <span class="block text-[10px] font-bold text-text-secondary uppercase">Inasistencias Semana</span>
-                    <strong class="text-lg font-black text-sidebar">0</strong>
+                    <strong class="text-lg font-black text-sidebar" th:text="${stats.inasistenciasSemana}">0</strong>
                 </div>
                 <div class="p-3 bg-surface-sunken border border-border rounded-lg">
                     <span class="block text-[10px] font-bold text-text-secondary uppercase">Promedio General</span>
-                    <strong class="text-lg font-black text-sidebar">0.0 <span class="text-[10px] font-semibold text-text-secondary">/ 5.0</span></strong>
+                    <strong class="text-lg font-black text-sidebar">
+                        <span th:text="${stats.promedioGeneral}">0.0</span>
+                        <span class="text-[10px] font-semibold text-text-secondary">/ 5.0</span>
+                    </strong>
                 </div>
                 <div class="p-3 bg-surface-sunken border border-border rounded-lg">
                     <span class="block text-[10px] font-bold text-text-secondary uppercase">Estudiantes en Riesgo</span>
@@ -36,7 +41,7 @@
                 </div>
                 <div class="p-3 bg-surface-sunken border border-border rounded-lg">
                     <span class="block text-[10px] font-bold text-text-secondary uppercase">Posible Deserción</span>
-                    <strong class="text-lg font-black text-alert-red">0</strong>
+                    <strong class="text-lg font-black text-alert-red" th:text="${stats.posibleDesercion}">0</strong>
                 </div>
             </div>
 

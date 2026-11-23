@@ -5,6 +5,7 @@ import com.siga.siga_iea.asistencias.repository.AsistenciaRepository;
 import com.siga.siga_iea.auditoria.entity.AuditoriaCambio;
 import com.siga.siga_iea.auditoria.repository.AuditoriaCambioRepository;
 import com.siga.siga_iea.calificaciones.dto.BoletinMateriaDTO;
+import com.siga.siga_iea.calificaciones.repository.CalificacionesRepository;
 import com.siga.siga_iea.calificaciones.repository.EvaluacionRepository;
 import com.siga.siga_iea.calificaciones.service.CalificacionesService;
 import com.siga.siga_iea.certificados.entity.SolicitudCertificado;
@@ -62,6 +63,7 @@ public class DashboardService {
     private final PeriodoConfigService periodoConfigService;
     private final Clock clock;
     private final AuditoriaCambioRepository auditoriaCambioRepository;
+    private final CalificacionesRepository calificacionesRepository;
 
     @Autowired
     public DashboardService(EstudianteRepository estudianteRepository,
@@ -77,7 +79,8 @@ public class DashboardService {
                             @Autowired(required = false) CalificacionesService calificacionesService,
                             @Autowired(required = false) PeriodoConfigService periodoConfigService,
                             @Autowired(required = false) Clock clock,
-                            @Autowired(required = false) AuditoriaCambioRepository auditoriaCambioRepository) {
+                            @Autowired(required = false) AuditoriaCambioRepository auditoriaCambioRepository,
+                            @Autowired(required = false) CalificacionesRepository calificacionesRepository) {
         this.estudianteRepository = estudianteRepository;
         this.docenteRepository = docenteRepository;
         this.reporteRepository = reporteRepository;
@@ -92,6 +95,7 @@ public class DashboardService {
         this.periodoConfigService = periodoConfigService;
         this.clock = clock != null ? clock : Clock.system(ZoneId.of("America/Bogota"));
         this.auditoriaCambioRepository = auditoriaCambioRepository;
+        this.calificacionesRepository = calificacionesRepository;
     }
 
     public DashboardService(EstudianteRepository estudianteRepository,
@@ -105,7 +109,7 @@ public class DashboardService {
                             CursoEstudianteRepository cursoEstudianteRepository) {
         this(estudianteRepository, docenteRepository, reporteRepository, certificadoRepository,
                 matriculaRepository, cursoRepository, asistenciaRepository, evaluacionRepository,
-                cursoEstudianteRepository, null, null, null, null, null);
+                cursoEstudianteRepository, null, null, null, null, null, null);
     }
 
     @Transactional(readOnly = true)
@@ -329,6 +333,110 @@ public class DashboardService {
             alertasOperativas.add(a);
         }
 
+        // 4. Indicadores de Desempeño Institucional y Analítica Estratégica (consultas agregadas)
+        double asistenciaHoyNum = 0.0;
+        if (resDia != null && !resDia.isEmpty() && resDia.get(0) != null) {
+            Object[] row = resDia.get(0);
+            long total = row[0] != null ? ((Number) row[0]).longValue() : 0L;
+            long presentes = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            if (total > 0) {
+                asistenciaHoyNum = Math.round(((double) presentes * 100.0 / total) * 10.0) / 10.0;
+            }
+        }
+        double indiceAsistenciaPct = asistenciaHoyNum > 0.0
+                ? asistenciaHoyNum
+                : (promedioAsistencia != null ? promedioAsistencia : 0.0);
+        String indiceAsistenciaTxt = indiceAsistenciaPct > 0.0
+                ? String.format(Locale.US, "%.1f%%", indiceAsistenciaPct)
+                : "0%";
+
+        LocalDate fechaRefSemana = hoy;
+        LocalDate ultimaFechaAsis = asistenciaRepository.findUltimaFechaAsistencia();
+        if (asistenciaHoyNum == 0.0 && ultimaFechaAsis != null) {
+            fechaRefSemana = ultimaFechaAsis;
+        }
+        long inasistenciasSemana = asistenciaRepository.contarAusenciasEnRango(fechaRefSemana.minusDays(6), fechaRefSemana);
+
+        Double avgNotaGlobal = calificacionesRepository != null ? calificacionesRepository.findPromedioGeneralInstitucional() : null;
+        String promedioGeneralStr = avgNotaGlobal != null
+                ? String.format(Locale.US, "%.1f", avgNotaGlobal)
+                : "0.0";
+
+        Map<UUID, Double> promedioPorEst = new HashMap<>();
+        if (calificacionesRepository != null) {
+            List<Object[]> promsEst = calificacionesRepository.findPromedioPorEstudiante();
+            if (promsEst != null) {
+                for (Object[] fila : promsEst) {
+                    if (fila != null && fila.length >= 2 && fila[0] instanceof UUID eid && fila[1] instanceof Number n) {
+                        promedioPorEst.put(eid, n.doubleValue());
+                    }
+                }
+            }
+        }
+
+        long aprobados = promedioPorEst.values().stream().filter(p -> p >= 3.0).count();
+        long reprobados = promedioPorEst.values().stream().filter(p -> p < 3.0).count();
+        long totalConNotas = aprobados + reprobados;
+        double tasaAprobacion = totalConNotas > 0 ? Math.round((aprobados * 1000.0) / totalConNotas) / 10.0 : 0.0;
+        double tasaReprobacion = totalConNotas > 0 ? Math.round((reprobados * 1000.0) / totalConNotas) / 10.0 : 0.0;
+
+        // Tasa de repitencia: estudiantes con 3 o más asignaturas reprobadas (criterio SIEACI / Decreto 1290)
+        double tasaRepitencia = 0.0;
+        if (calificacionesRepository != null && totalConNotas > 0) {
+            List<Object[]> perdidasPorEstMat = calificacionesRepository.findMateriasReprobadasPorEstudiante();
+            if (perdidasPorEstMat != null && !perdidasPorEstMat.isEmpty()) {
+                Map<UUID, Integer> materiasPerdidasCount = new HashMap<>();
+                for (Object[] fila : perdidasPorEstMat) {
+                    if (fila != null && fila.length >= 1 && fila[0] instanceof UUID eid) {
+                        materiasPerdidasCount.merge(eid, 1, Integer::sum);
+                    }
+                }
+                long enRepitencia = materiasPerdidasCount.values().stream().filter(c -> c >= 3).count();
+                tasaRepitencia = Math.round((enRepitencia * 1000.0) / totalConNotas) / 10.0;
+            }
+        }
+
+        // Graduación: porcentaje de estudiantes de grado 11° con promedio aprobatorio (>= 3.0)
+        double tasaGraduacion = 0.0;
+        List<UUID> idsGrado11 = cursoEstudianteRepository.findEstudianteIdsGradoOnce();
+        if (idsGrado11 != null && !idsGrado11.isEmpty() && !promedioPorEst.isEmpty()) {
+            long total11ConNotas = 0;
+            long aprobados11 = 0;
+            for (UUID eid : idsGrado11) {
+                Double prom = promedioPorEst.get(eid);
+                if (prom != null) {
+                    total11ConNotas++;
+                    if (prom >= 3.0) aprobados11++;
+                }
+            }
+            if (total11ConNotas > 0) {
+                tasaGraduacion = Math.round((aprobados11 * 1000.0) / total11ConNotas) / 10.0;
+            }
+        }
+
+        // Posible deserción y tasa de deserción: retirados/inactivos + ausentismo crítico (>=3 fallas o >=2 fallas con promedio < 3.0)
+        Set<UUID> estudiantesDesercion = new HashSet<>();
+        List<UUID> retirados = estudianteRepository.findIdsRetiradosOInactivos();
+        if (retirados != null) {
+            estudiantesDesercion.addAll(retirados);
+        }
+        List<Object[]> ausenciasPorEst = asistenciaRepository.contarAusenciasPorEstudiante();
+        if (ausenciasPorEst != null) {
+            for (Object[] fila : ausenciasPorEst) {
+                if (fila != null && fila.length >= 2 && fila[0] instanceof UUID eid && fila[1] instanceof Number cnt) {
+                    long fallas = cnt.longValue();
+                    Double prom = promedioPorEst.get(eid);
+                    if (fallas >= 3 || (fallas >= 2 && prom != null && prom < 3.0)) {
+                        estudiantesDesercion.add(eid);
+                    }
+                }
+            }
+        }
+        long posibleDesercion = estudiantesDesercion.size();
+        double tasaDesercion = estudiantesCount > 0
+                ? Math.round((posibleDesercion * 1000.0) / estudiantesCount) / 10.0
+                : 0.0;
+
         return DashboardStatsDTO.builder()
                 .estudiantesActivos(estudiantesCount)
                 .docentesActivos(docentesCount)
@@ -353,6 +461,16 @@ public class DashboardService {
                 .totalEstudiantesPrimaria(totalPrimaria)
                 .totalEstudiantesSecundaria(totalSecundaria)
                 .totalEstudiantesMedia(totalMedia)
+                .indiceAsistenciaPorcentaje(indiceAsistenciaPct)
+                .indiceAsistenciaTexto(indiceAsistenciaTxt)
+                .inasistenciasSemana(inasistenciasSemana)
+                .promedioGeneral(promedioGeneralStr)
+                .posibleDesercion(posibleDesercion)
+                .tasaDesercion(tasaDesercion)
+                .tasaRepitencia(tasaRepitencia)
+                .tasaAprobacion(tasaAprobacion)
+                .tasaReprobacion(tasaReprobacion)
+                .tasaGraduacion(tasaGraduacion)
                 .build();
     }
 

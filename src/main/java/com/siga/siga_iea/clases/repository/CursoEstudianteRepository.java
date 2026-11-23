@@ -24,4 +24,7 @@ public interface CursoEstudianteRepository extends JpaRepository<CursoEstudiante
 
     @Query("SELECT ce.curso.id FROM CursoEstudiante ce WHERE ce.estudiante.id = :estudianteId")
     List<UUID> findCursoIdsByEstudianteId(@Param("estudianteId") UUID estudianteId);
+
+    @Query("SELECT DISTINCT ce.estudiante.id FROM CursoEstudiante ce WHERE ce.curso.grado LIKE '11%'")
+    List<UUID> findEstudianteIdsGradoOnce();
 }
