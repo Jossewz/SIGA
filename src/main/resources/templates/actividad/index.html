@@ -111,6 +111,11 @@
                     </tbody>
                 </table>
             </div>
+            <div th:replace="~{components/tables/pagination :: pagination(
+                page=${logsPage},
+                baseUrl='/actividad',
+                extraParams='&categoria=' + (${categoriaActiva ?: 'TODAS'}) + '&q=' + (${busqueda ?: ''})
+            )}"></div>
         </section>
 
     </div>

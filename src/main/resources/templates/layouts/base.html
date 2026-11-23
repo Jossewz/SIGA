@@ -39,29 +39,36 @@ th:fragment="html(content)">
     <!-- Estilos defensivos para prevención de CLS y soporte Alpine x-cloak -->
     <style>
         [x-cloak] { display: none !important; }
-        html.sidebar-init-collapsed #sidebar-desktop {
+        html.sidebar-init-collapsed #sidebar-desktop,
+        #sidebar-desktop.is-collapsed {
             width: 74px !important;
             padding: 32px 8px 24px !important;
         }
         html.sidebar-init-collapsed #sidebar-desktop .sidebar-label,
-        html.sidebar-init-collapsed #sidebar-desktop .sidebar-brand-logo {
+        html.sidebar-init-collapsed #sidebar-desktop .sidebar-brand-logo,
+        #sidebar-desktop.is-collapsed .sidebar-label,
+        #sidebar-desktop.is-collapsed .sidebar-brand-logo {
             display: none !important;
         }
-        html.sidebar-init-collapsed #sidebar-desktop .sidebar-brand-header {
+        html.sidebar-init-collapsed #sidebar-desktop .sidebar-brand-header,
+        #sidebar-desktop.is-collapsed .sidebar-brand-header {
             justify-content: center !important;
             align-items: center !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
         }
-        html.sidebar-init-collapsed #sidebar-desktop #sidebar-toggle-btn {
+        html.sidebar-init-collapsed #sidebar-desktop #sidebar-toggle-btn,
+        #sidebar-desktop.is-collapsed #sidebar-toggle-btn {
             margin: 0 auto !important;
         }
-        html.sidebar-init-collapsed #sidebar-desktop .sidebar-nav-item {
+        html.sidebar-init-collapsed #sidebar-desktop .sidebar-nav-item,
+        #sidebar-desktop.is-collapsed .sidebar-nav-item {
             justify-content: center !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
         }
-        html.sidebar-init-collapsed #sidebar-desktop .sidebar-chevron {
+        html.sidebar-init-collapsed #sidebar-desktop .sidebar-chevron,
+        #sidebar-desktop.is-collapsed .sidebar-chevron {
             transform: rotate(180deg) !important;
         }
     </style>
@@ -69,7 +76,8 @@ th:fragment="html(content)">
     <!-- Script temprano de prevención de parpadeo de layout (CLS = 0) -->
     <script>
         try {
-            if (localStorage.getItem('siga_sidebar_open') === 'false') {
+            var sigaSb = localStorage.getItem('siga_sidebar_open');
+            if (sigaSb === 'false' || (sigaSb === null && window.innerWidth < 1024)) {
                 document.documentElement.classList.add('sidebar-init-collapsed');
             }
         } catch(e) {}
@@ -144,6 +152,9 @@ th:fragment="html(content)">
           th:replace="
           ~{layouts/navbar :: navbar}">
         </header>
+
+        <!-- Pintado inmediato de íconos en sidebar y navbar antes de finalizar carga del contenido -->
+        <script>if (window.lucide && typeof window.lucide.createIcons === 'function') { window.lucide.createIcons(); }</script>
 
         <!-- CONTENIDO DINÁMICO -->
         <section

@@ -9,11 +9,9 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
            :class="{ 'is-collapsed': !sidebarOpen }">
 
         <!-- Logo / Marca + Toggle Único -->
-        <div class="flex items-center mb-5 transition-all duration-200 px-0.5 sidebar-brand-header w-full"
+        <div class="flex items-center justify-between mb-5 transition-all duration-200 px-0.5 sidebar-brand-header w-full"
              :class="sidebarOpen ? 'justify-between' : 'justify-center'">
             <a th:href="@{/}"
-               x-show="sidebarOpen"
-               x-cloak
                class="sidebar-brand-logo flex items-center gap-2.5 text-forest-green uppercase min-w-0"
                aria-label="IEACI Institutional">
                 <span class="grid place-items-center size-8 rounded-lg bg-forest-green/10 shrink-0 text-forest-green" aria-hidden="true">
@@ -29,7 +27,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
             <button id="sidebar-toggle-btn"
                     type="button"
                     @click.stop.prevent="toggleSidebar()"
-                    class="size-8 rounded-lg bg-black/5 hover:bg-black/10 text-forest-green grid place-items-center transition cursor-pointer shrink-0"
+                    class="size-8 ml-1 rounded-lg bg-black/5 hover:bg-black/10 text-forest-green grid place-items-center transition cursor-pointer shrink-0"
                     :class="sidebarOpen ? 'ml-1' : 'mx-auto'"
                     :title="sidebarOpen ? 'Contraer menú lateral' : 'Expandir menú lateral'">
                 <i data-lucide="chevron-left" class="size-4.5 stroke-2 transition-transform duration-200 sidebar-chevron" :class="sidebarOpen ? '' : 'rotate-180'"></i>
@@ -95,7 +93,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Inicio">
         <i data-lucide="home" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Inicio</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Inicio</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Inicio</span>
     </a>
 
     <a th:href="@{/mi-jornada}"
@@ -105,7 +103,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Mi Jornada">
         <i data-lucide="clipboard-check" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Mi Jornada</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Mi Jornada</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Mi Jornada</span>
     </a>
 
     <!-- ─── SECTOR ESTUDIANTIL Y ACADÉMICO ─── -->
@@ -114,7 +112,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
         <p th:if="${isMobile}" class="px-3 pb-1 text-[10px] font-black uppercase tracking-[0.08em] text-forest-green/55">
             Académico y Estudiantil
         </p>
-        <p th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="sidebar-section-header sidebar-label px-3 pb-1 text-[10px] font-black uppercase tracking-[0.08em] text-forest-green/55">
+        <p th:unless="${isMobile}" class="sidebar-section-header sidebar-label px-3 pb-1 text-[10px] font-black uppercase tracking-[0.08em] text-forest-green/55">
             Académico y Estudiantil
         </p>
     </div>
@@ -126,7 +124,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Cursos">
         <i data-lucide="graduation-cap" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Cursos</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Cursos</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Cursos</span>
     </a>
 
     <a th:href="@{/calificaciones}"
@@ -136,7 +134,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Calificaciones">
         <i data-lucide="star" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Calificaciones</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Calificaciones</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Calificaciones</span>
     </a>
 
     <a th:href="@{/asistencias}"
@@ -146,7 +144,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Asistencias">
         <i data-lucide="calendar-check-2" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate" th:text="${esEstudiante ? 'Mis Asistencias' : 'Asistencias'}">Asistencias</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label" th:text="${esEstudiante ? 'Mis Asistencias' : 'Asistencias'}">Asistencias</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label" th:text="${esEstudiante ? 'Mis Asistencias' : 'Asistencias'}">Asistencias</span>
     </a>
 
     <a th:href="@{/certificados}"
@@ -156,7 +154,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Certificados">
         <i data-lucide="badge-check" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Certificados</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Certificados</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Certificados</span>
     </a>
 
     <a th:href="@{/reportes}"
@@ -166,7 +164,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Reportes">
         <i data-lucide="bar-chart-3" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Reportes</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Reportes</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Reportes</span>
     </a>
 
     <a th:href="@{/ambiental}"
@@ -176,7 +174,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Módulo Ambiental">
         <i data-lucide="sprout" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Módulo Ambiental</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Módulo Ambiental</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Módulo Ambiental</span>
     </a>
 
     <!-- ─── SECTOR ADMINISTRATIVO ─── -->
@@ -185,7 +183,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
         <p th:if="${isMobile}" class="px-3 pb-1 text-[10px] font-black uppercase tracking-[0.08em] text-forest-green/55">
             Gestión Administrativa
         </p>
-        <p th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="sidebar-section-header sidebar-label px-3 pb-1 text-[10px] font-black uppercase tracking-[0.08em] text-forest-green/55">
+        <p th:unless="${isMobile}" class="sidebar-section-header sidebar-label px-3 pb-1 text-[10px] font-black uppercase tracking-[0.08em] text-forest-green/55">
             Gestión Administrativa
         </p>
     </div>
@@ -197,7 +195,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Matrículas">
         <i data-lucide="user-plus" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Matrículas</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Matrículas</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Matrículas</span>
     </a>
 
     <a th:href="@{/estudiantes}"
@@ -207,7 +205,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Estudiantes">
         <i data-lucide="user-check" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Estudiantes</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Estudiantes</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Estudiantes</span>
     </a>
 
     <a th:href="@{/personal}"
@@ -217,7 +215,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Personal">
         <i data-lucide="users" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Personal</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Personal</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Personal</span>
     </a>
 
     <a th:href="@{/analitica}"
@@ -227,7 +225,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Analítica BI">
         <i data-lucide="pie-chart" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Analítica BI</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Analítica BI</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Analítica BI</span>
     </a>
 
     <a th:href="@{/actividad}"
@@ -237,7 +235,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Actividad y Logs">
         <i data-lucide="scroll-text" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Actividad y Logs</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Actividad y Logs</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Actividad y Logs</span>
     </a>
 
     <a th:href="@{/configuracion}"
@@ -247,7 +245,7 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
        title="Configuración">
         <i data-lucide="settings" class="size-[18px] shrink-0 stroke-2"></i>
         <span th:if="${isMobile}" class="truncate">Configuración</span>
-        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Configuración</span>
+        <span th:unless="${isMobile}" class="truncate sidebar-label">Configuración</span>
     </a>
 
 </th:block>
