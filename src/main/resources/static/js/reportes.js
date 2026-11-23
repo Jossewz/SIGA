@@ -166,12 +166,22 @@ function handleFormCrearReporte(e) {
 
 // Modal Admin: Atender Reporte
 function openModalAtenderReporte(btn) {
+    const objetivoTipo = (btn.dataset.objetivoTipo || 'ESTUDIANTE').toUpperCase();
+    const esDocenteObj = objetivoTipo === 'DOCENTE';
+
     document.getElementById('ar-reporte-id').value = btn.dataset.id;
     document.getElementById('ar-codigo').innerText = btn.dataset.id;
-    document.getElementById('ar-estudiante-nombre').innerText = btn.dataset.estudiante || 'Estudiante';
-    document.getElementById('ar-grado-txt').innerText = btn.dataset.grado || '11° - 01';
+    document.getElementById('ar-estudiante-nombre').innerText = btn.dataset.estudiante || (esDocenteObj ? 'Docente' : 'Estudiante');
+    document.getElementById('ar-grado-txt').innerText = btn.dataset.grado || (esDocenteObj ? 'Docente' : '11° - 01');
     document.getElementById('ar-razon-txt').innerText = btn.dataset.razon || 'Bajo rendimiento';
     document.getElementById('ar-detalles-txt').innerText = `"${btn.dataset.detalles || 'Sin detalles'}"`;
+
+    const tituloEl = document.getElementById('ar-modal-titulo');
+    if (tituloEl) tituloEl.innerText = esDocenteObj ? 'Procesar Reporte a Docente' : 'Procesar Reporte de Estudiante';
+    const labelEl = document.getElementById('ar-objetivo-label');
+    if (labelEl) labelEl.innerText = esDocenteObj ? 'Docente Reportado' : 'Estudiante Reportado';
+    const optAceptado = document.getElementById('ar-opt-aceptado');
+    if (optAceptado) optAceptado.innerText = esDocenteObj ? 'Aceptar Reporte y Programar Citación' : 'Aceptar Reporte y Citar al Estudiante';
 
     const modal = document.getElementById('modal-atender-reporte');
     const dialog = document.getElementById('dialog-atender-reporte');
@@ -249,7 +259,11 @@ function handleFormAtender(e) {
 
     closeModalAtenderReporte();
     if (window.lucide) lucide.createIcons();
-    alert('¡El reporte ha sido procesado y el estudiante ha sido notificado!');
+    if (typeof window.sigaAlert === 'function') {
+        window.sigaAlert('¡El reporte ha sido procesado y el usuario correspondiente ha sido notificado!', 'success');
+    } else {
+        alert('¡El reporte ha sido procesado y el usuario correspondiente ha sido notificado!');
+    }
 }
 
 // Filtrar Reportes Admin

@@ -151,7 +151,7 @@ public class ReporteController {
             map.put("estudiante", objetivoNombre);
             map.put("grado", objetivoDetalle);
             map.put("docente", emisorNombre);
-            map.put("objetivoTipo", r.getObjetivoTipo());
+            map.put("objetivoTipo", r.getObjetivoTipo() != null ? r.getObjetivoTipo() : "ESTUDIANTE");
             map.put("reportanteTipo", r.getReportanteTipo());
             map.put("categoria", r.getCategoria());
             map.put("razon", r.getRazon());
