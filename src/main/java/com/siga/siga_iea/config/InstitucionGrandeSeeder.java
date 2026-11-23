@@ -192,7 +192,7 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
 
     private void limpiarGradosNoSoportados() {
         jdbc.update("DELETE FROM plan_estudios_grado WHERE grado = 'Transición'");
-        jdbc.update("UPDATE matriculas SET grado = '1°', curso_id = NULL WHERE grado = 'Transición'");
+        jdbc.update("DELETE FROM matriculas WHERE grado = 'Transición' OR curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
         jdbc.update("UPDATE solicitudes_certificado SET grado_referencia = '1°' WHERE grado_referencia = 'Transición'");
         jdbc.update("DELETE FROM horarios WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
         jdbc.update("DELETE FROM asistencias WHERE sesion_id IN (SELECT id FROM sesiones_clase WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición'))");
@@ -201,7 +201,6 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
         jdbc.update("DELETE FROM evaluaciones WHERE curso_materia_id IN (SELECT id FROM curso_materia WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición'))");
         jdbc.update("DELETE FROM curso_materia WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
         jdbc.update("DELETE FROM curso_estudiante WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
-        jdbc.update("UPDATE matriculas SET curso_id = NULL WHERE curso_id IN (SELECT id FROM cursos WHERE grado = 'Transición')");
         jdbc.update("DELETE FROM cursos WHERE grado = 'Transición'");
     }
 
@@ -758,6 +757,8 @@ public class InstitucionGrandeSeeder implements ApplicationRunner {
             updates.add(new Object[]{email, p.doc()});
         }
 
+        jdbc.update("UPDATE usuarios SET email = 'tmp.' || numero_documento || '@ieaci.edu.co' " +
+                "WHERE numero_documento LIKE '70001%' OR numero_documento LIKE '71001%' OR numero_documento LIKE '1048000%'");
         execBatch("UPDATE usuarios SET email = ? WHERE numero_documento = ?", updates);
         log.info("  [+] Correos institucionales reales sincronizados para {} usuarios", updates.size());
     }
