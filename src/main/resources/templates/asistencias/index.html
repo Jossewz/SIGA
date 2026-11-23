@@ -292,7 +292,7 @@
         </form>
 
         <!-- Tabla Estudiante -->
-        <div th:if="${modoVista == 'ESTUDIANTE'}" class="rounded-surface border border-border bg-white shadow-card overflow-hidden">
+        <div th:if="${modoVista == 'ESTUDIANTE'}" class="rounded-surface border border-border bg-white shadow-card overflow-x-auto">
             <table class="tabla-siga w-full text-left text-sm bg-surface">
                 <thead class="border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700">
                     <tr>
@@ -331,7 +331,7 @@
         </div>
 
         <!-- Tabla Admin -->
-        <div th:if="${modoVista == 'ADMIN'}" class="rounded-surface border border-border bg-white shadow-card overflow-hidden">
+        <div th:if="${modoVista == 'ADMIN'}" class="rounded-surface border border-border bg-white shadow-card overflow-x-auto">
             <table class="tabla-siga w-full text-left text-sm bg-surface">
                 <thead class="border-b border-border-strong bg-surface-sunken text-[11px] font-bold uppercase tracking-wider text-brand-700">
                     <tr>

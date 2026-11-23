@@ -98,8 +98,16 @@
 }
 
 @layer base {
-  body {
-    font-family: 'Inter', sans-serif;
+  *, ::before, ::after {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html, body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     background-color: var(--color-page-bg);
     color: var(--color-text-primary);
     overflow-x: hidden;
@@ -121,6 +129,11 @@
     border-radius: 999px;
     background: rgba(236, 255, 228, 0.28);
   }
+
+  /* Suavizado de peso extremo para microcopy (evita letras cortadas o empastadas) */
+  .font-black {
+    font-weight: 800 !important;
+  }
 }
 
 /* =========================================================================
@@ -130,6 +143,10 @@
    en columnas y thead pegajoso (sticky).
    ------------------------------------------------------------------------- */
 @layer components {
+  .tabla-siga {
+    min-width: 640px;
+  }
+
   .tabla-siga thead th {
     background-color: var(--color-sidebar-container, #F4EFE6) !important;
     color: var(--color-forest-green, #134e1e) !important;
