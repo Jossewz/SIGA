@@ -1,0 +1,158 @@
+<th:block xmlns:th="http://www.thymeleaf.org">
+    <div th:fragment="estudianteHome" class="space-y-6">
+
+        <!-- Tarjetas Fáciles de Entender -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" aria-label="Mi Resumen Escolar">
+            <div th:replace="~{components/dashboard/stat-card :: statCard('graduation-cap', 'Mi Curso y Jornada', ${resumenEstudiante.codigoCurso}, ${resumenEstudiante.jornadaCurso}, 'success')}"></div>
+            <div th:replace="~{components/dashboard/stat-card :: statCard('award', 'Promedio General', ${resumenEstudiante.promedioGeneral}, ${'Año ' + resumenEstudiante.anoLectivo}, 'success')}"></div>
+            <div th:replace="~{components/dashboard/stat-card :: statCard('calendar-check', 'Mi Asistencia', ${resumenEstudiante.asistenciaPct}, ${resumenEstudiante.totalAsistencias + ' clases reg.'}, ${resumenEstudiante.asistenciaTone})}"></div>
+            <div th:replace="~{components/dashboard/stat-card :: statCard('inbox', 'Trámites y Avisos', ${resumenEstudiante.totalAlertasEst}, 'Activos', ${resumenEstudiante.totalAlertasEst > 0 ? 'warning' : 'success'})}"></div>
+        </section>
+
+        <!-- Barra Amigable de Accesos Directos -->
+        <section class="p-4 rounded-xl bg-white border border-border shadow-soft flex flex-wrap items-center justify-between gap-3">
+            <div class="text-xs font-semibold text-text-secondary">
+                <strong class="text-sidebar font-black">Director de grupo:</strong>
+                <span th:text="${resumenEstudiante.directorCurso}">Por asignar</span>
+                <span class="mx-2 text-border">|</span>
+                <strong class="text-sidebar font-black">Grado:</strong>
+                <span th:text="${resumenEstudiante.gradoCurso}">10°</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5">
+                <a th:href="@{/calificaciones}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sidebar text-white text-xs font-black hover:brightness-95 transition">
+                    <i data-lucide="file-text" class="size-4 stroke-[2.2]"></i>
+                    <span>Ver Boletín y Descargar PDF</span>
+                </a>
+                <a th:href="@{/clases}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#f7fcf6] border border-[#c4eec0] text-sidebar text-xs font-black hover:bg-pill-green transition">
+                    <i data-lucide="calendar-days" class="size-4 stroke-[2.2]"></i>
+                    <span>Ver Mi Horario</span>
+                </a>
+                <a th:href="@{/certificados}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-border text-sidebar text-xs font-black hover:bg-surface-sunken transition">
+                    <i data-lucide="badge-check" class="size-4 stroke-[2.2]"></i>
+                    <span>Certificados</span>
+                </a>
+                <a th:href="@{/reportes}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-border text-sidebar text-xs font-black hover:bg-surface-sunken transition">
+                    <i data-lucide="message-square-warning" class="size-4 stroke-[2.2]"></i>
+                    <span>Reportes y Citaciones</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Grid Principal: Mis Materias y Notas + Mi Horario y Asistencia -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Izquierda (2/3): ¿Cómo voy en mis materias? -->
+            <article class="lg:col-span-2 p-6 rounded-xl bg-white border border-border shadow-soft flex flex-col">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h2 class="text-sidebar text-base font-black uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="book-open-check" class="size-5 stroke-[2.2]"></i>
+                            <span>¿Cómo voy en mis materias?</span>
+                        </h2>
+                        <p class="text-[11px] font-semibold text-text-secondary mt-0.5">Resumen simple de tus notas por periodo y tu nota definitiva acumulada.</p>
+                    </div>
+                    <a th:href="@{/calificaciones/boletin/pdf}" class="px-3 py-1.5 rounded-lg bg-pill-green text-sidebar border border-[#c4eec0] text-[11px] font-black hover:brightness-95 transition">
+                        Exportar PDF
+                    </a>
+                </div>
+
+                <div th:if="${#lists.isEmpty(resumenEstudiante.boletin)}" class="p-6 rounded-xl bg-[#f9fbf8] border border-border text-center text-xs font-semibold text-text-secondary">
+                    Aún no hay asignaturas o calificaciones cargadas para tu curso en este año lectivo.
+                </div>
+
+                <div th:unless="${#lists.isEmpty(resumenEstudiante.boletin)}" class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="border-b border-border text-[11px] font-black uppercase text-text-secondary">
+                                <th class="py-2.5 pr-3">Materia</th>
+                                <th class="py-2.5 px-2 text-center">P1</th>
+                                <th class="py-2.5 px-2 text-center">P2</th>
+                                <th class="py-2.5 px-2 text-center">P3</th>
+                                <th class="py-2.5 px-2 text-center">Definitiva</th>
+                                <th class="py-2.5 pl-3 text-right">Cómo vas</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border/60">
+                            <tr th:each="mat : ${resumenEstudiante.boletin}" class="hover:bg-[#f9fbf8]">
+                                <td class="py-3 pr-3 font-black text-sidebar" th:text="${mat.materiaNombre}">Matemáticas</td>
+                                <td class="py-3 px-2 text-center font-bold tabular-nums" th:text="${mat.periodo1Nota != null ? mat.periodo1Nota : '-'}">4.50</td>
+                                <td class="py-3 px-2 text-center font-bold tabular-nums" th:text="${mat.periodo2Nota != null ? mat.periodo2Nota : '-'}">-</td>
+                                <td class="py-3 px-2 text-center font-bold tabular-nums" th:text="${mat.periodo3Nota != null ? mat.periodo3Nota : '-'}">-</td>
+                                <td class="py-3 px-2 text-center">
+                                    <span class="px-2.5 py-1 rounded-full bg-[#f7fcf6] border border-[#c4eec0] text-sidebar font-black tabular-nums"
+                                          th:text="${mat.notaDefinitiva != null ? mat.notaDefinitiva : '0.00'}">4.50</span>
+                                </td>
+                                <td class="py-3 pl-3 text-right">
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black inline-block"
+                                          th:classappend="${mat.desempenoBadgeClass}"
+                                          th:text="${mat.desempenoNombre}">Superior</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <!-- Derecha (1/3): Clases de Hoy / Horario + Desglose de Asistencia -->
+            <div class="space-y-6">
+                <article class="p-6 rounded-xl bg-white border border-border shadow-soft">
+                    <h2 class="text-sidebar text-base font-black uppercase tracking-wider flex items-center gap-2 mb-3">
+                        <i data-lucide="calendar-clock" class="size-5 stroke-[2.2]"></i>
+                        <span>Clases de Hoy (<th:block th:text="${resumenEstudiante.diaHoyNombre}">Hoy</th:block>)</span>
+                    </h2>
+
+                    <div th:if="${#lists.isEmpty(resumenEstudiante.clasesHoy)}" class="p-4 rounded-xl bg-[#f9fbf8] border border-border text-xs font-semibold text-text-secondary">
+                        Hoy (<strong th:text="${resumenEstudiante.diaHoyNombre}"></strong>) no tienes clases programadas. Puedes revisar tu horario semanal completo en <strong>Cursos / Horarios</strong>.
+                    </div>
+
+                    <div th:unless="${#lists.isEmpty(resumenEstudiante.clasesHoy)}" class="space-y-2.5">
+                        <div th:each="cl : ${resumenEstudiante.clasesHoy}" class="p-3 rounded-xl bg-[#f9fbf8] border border-border flex items-center justify-between gap-2">
+                            <div>
+                                <p class="text-xs font-black text-sidebar" th:text="${cl.materia}">Matemáticas</p>
+                                <p class="text-[11px] font-semibold text-text-secondary" th:text="${cl.docente + ' • ' + cl.salon}">Docente • Aula</p>
+                            </div>
+                            <span class="px-2 py-1 rounded-lg bg-white border border-[#c4eec0] text-[10px] font-black text-sidebar tabular-nums shrink-0"
+                                  th:text="${cl.horaInicio + ' - ' + cl.horaFin}">07:00 - 08:00</span>
+                        </div>
+                    </div>
+
+                    <div th:unless="${#lists.isEmpty(resumenEstudiante.horarioSemanal)}" class="mt-4 pt-3 border-t border-border/60">
+                        <p class="text-[10px] font-black uppercase text-text-secondary tracking-wider mb-2">Tu Semana Escolar</p>
+                        <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            <div th:each="h : ${resumenEstudiante.horarioSemanal}" class="flex items-center justify-between text-[11px] py-1 border-b border-border/40 last:border-b-0">
+                                <span class="font-black text-sidebar" th:text="${h.dia + ' • ' + h.materia}">Lunes • Matemáticas</span>
+                                <span class="font-semibold text-text-secondary tabular-nums" th:text="${h.horaInicio + ' - ' + h.horaFin}">07:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="p-6 rounded-xl bg-white border border-border shadow-soft">
+                    <h2 class="text-sidebar text-base font-black uppercase tracking-wider flex items-center gap-2 mb-3">
+                        <i data-lucide="check-square" class="size-5 stroke-[2.2]"></i>
+                        <span>Mi Asistencia al Día</span>
+                    </h2>
+                    <div class="grid grid-cols-2 gap-2.5 text-center text-xs">
+                        <div class="p-3 rounded-xl bg-pill-green/40 border border-[#c4eec0]">
+                            <strong class="text-lg font-black text-sidebar block" th:text="${resumenEstudiante.asistenciasPresentes}">0</strong>
+                            <span class="text-[10px] font-extrabold text-sidebar uppercase">Presente</span>
+                        </div>
+                        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                            <strong class="text-lg font-black text-amber-800 block" th:text="${resumenEstudiante.asistenciasTardes}">0</strong>
+                            <span class="text-[10px] font-extrabold text-amber-800 uppercase">Llegadas Tarde</span>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#f4fbf2] border border-border">
+                            <strong class="text-lg font-black text-sidebar block" th:text="${resumenEstudiante.asistenciasExcusadas}">0</strong>
+                            <span class="text-[10px] font-extrabold text-text-secondary uppercase">Excusadas</span>
+                        </div>
+                        <div class="p-3 rounded-xl bg-red-50 border border-red-200">
+                            <strong class="text-lg font-black text-alert-red block" th:text="${resumenEstudiante.asistenciasFallas}">0</strong>
+                            <span class="text-[10px] font-extrabold text-alert-red uppercase">Inasistencias</span>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+    </div>
+</th:block>

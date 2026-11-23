@@ -230,6 +230,16 @@ xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
         <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Analítica BI</span>
     </a>
 
+    <a th:href="@{/actividad}"
+       th:if="${esAdmin or esAdministrativo}"
+       class="sidebar-nav-item"
+       th:classappend="${(activePage == 'actividad' or (currentUri != null and #strings.startsWith(currentUri, '/actividad'))) ? 'is-active' : ''}"
+       title="Actividad y Logs">
+        <i data-lucide="scroll-text" class="size-[18px] shrink-0 stroke-2"></i>
+        <span th:if="${isMobile}" class="truncate">Actividad y Logs</span>
+        <span th:unless="${isMobile}" x-show="sidebarOpen" x-cloak class="truncate sidebar-label">Actividad y Logs</span>
+    </a>
+
     <a th:href="@{/configuracion}"
        th:if="${esAdmin or (modulosPermitidos != null and modulosPermitidos.contains('CONFIGURACION'))}"
        class="sidebar-nav-item"

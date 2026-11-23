@@ -13,4 +13,8 @@ public interface AuditoriaCambioRepository extends JpaRepository<AuditoriaCambio
     List<AuditoriaCambio> findByEntidadAndEntidadIdOrderByFechaDesc(String entidad, UUID entidadId);
 
     List<AuditoriaCambio> findByEntidadOrderByFechaDesc(String entidad);
+
+    List<AuditoriaCambio> findAllByOrderByFechaDesc();
+
+    List<AuditoriaCambio> findTop25ByOrderByFechaDesc();
 }

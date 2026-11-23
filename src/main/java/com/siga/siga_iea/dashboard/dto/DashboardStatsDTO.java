@@ -13,6 +13,7 @@ public class DashboardStatsDTO {
     private long totalCursos;
     private List<Map<String, Object>> estudiantesAtencion;
     private List<Map<String, Object>> actividadTimeline;
+    private int totalActividadTimeline;
     private List<Map<String, Object>> alertasOperativas;
 
     // Indicadores dinámicos para gráficos y semáforos
@@ -86,6 +87,7 @@ public class DashboardStatsDTO {
         private long totalCursos;
         private List<Map<String, Object>> estudiantesAtencion;
         private List<Map<String, Object>> actividadTimeline;
+        private int totalActividadTimeline;
         private List<Map<String, Object>> alertasOperativas;
         private List<SemaforoItemDTO> semaforos;
         private Double promedioAsistencia;
@@ -109,6 +111,7 @@ public class DashboardStatsDTO {
         public Builder totalCursos(long val) { this.totalCursos = val; return this; }
         public Builder estudiantesAtencion(List<Map<String, Object>> val) { this.estudiantesAtencion = val; return this; }
         public Builder actividadTimeline(List<Map<String, Object>> val) { this.actividadTimeline = val; return this; }
+        public Builder totalActividadTimeline(int val) { this.totalActividadTimeline = val; return this; }
         public Builder alertasOperativas(List<Map<String, Object>> val) { this.alertasOperativas = val; return this; }
         public Builder semaforos(List<SemaforoItemDTO> val) { this.semaforos = val; return this; }
         public Builder promedioAsistencia(Double val) { this.promedioAsistencia = val; return this; }
@@ -124,11 +127,13 @@ public class DashboardStatsDTO {
         public Builder totalEstudiantesMedia(long val) { this.totalEstudiantesMedia = val; return this; }
 
         public DashboardStatsDTO build() {
-            return new DashboardStatsDTO(estudiantesActivos, docentesActivos, asistenciaHoy, alertasSistema,
+            DashboardStatsDTO dto = new DashboardStatsDTO(estudiantesActivos, docentesActivos, asistenciaHoy, alertasSistema,
                     totalReportes, totalMatriculas, totalCursos, estudiantesAtencion, actividadTimeline, alertasOperativas,
                     semaforos, promedioAsistencia, asistenciaLabels, asistenciaValores, asistenciaLabelsCsv, asistenciaValoresCsv,
                     porcentajePrimaria, porcentajeSecundaria, porcentajeMedia,
                     totalEstudiantesPrimaria, totalEstudiantesSecundaria, totalEstudiantesMedia);
+            dto.setTotalActividadTimeline(totalActividadTimeline);
+            return dto;
         }
     }
 
@@ -158,6 +163,9 @@ public class DashboardStatsDTO {
 
     public List<Map<String, Object>> getActividadTimeline() { return actividadTimeline; }
     public void setActividadTimeline(List<Map<String, Object>> actividadTimeline) { this.actividadTimeline = actividadTimeline; }
+
+    public int getTotalActividadTimeline() { return totalActividadTimeline; }
+    public void setTotalActividadTimeline(int totalActividadTimeline) { this.totalActividadTimeline = totalActividadTimeline; }
 
     public List<Map<String, Object>> getAlertasOperativas() { return alertasOperativas; }
     public void setAlertasOperativas(List<Map<String, Object>> alertasOperativas) { this.alertasOperativas = alertasOperativas; }

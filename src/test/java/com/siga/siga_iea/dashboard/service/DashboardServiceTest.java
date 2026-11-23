@@ -207,4 +207,34 @@ class DashboardServiceTest {
         assertEquals("Atención", semReportes.getEstado());
         assertEquals("#a82a2a", semReportes.getDotColor());
     }
+
+    @Test
+    @DisplayName("Dashboard limita Línea de Actividad a 5 elementos pero conserva el conteo total")
+    void testLineaActividadLimitadaACincoElementos() {
+        when(estudianteRepository.count()).thenReturn(10L);
+        when(docenteRepository.count()).thenReturn(2L);
+        when(reporteRepository.count()).thenReturn(0L);
+        when(matriculaRepository.count()).thenReturn(8L);
+        when(cursoRepository.count()).thenReturn(1L);
+        when(reporteRepository.findByEstado("Pendiente")).thenReturn(Collections.emptyList());
+        when(certificadoRepository.findByEstado("Pendiente")).thenReturn(Collections.emptyList());
+        when(asistenciaRepository.findResumenAsistenciaPorDia(any(LocalDate.class))).thenReturn(Collections.emptyList());
+        when(asistenciaRepository.findResumenAsistenciaPorFecha(any(LocalDate.class))).thenReturn(Collections.emptyList());
+        when(evaluacionRepository.count()).thenReturn(0L);
+        when(cursoRepository.findAll()).thenReturn(Collections.emptyList());
+
+        List<Matricula> muchasMatriculas = new ArrayList<>();
+        for (int i = 1; i <= 8; i++) {
+            Matricula m = new Matricula();
+            m.setGrado("10°");
+            m.setFechaMatricula(LocalDate.of(2026, 10, i));
+            muchasMatriculas.add(m);
+        }
+        when(matriculaRepository.findAll()).thenReturn(muchasMatriculas);
+
+        DashboardStatsDTO stats = dashboardService.obtenerEstadisticas();
+
+        assertEquals(DashboardService.LIMITE_TIMELINE_DASHBOARD, stats.getActividadTimeline().size());
+        assertEquals(8, stats.getTotalActividadTimeline());
+    }
 }

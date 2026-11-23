@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org" th:replace="~{layouts/base :: html(~{::content})}">
+<head>
+    <title th:text="${title ?: 'Actividad y Logs – IEACI'}">Actividad y Logs</title>
+</head>
+<body>
+
+<th:block th:fragment="content">
+    <div class="space-y-6">
+
+        <!-- Cabecera -->
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="size-12 rounded-xl bg-sidebar text-white grid place-items-center shadow-md shrink-0">
+                    <i data-lucide="scroll-text" class="size-6 stroke-[2.2]"></i>
+                </div>
+                <div>
+                    <a th:href="@{/}" class="inline-flex items-center gap-1 text-[11px] font-black text-sidebar hover:underline mb-0.5">
+                        <i data-lucide="arrow-left" class="size-3.5 stroke-[2.5]"></i>
+                        <span>Volver al Inicio</span>
+                    </a>
+                    <h1 class="text-text-primary text-2xl font-black tracking-tight leading-none">Registro de Actividad y Logs</h1>
+                    <p class="text-xs font-semibold text-text-secondary mt-1">Historial completo de auditoría de cambios, matrículas, reportes y solicitudes institucionales.</p>
+                </div>
+            </div>
+            <span class="px-3.5 py-1.5 rounded-full bg-pill-green border border-[#cbe5c7] text-sidebar text-xs font-black"
+                  th:text="${totalLogs + ' registros totales'}">0 registros totales</span>
+        </div>
+
+        <!-- Resumen rápido por categoría -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div th:replace="~{components/dashboard/stat-card :: statCard('shield-check', 'Auditoría de Cambios', ${conteoAuditoria}, 'Logs del sistema', 'success')}"></div>
+            <div th:replace="~{components/dashboard/stat-card :: statCard('user-plus', 'Matrículas', ${conteoMatriculas}, 'Registradas', 'success')}"></div>
+            <div th:replace="~{components/dashboard/stat-card :: statCard('file-warning', 'Reportes', ${conteoReportes}, 'Convivencia/Acad.', ${conteoReportes > 0 ? 'warning' : 'success'})}"></div>
+            <div th:replace="~{components/dashboard/stat-card :: statCard('badge-check', 'Certificados', ${conteoCertificados}, 'Solicitudes', 'success')}"></div>
+        </section>
+
+        <!-- Barra de filtros y búsqueda -->
+        <form th:action="@{/actividad}" method="get"
+              class="bg-white p-4 rounded-xl border border-border shadow-soft flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <a th:href="@{/actividad(categoria='TODAS', q=${busqueda})}"
+                   th:classappend="${categoriaActiva == 'TODAS'} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-sidebar'"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-black transition">Todos</a>
+                <a th:href="@{/actividad(categoria='AUDITORIA', q=${busqueda})}"
+                   th:classappend="${categoriaActiva == 'AUDITORIA'} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-sidebar'"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-black transition">Auditoría</a>
+                <a th:href="@{/actividad(categoria='MATRICULA', q=${busqueda})}"
+                   th:classappend="${categoriaActiva == 'MATRICULA'} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-sidebar'"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-black transition">Matrículas</a>
+                <a th:href="@{/actividad(categoria='REPORTE', q=${busqueda})}"
+                   th:classappend="${categoriaActiva == 'REPORTE'} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-sidebar'"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-black transition">Reportes</a>
+                <a th:href="@{/actividad(categoria='CERTIFICADO', q=${busqueda})}"
+                   th:classappend="${categoriaActiva == 'CERTIFICADO'} ? 'bg-sidebar text-white border-sidebar' : 'bg-surface-sunken text-text-secondary border-border hover:text-sidebar'"
+                   class="px-3 py-1.5 rounded-lg border text-xs font-black transition">Certificados</a>
+            </div>
+
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <input type="hidden" name="categoria" th:value="${categoriaActiva}" />
+                <input type="search" name="q" th:value="${busqueda}"
+                       placeholder="Buscar por usuario, entidad o detalle..."
+                       class="h-9 px-3.5 rounded-lg border border-border bg-surface-sunken text-xs font-semibold text-text-primary w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-sidebar" />
+                <button type="submit"
+                        class="h-9 px-4 rounded-lg bg-sidebar text-white text-xs font-black hover:brightness-95 transition cursor-pointer shrink-0">
+                    Filtrar
+                </button>
+            </div>
+        </form>
+
+        <!-- Listado completo de logs -->
+        <section class="bg-white rounded-xl border border-border shadow-soft overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="tabla-siga w-full text-left text-xs">
+                    <thead class="bg-surface-sunken border-b border-border text-[11px] font-black uppercase tracking-wider text-brand-700">
+                        <tr>
+                            <th class="py-3 px-4 pl-6 w-40">Fecha / Hora</th>
+                            <th class="py-3 px-4 w-32">Categoría</th>
+                            <th class="py-3 px-4">Evento / Descripción</th>
+                            <th class="py-3 px-4 w-48">Usuario / Origen</th>
+                            <th class="py-3 px-4 pr-6 text-right w-32">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border/60">
+                        <tr th:if="${#lists.isEmpty(logs)}">
+                            <td colspan="5" class="py-10 text-center text-xs font-semibold text-text-secondary">
+                                No se encontraron registros de actividad con los filtros seleccionados.
+                            </td>
+                        </tr>
+                        <tr th:each="item : ${logs}" class="hover:bg-[#f9fbf8] transition-colors">
+                            <td class="py-3 px-4 pl-6 font-bold text-text-secondary tabular-nums whitespace-nowrap"
+                                th:text="${item.tiempo}">23/11/2026 00:05</td>
+                            <td class="py-3 px-4">
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border inline-block"
+                                      th:classappend="${item.badgeClass}"
+                                      th:text="${item.categoriaLabel}">Auditoría</span>
+                            </td>
+                            <td class="py-3 px-4">
+                                <p class="font-black text-text-primary text-xs" th:text="${item.titulo}">Evento</p>
+                                <p th:if="${item.detalle != null and !#strings.isEmpty(item.detalle)}"
+                                   class="text-[11px] font-medium text-text-secondary mt-0.5"
+                                   th:text="${item.detalle}">Detalle</p>
+                            </td>
+                            <td class="py-3 px-4 font-semibold text-text-secondary"
+                                th:text="${item.usuario != null ? item.usuario : 'Sistema'}">admin@ieaci.edu.co</td>
+                            <td class="py-3 px-4 pr-6 text-right">
+                                <span class="px-2 py-0.5 rounded bg-surface-sunken border border-border text-[10px] font-bold text-sidebar"
+                                      th:text="${item.estado != null ? item.estado : 'Registrado'}">Registrado</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+</th:block>
+
+</body>
+</html>

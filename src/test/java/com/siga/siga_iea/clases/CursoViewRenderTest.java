@@ -341,4 +341,130 @@ class CursoViewRenderTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(">Nota 1<"))))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Todo el periodo (1)")));
     }
+
+    @Autowired
+    private com.siga.siga_iea.calificaciones.service.CalificacionesService calificacionesService;
+
+    @Test
+    @DisplayName("crearCurso sin grupo genera grupos secuenciales (01, 02) para el mismo grado y año")
+    void testCrearCursoGruposSecuenciales() {
+        var c1 = cursoService.crearCurso("9°", null, "Mañana", 35, null, "2026");
+        var c2 = cursoService.crearCurso("9°", null, "Tarde", 35, null, "2026");
+
+        org.junit.jupiter.api.Assertions.assertEquals("01", c1.getGrupo());
+        org.junit.jupiter.api.Assertions.assertEquals("02", c2.getGrupo());
+        org.junit.jupiter.api.Assertions.assertEquals("9-02", c2.getCodigoCurso());
+    }
+
+    @Test
+    @DisplayName("ESTUDIANTE en /clases solo ve su curso sin botones de edición, es redirigido en /clases/gestion y ve Dashboard personalizado")
+    void testVistaEstudianteCursosYDashboard() throws Exception {
+        String estEmail = "est.vista." + System.currentTimeMillis() + "@ieaci.edu.co";
+        String numDoc = "EST-V-" + System.currentTimeMillis();
+
+        var cursoMio = cursoService.crearCurso("8°", null, "Mañana", 30, null, "2026");
+        var cursoAjeno = cursoService.crearCurso("7°", null, "Tarde", 30, null, "2026");
+
+        var est = new com.siga.siga_iea.usuarios.entity.Estudiante();
+        est.setNombres("Sofía");
+        est.setApellidos("Torres Test");
+        est.setNumeroDocumento(numDoc);
+        est = estudianteRepository.save(est);
+
+        var ce = new com.siga.siga_iea.clases.entity.CursoEstudiante();
+        ce.setCurso(cursoMio);
+        ce.setEstudiante(est);
+        ce.setAnoLectivo("2026");
+        cursoEstudianteRepository.save(ce);
+
+        var userEst = new com.siga.siga_iea.usuarios.entity.Usuario();
+        userEst.setEmail(estEmail);
+        userEst.setRol("ESTUDIANTE");
+        userEst.setNumeroDocumento(numDoc);
+        userEst.setPassword("secret");
+        usuarioRepository.save(userEst);
+
+        var authUser = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(estEmail).roles("ESTUDIANTE");
+
+        mockMvc.perform(get("/clases").with(authUser))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString(cursoMio.getCodigoCurso())))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(cursoAjeno.getCodigoCurso()))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Nuevo Curso"))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Programar Clase"))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Limpiar Todo"))));
+
+        mockMvc.perform(get("/clases/gestion").param("codigo", cursoMio.getCodigoCurso()).with(authUser))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/?sinAcceso=CURSOS_GESTION"));
+
+        mockMvc.perform(get("/").with(authUser))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Bienvenido, Sofía Torres Test.")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("¿Cómo voy en mis materias?")));
+    }
+
+    @Test
+    @DisplayName("DOCENTE selecciona asignatura automáticamente según la hora actual en CursoGestionAppService y ve Dashboard Docente")
+    void testDocenteSeleccionAutomaticaPorHoraYDashboard() throws Exception {
+        String docEmail = "doc.hora." + System.currentTimeMillis() + "@ieaci.edu.co";
+        String numDoc = "DOC-HR-" + System.currentTimeMillis();
+
+        var doc = new com.siga.siga_iea.usuarios.entity.Docente();
+        doc.setNombres("Carlos");
+        doc.setApellidos("Mendoza Hora");
+        doc.setNumeroDocumento(numDoc);
+        doc = docenteRepository.save(doc);
+
+        var userDoc = new com.siga.siga_iea.usuarios.entity.Usuario();
+        userDoc.setEmail(docEmail);
+        userDoc.setRol("DOCENTE");
+        userDoc.setNumeroDocumento(numDoc);
+        userDoc.setPassword("secret");
+        usuarioRepository.save(userDoc);
+
+        var curso = cursoService.crearCurso("6°", null, "Mañana", 30, doc.getId(), "2026");
+        var mat1 = materiaRepository.findByNombre("Matemáticas")
+                .orElseGet(() -> materiaRepository.save(new com.siga.siga_iea.clases.entity.Materia("Matemáticas", "Exactas")));
+        var mat2 = materiaRepository.findByNombre("Ciencias Naturales")
+                .orElseGet(() -> materiaRepository.save(new com.siga.siga_iea.clases.entity.Materia("Ciencias Naturales", "Naturales")));
+
+        // Lunes 2026-11-16
+        cursoService.guardarHorarioBloque(curso.getId(), "Lunes", mat1.getId(), doc.getId(), "07:00", "08:00", "Aula 101");
+        cursoService.guardarHorarioBloque(curso.getId(), "Lunes", mat2.getId(), doc.getId(), "08:00", "09:30", "Aula 101");
+
+        java.time.ZoneId zona = java.time.ZoneId.of("America/Bogota");
+        java.time.Clock relojSegundoBloque = java.time.Clock.fixed(
+                java.time.LocalDateTime.of(2026, 11, 16, 8, 30).atZone(zona).toInstant(), zona);
+        var appConReloj = new com.siga.siga_iea.clases.application.CursoGestionAppService(
+                cursoService, calificacionesService, asistenciaService, null, relojSegundoBloque);
+
+        var tabla = appConReloj.prepararTablaNotas(
+                curso.getId(), null, null, 1, java.time.LocalDate.of(2026, 11, 16),
+                java.util.Optional.of(doc), false);
+
+        org.junit.jupiter.api.Assertions.assertTrue(tabla.isTieneHorarioHoy());
+        org.junit.jupiter.api.Assertions.assertEquals("Ciencias Naturales", tabla.getMateriaNombre());
+        org.junit.jupiter.api.Assertions.assertTrue(tabla.getHorarioBannerTexto().contains("En curso ahora"));
+
+        mockMvc.perform(get("/")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(docEmail).roles("DOCENTE")))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Bienvenido, Carlos Mendoza Hora.")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Mis Clases de Hoy")));
+    }
+
+    @Test
+    @DisplayName("GET /actividad renderiza logs para ADMIN/ADMINISTRATIVO y bloquea a ESTUDIANTE")
+    void testVistaActividadYLogs() throws Exception {
+        mockMvc.perform(get("/actividad")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin@ieaci.edu.co").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Registro de Actividad y Logs")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Actividad y Logs")));
+
+        mockMvc.perform(get("/actividad")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("est.act@ieaci.edu.co").roles("ESTUDIANTE")))
+                .andExpect(status().isForbidden());
+    }
 }
