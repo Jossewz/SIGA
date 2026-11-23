@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -328,7 +329,18 @@ class ExcelImportExportTest {
                 .andExpect(content().string(containsString("Mi Historial de Asistencia")))
                 .andExpect(content().string(containsString("Matemáticas")));
 
+        LocalDate fechaDiaHabil = sesionHoy.getFecha();
+        while (fechaDiaHabil.getDayOfWeek() == DayOfWeek.SATURDAY || fechaDiaHabil.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            fechaDiaHabil = fechaDiaHabil.minusDays(1);
+        }
+        if (!fechaDiaHabil.equals(sesionHoy.getFecha()) && !fechaDiaHabil.equals(sesionAyer.getFecha())) {
+            SesionClase sesionDiaHabil = new SesionClase(curso, cursoMateria, null, docenteTitular, fechaDiaHabil, LocalTime.of(7, 0), LocalTime.of(8, 0), "ASIGNATURA");
+            sesionDiaHabil.setEstado("DICTADA");
+            sesionClaseRepository.save(sesionDiaHabil);
+        }
+
         mockMvc.perform(get("/mi-jornada")
+                        .param("fecha", fechaDiaHabil.toString())
                         .with(user("doc.excel@ieaci.edu.co").roles("DOCENTE")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Exportar Excel")));
