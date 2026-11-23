@@ -48,7 +48,7 @@
         <!-- ========================================================================= -->
         <!-- VISTA 1: ROL DOCENTE (Creación de Reportes) -->
         <!-- ========================================================================= -->
-        <div id="vista-docente" class="space-y-6" th:classappend="${esDocente} ? '' : 'hidden'">
+        <div id="vista-docente" th:if="${esDocente || esAdmin}" class="space-y-6" th:classappend="${esDocente} ? '' : 'hidden'">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 <!-- Formulario de Nuevo Reporte de Estudiante -->
@@ -151,10 +151,10 @@
                                 </tr>
                             </thead>
                             <tbody class="text-brand-900" id="tbody-reportes-docente">
-                                <th:block th:if="${reportesMock == null || #lists.isEmpty(reportesMock)}">
+                                <th:block th:if="${(reportesDocente != null ? reportesDocente : reportesMock) == null || #lists.isEmpty(reportesDocente != null ? reportesDocente : reportesMock)}">
                                     <tr th:replace="~{components/tables/empty-state :: emptyState(colspan=5, title='No has emitido reportes', description='Los reportes disciplinarios o académicos que generes aparecerán aquí.', resetUrl='')}"></tr>
                                 </th:block>
-                                <tr th:each="rep : ${reportesMock}" class="transition-colors">
+                                <tr th:each="rep : ${reportesDocente != null ? reportesDocente : reportesMock}" class="transition-colors">
                                     <td class="py-3 px-4 pl-5 font-black text-sidebar text-xs" th:text="${rep.id}">REP-2026-001</td>
                                     <td class="py-3 px-4">
                                         <div class="font-bold text-brand-900 text-xs" th:text="${rep.estudiante}">Mateo Álvarez Restrepo</div>
@@ -184,7 +184,7 @@
         <!-- ========================================================================= -->
         <!-- VISTA 2: ROL PERSONAL ADMINISTRATIVO (Revisión y Citaciones) -->
         <!-- ========================================================================= -->
-        <div id="vista-admin" class="space-y-6" th:classappend="${esPersonal || esAdmin} ? '' : 'hidden'">
+        <div id="vista-admin" th:if="${esPersonal || esAdmin}" class="space-y-6" th:classappend="${esPersonal || esAdmin} ? '' : 'hidden'">
             <div class="rounded-surface border border-border bg-white shadow-card transition relative">
                 <div class="flex flex-col gap-4 px-6 pt-5 pb-4 sm:flex-row sm:items-center sm:justify-between relative z-30">
                     <div class="flex flex-wrap items-center gap-3">
@@ -264,7 +264,9 @@
         <!-- ========================================================================= -->
         <!-- VISTA 3: ROL ESTUDIANTE (Fragmento) -->
         <!-- ========================================================================= -->
-        <div th:replace="~{reportes/fragments/citacion-estudiante-card :: citacionEstudianteCard}"></div>
+        <th:block th:if="${esEstudiante || esAdmin}">
+            <div th:replace="~{reportes/fragments/citacion-estudiante-card :: citacionEstudianteCard}"></div>
+        </th:block>
 
     </div>
 

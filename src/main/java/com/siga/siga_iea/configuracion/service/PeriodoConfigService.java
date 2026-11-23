@@ -30,6 +30,8 @@ public class PeriodoConfigService {
 
     private volatile Integer cachedAnioActual;
     private volatile long cachedAnioTimestampMs;
+    private volatile ConfiguracionInstitucional cachedConfigInstitucional;
+    private volatile long cachedConfigTimestampMs;
     private static final long ANIO_CACHE_TTL_MS = 10_000L;
 
     public PeriodoConfigService(PeriodoAcademicoRepository periodoAcademicoRepository,
@@ -47,6 +49,8 @@ public class PeriodoConfigService {
     public void invalidarCacheAnio() {
         this.cachedAnioActual = null;
         this.cachedAnioTimestampMs = 0L;
+        this.cachedConfigInstitucional = null;
+        this.cachedConfigTimestampMs = 0L;
     }
 
     public String obtenerAnioLectivoCodigo() {
@@ -133,8 +137,13 @@ public class PeriodoConfigService {
     }
 
     public ConfiguracionInstitucional obtenerConfiguracionInstitucional() {
+        long now = System.currentTimeMillis();
+        ConfiguracionInstitucional cached = this.cachedConfigInstitucional;
+        if (cached != null && (now - this.cachedConfigTimestampMs) < ANIO_CACHE_TTL_MS) {
+            return cached;
+        }
         String anioDefault = String.valueOf(anioCalendarioActual());
-        return configuracionInstitucionalRepository.findFirstByOrderByUpdatedAtDesc()
+        ConfiguracionInstitucional cfg = configuracionInstitucionalRepository.findFirstByOrderByUpdatedAtDesc()
                 .orElseGet(() -> configuracionInstitucionalRepository.save(new ConfiguracionInstitucional(
                         "800.124.567-2",
                         "Institución Educativa Ambientalista de Cartagena de Indias (IEACI)",
@@ -143,6 +152,9 @@ public class PeriodoConfigService {
                         "contacto@ieaci.edu.co",
                         anioDefault
                 )));
+        this.cachedConfigInstitucional = cfg;
+        this.cachedConfigTimestampMs = now;
+        return cfg;
     }
 
     @Transactional
@@ -176,6 +188,8 @@ public class PeriodoConfigService {
             } catch (NumberFormatException ignored) {}
         }
         configuracionInstitucionalRepository.save(cfg);
+        this.cachedConfigInstitucional = cfg;
+        this.cachedConfigTimestampMs = System.currentTimeMillis();
     }
 
     public BigDecimal getPesoPeriodo1() {

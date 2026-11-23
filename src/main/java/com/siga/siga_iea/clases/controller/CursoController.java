@@ -380,16 +380,33 @@ public class CursoController {
                 ? currentUserContextService.getEstudianteAutenticado().map(com.siga.siga_iea.usuarios.entity.Estudiante::getId).orElse(null)
                 : null;
 
+        Map<UUID, Long> conteoPorCurso = cursoService.contarEstudiantesPorCurso();
+        Set<UUID> cursosConHorario = cursoService.obtenerCursoIdsConHorario();
+        Set<UUID> cursosDeEstudiante = soloEstudiante && estudianteAutenticadoId != null
+                ? cursoService.obtenerCursoIdsDeEstudiante(estudianteAutenticadoId)
+                : Collections.emptySet();
+        boolean usarBulkEstudiantes = conteoPorCurso != null && !conteoPorCurso.isEmpty();
+        boolean usarBulkHorarios = cursosConHorario != null && !cursosConHorario.isEmpty();
+
         List<Map<String, Object>> cursosList = new ArrayList<>();
 
         for (Curso c : cursosDB) {
-            List<CursoEstudiante> estudiantes = cursoService.listarEstudiantesDeCurso(c.getId());
-            if (soloEstudiante) {
-                boolean matriculadoEnCurso = estudianteAutenticadoId != null && estudiantes.stream()
-                        .anyMatch(ce -> ce.getEstudiante() != null && estudianteAutenticadoId.equals(ce.getEstudiante().getId()));
-                if (!matriculadoEnCurso) {
+            int totalEstudiantes;
+            if (usarBulkEstudiantes) {
+                if (soloEstudiante && !cursosDeEstudiante.contains(c.getId())) {
                     continue;
                 }
+                totalEstudiantes = conteoPorCurso.getOrDefault(c.getId(), 0L).intValue();
+            } else {
+                List<CursoEstudiante> estudiantes = cursoService.listarEstudiantesDeCurso(c.getId());
+                if (soloEstudiante) {
+                    boolean matriculadoEnCurso = estudianteAutenticadoId != null && estudiantes.stream()
+                            .anyMatch(ce -> ce.getEstudiante() != null && estudianteAutenticadoId.equals(ce.getEstudiante().getId()));
+                    if (!matriculadoEnCurso) {
+                        continue;
+                    }
+                }
+                totalEstudiantes = estudiantes.size();
             }
 
             Map<String, Object> map = new HashMap<>();
@@ -400,10 +417,11 @@ public class CursoController {
             map.put("director", c.getDirector() != null ? c.getDirector().getNombreCompleto() : "Sin asignar");
             map.put("directorId", c.getDirector() != null ? c.getDirector().getId().toString() : "");
             map.put("cuposMaximos", c.getCuposMaximos());
-            map.put("estudiantes", estudiantes.size());
+            map.put("estudiantes", totalEstudiantes);
 
-            List<Horario> horarios = cursoService.listarHorariosDeCurso(c.getId());
-            boolean tieneHorario = !horarios.isEmpty();
+            boolean tieneHorario = usarBulkHorarios
+                    ? cursosConHorario.contains(c.getId())
+                    : !cursoService.listarHorariosDeCurso(c.getId()).isEmpty();
             map.put("tieneHorario", tieneHorario);
             map.put("horarioResumen", tieneHorario ? "Lun-Vie: 07:00 - 12:30" : "Sin Horario");
             map.put("jornada", c.getJornada());

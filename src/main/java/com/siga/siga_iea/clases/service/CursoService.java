@@ -361,6 +361,30 @@ public class CursoService {
         return cursoEstudianteRepository.findByCursoId(cursoId);
     }
 
+    public java.util.Map<UUID, Long> contarEstudiantesPorCurso() {
+        java.util.Map<UUID, Long> conteo = new java.util.HashMap<>();
+        List<Object[]> filas = cursoEstudianteRepository.contarEstudiantesPorCurso();
+        if (filas != null) {
+            for (Object[] fila : filas) {
+                if (fila != null && fila.length >= 2 && fila[0] instanceof UUID cid && fila[1] instanceof Number n) {
+                    conteo.put(cid, n.longValue());
+                }
+            }
+        }
+        return conteo;
+    }
+
+    public java.util.Set<UUID> obtenerCursoIdsDeEstudiante(UUID estudianteId) {
+        if (estudianteId == null) return java.util.Collections.emptySet();
+        List<UUID> ids = cursoEstudianteRepository.findCursoIdsByEstudianteId(estudianteId);
+        return ids != null ? new java.util.HashSet<>(ids) : java.util.Collections.emptySet();
+    }
+
+    public java.util.Set<UUID> obtenerCursoIdsConHorario() {
+        List<UUID> ids = horarioRepository.findCursoIdsConHorario();
+        return ids != null ? new java.util.HashSet<>(ids) : java.util.Collections.emptySet();
+    }
+
     public List<Horario> listarHorariosDeCurso(UUID cursoId) {
         return horarioRepository.findByCursoId(cursoId);
     }

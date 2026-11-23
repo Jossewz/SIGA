@@ -119,4 +119,6 @@ public interface HorarioRepository extends JpaRepository<Horario, UUID> {
     List<Curso> findCursosDocentePorDia(
             @Param("docenteId") UUID docenteId,
             @Param("diaSemana") String diaSemana);
+    @Query("SELECT DISTINCT h.curso.id FROM Horario h")
+    List<UUID> findCursoIdsConHorario();
 }

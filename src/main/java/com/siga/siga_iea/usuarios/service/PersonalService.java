@@ -161,6 +161,16 @@ public class PersonalService {
         return usuarioRepository.findByNumeroDocumento(numeroDocumento);
     }
 
+    public java.util.Map<String, Usuario> obtenerMapaUsuariosPorDocumento() {
+        java.util.Map<String, Usuario> mapa = new java.util.HashMap<>();
+        for (Usuario u : usuarioRepository.findAll()) {
+            if (u.getNumeroDocumento() != null && !u.getNumeroDocumento().isBlank()) {
+                mapa.putIfAbsent(u.getNumeroDocumento().trim(), u);
+            }
+        }
+        return mapa;
+    }
+
     @Transactional
     public String toggleEstadoPersonal(UUID id) {
         Optional<Docente> docenteOpt = docenteRepository.findById(id);

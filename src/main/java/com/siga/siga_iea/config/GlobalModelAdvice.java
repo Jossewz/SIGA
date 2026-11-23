@@ -55,7 +55,13 @@ public class GlobalModelAdvice {
 
     @ModelAttribute
     public void populateGlobalAttributes(Model model, HttpServletRequest request) {
-        model.addAttribute("currentUri", request != null ? request.getRequestURI() : "");
+        String uri = request != null && request.getRequestURI() != null ? request.getRequestURI() : "";
+        if (uri.startsWith("/api/") || uri.startsWith("/chat/api/") || uri.startsWith("/storage/")
+                || uri.startsWith("/css/") || uri.startsWith("/js/") || uri.startsWith("/img/")
+                || uri.startsWith("/icons/") || uri.startsWith("/fonts/") || uri.startsWith("/favicon")) {
+            return;
+        }
+        model.addAttribute("currentUri", uri);
 
         boolean isHxRequest = request != null && "true".equalsIgnoreCase(request.getHeader("HX-Request"));
         boolean authenticated = userContextService.getAuthentication().isPresent();
@@ -94,16 +100,19 @@ public class GlobalModelAdvice {
         String photoUrl = null;
 
         if (authenticated && !isHxRequest) {
+            String entityFotoKey = null;
             if (esDocente) {
                 Optional<Docente> docOpt = userContextService.getDocenteAutenticado();
                 docenteLogueado = docOpt.orElse(null);
                 if (docenteLogueado != null) {
                     firstName = extraerPrimerNombre(docenteLogueado.getNombres());
+                    entityFotoKey = docenteLogueado.getFotoKey();
                 }
             } else if (esEstudiante) {
                 Optional<Estudiante> estOpt = userContextService.getEstudianteAutenticado();
                 if (estOpt.isPresent()) {
                     firstName = extraerPrimerNombre(estOpt.get().getNombres());
+                    entityFotoKey = estOpt.get().getFotoKey();
                 }
             }
 
@@ -117,7 +126,12 @@ public class GlobalModelAdvice {
             }
 
             if (perfilFotoService != null && currentUser != null) {
-                String key = perfilFotoService.resolverFotoKeyPorUsuario(currentUser);
+                String key = (currentUser.getFotoKey() != null && !currentUser.getFotoKey().isBlank())
+                        ? currentUser.getFotoKey()
+                        : ((entityFotoKey != null && !entityFotoKey.isBlank()) ? entityFotoKey : null);
+                if (key == null && !esDocente && !esEstudiante) {
+                    key = perfilFotoService.resolverFotoKeyPorUsuario(currentUser);
+                }
                 photoUrl = key != null ? perfilFotoService.construirUrl(key) : null;
             }
         } else if (authenticated && esDocente) {

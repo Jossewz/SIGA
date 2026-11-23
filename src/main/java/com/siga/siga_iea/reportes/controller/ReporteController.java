@@ -108,21 +108,25 @@ public class ReporteController {
         model.addAttribute("esEstudiante", esEstudiante);
         model.addAttribute("userRole", userRole);
 
-        // Fetch students for report dropdown (con mapa precargado en 1 sola consulta para evitar N+1)
+        // Fetch students for report dropdown solo cuando la vista activa los utiliza (evita renderizar 676 <option> innecesarios)
         Map<UUID, String> gradosCache = cargarMapaGradosEstudiantes();
-        List<Estudiante> estudiantesDB = estudianteService.listarTodos();
         UUID miEstudianteId = estLogueadoOpt.map(Estudiante::getId).orElse(null);
         List<Map<String, Object>> estudiantesList = new ArrayList<>();
         List<Map<String, Object>> companerosList = new ArrayList<>();
 
-        for (Estudiante e : estudiantesDB) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", e.getId().toString());
-            map.put("nombre", e.getNombreCompleto());
-            map.put("grado", resolverGradoEstudiante(e, gradosCache));
-            estudiantesList.add(map);
-            if (miEstudianteId == null || !miEstudianteId.equals(e.getId())) {
-                companerosList.add(map);
+        if (esAdmin || esDocente || esEstudiante) {
+            List<Estudiante> estudiantesDB = estudianteService.listarTodos();
+            for (Estudiante e : estudiantesDB) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", e.getId().toString());
+                map.put("nombre", e.getNombreCompleto());
+                map.put("grado", resolverGradoEstudiante(e, gradosCache));
+                if (esAdmin || esDocente) {
+                    estudiantesList.add(map);
+                }
+                if ((esAdmin || esEstudiante) && (miEstudianteId == null || !miEstudianteId.equals(e.getId()))) {
+                    companerosList.add(map);
+                }
             }
         }
 
@@ -182,11 +186,19 @@ public class ReporteController {
             reportesMock.add(map);
         }
 
+        List<Map<String, Object>> reportesDocente = (esAdmin && !esDocente && reportesMock.size() > 25)
+                ? reportesMock.subList(0, 25)
+                : reportesMock;
+        List<Map<String, Object>> reportesRecibidosVista = (esAdmin && !esEstudiante && reportesRecibidosEst.size() > 10)
+                ? reportesRecibidosEst.subList(0, 10)
+                : reportesRecibidosEst;
+
         model.addAttribute("estudiantesList", estudiantesList);
         model.addAttribute("companerosList", companerosList);
-        model.addAttribute("docentesList", personalService.listarDocentes());
+        model.addAttribute("docentesList", (esAdmin || esEstudiante) ? personalService.listarDocentes() : Collections.emptyList());
         model.addAttribute("reportesMock", reportesMock);
-        model.addAttribute("reportesRecibidosEst", reportesRecibidosEst);
+        model.addAttribute("reportesDocente", reportesDocente);
+        model.addAttribute("reportesRecibidosEst", reportesRecibidosVista);
         model.addAttribute("reportesEnviadosEst", reportesEnviadosEst);
         return "reportes/index";
     }

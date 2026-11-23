@@ -170,6 +170,24 @@ public class PerfilFotoService {
         if (doc == null || doc.isBlank()) {
             return null;
         }
+        var rol = usuario.getRolEnum();
+        if (rol != null) {
+            if (rol.esEstudiante()) {
+                return estudianteRepository.findByNumeroDocumento(doc).map(e -> e.getFotoKey())
+                        .filter(k -> k != null && !k.isBlank())
+                        .orElse(null);
+            }
+            if (rol.esDocente()) {
+                return docenteRepository.findByNumeroDocumento(doc).map(d -> d.getFotoKey())
+                        .filter(k -> k != null && !k.isBlank())
+                        .orElse(null);
+            }
+            if (rol.esAdminOAdministrativo()) {
+                return personalAdministrativoRepository.findByNumeroDocumento(doc).map(p -> p.getFotoKey())
+                        .filter(k -> k != null && !k.isBlank())
+                        .orElse(null);
+            }
+        }
         return docenteRepository.findByNumeroDocumento(doc).map(d -> d.getFotoKey())
                 .filter(k -> k != null && !k.isBlank())
                 .or(() -> personalAdministrativoRepository.findByNumeroDocumento(doc).map(p -> p.getFotoKey())

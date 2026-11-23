@@ -86,6 +86,8 @@ public class PersonalController {
         model.addAttribute("materiasList", materiaRepository.findByEstadoOrderByNombreAsc("Activo"));
 
         List<Map<String, Object>> personalList = new ArrayList<>();
+        Map<String, Usuario> usuariosPorDoc = personalService.obtenerMapaUsuariosPorDocumento();
+        boolean tieneMapaUsuarios = usuariosPorDoc != null && !usuariosPorDoc.isEmpty();
 
         // Fetch Docentes
         if (tipo == null || tipo.isBlank() || "todos".equalsIgnoreCase(tipo) || "DOCENTE".equalsIgnoreCase(tipo)) {
@@ -117,7 +119,10 @@ public class PersonalController {
                 map.put("telefono", d.getTelefono() != null ? d.getTelefono() : "Sin teléfono");
                 map.put("foto", d.getFotoKey() != null ? "/storage/public/view?key=" + d.getFotoKey() : null);
 
-                Optional<Usuario> usrOpt = personalService.obtenerUsuarioAcceso(d.getNumeroDocumento());
+                String docKey = d.getNumeroDocumento() != null ? d.getNumeroDocumento().trim() : null;
+                Optional<Usuario> usrOpt = tieneMapaUsuarios
+                        ? (docKey != null ? Optional.ofNullable(usuariosPorDoc.get(docKey)) : Optional.empty())
+                        : personalService.obtenerUsuarioAcceso(d.getNumeroDocumento());
                 map.put("tieneCuenta", usrOpt.isPresent());
                 map.put("email", usrOpt.map(Usuario::getEmail).orElse(null));
                 map.put("correo", usrOpt.map(Usuario::getEmail).orElse(null));
@@ -147,7 +152,10 @@ public class PersonalController {
                 map.put("telefono", p.getTelefono() != null ? p.getTelefono() : "Sin teléfono");
                 map.put("foto", p.getFotoKey() != null ? "/storage/public/view?key=" + p.getFotoKey() : null);
 
-                Optional<Usuario> usrOpt = personalService.obtenerUsuarioAcceso(p.getNumeroDocumento());
+                String docKey = p.getNumeroDocumento() != null ? p.getNumeroDocumento().trim() : null;
+                Optional<Usuario> usrOpt = tieneMapaUsuarios
+                        ? (docKey != null ? Optional.ofNullable(usuariosPorDoc.get(docKey)) : Optional.empty())
+                        : personalService.obtenerUsuarioAcceso(p.getNumeroDocumento());
                 map.put("tieneCuenta", usrOpt.isPresent());
                 map.put("email", usrOpt.map(Usuario::getEmail).orElse(null));
                 map.put("correo", usrOpt.map(Usuario::getEmail).orElse(null));
