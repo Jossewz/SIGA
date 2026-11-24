@@ -388,8 +388,12 @@ class CursoViewRenderTest {
 
         mockMvc.perform(get("/clases").with(authUser))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString(cursoMio.getCodigoCurso())))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(cursoAjeno.getCodigoCurso()))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.model().attribute("cursosList", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.model().attribute("cursosList", org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.hasEntry("codigoCurso", cursoMio.getCodigoCurso()))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("data-codigo=\"" + cursoMio.getCodigoCurso() + "\"")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString(">" + cursoMio.getCodigoCurso() + "<")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("data-codigo=\"" + cursoAjeno.getCodigoCurso() + "\""))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(">" + cursoAjeno.getCodigoCurso() + "<"))))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Nuevo Curso"))))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Programar Clase"))))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Limpiar Todo"))));
